@@ -3287,9 +3287,6 @@ static int config_stp_apply(struct plat_cfg *cfg)
 	case PLAT_STP_MODE_RPVST:
 		/* Config mode */
 		memset(&attr, 0, sizeof(attr));
-		attr.forward_delay = cfg->stp_instances[0].forward_delay;
-		attr.hello_time = cfg->stp_instances[0].hello_time;
-		attr.max_age = cfg->stp_instances[0].max_age;
 		if (plat_state.stp_mode != GNMA_STP_MODE_RPVST ||
 		    !gnma_stp_attr_cmp(&attr, &plat_state.stp_mode_attr)) {
 			ret = gnma_stp_mode_set(GNMA_STP_MODE_RPVST, &attr);
@@ -3314,6 +3311,9 @@ static int config_stp_apply(struct plat_cfg *cfg)
 		for (i = FIRST_VLAN; i < MAX_VLANS; i++) {
 			attr.enabled = cfg->stp_instances[i].enabled;
 			attr.priority = cfg->stp_instances[i].priority;
+			attr.forward_delay = cfg->stp_instances[i].forward_delay;
+			attr.hello_time = cfg->stp_instances[i].hello_time;
+			attr.max_age = cfg->stp_instances[i].max_age;
 
 			if (!plat_state.stp_vlan_attr[i].enabled && !attr.enabled) {
 				continue;
@@ -3323,11 +3323,18 @@ static int config_stp_apply(struct plat_cfg *cfg)
 				continue;
 
 			UC_LOG_DBG(
-				"set vlan=%d attr.enabled=%d attr.priority=%d"
-				" state.enabled=%d state.priority=%d",
-				i, attr.enabled, attr.priority,
+				"set vlan=%d attr.enabled=%d attr.priority=%d "
+				"attr.forward_delay=%d attr.hello_time=%d "
+				"attr.max_age=%d state.enabled=%d state.priority=%d "
+				"state.forward_delay=%d state.hello_time=%d "
+				"state.max_age=%d ",
+				i, attr.enabled, attr.priority, attr.forward_delay,
+				attr.hello_time, attr.max_age,
 				plat_state.stp_vlan_attr[i].enabled,
-				plat_state.stp_vlan_attr[i].priority);
+				plat_state.stp_vlan_attr[i].priority,
+				plat_state.stp_vlan_attr[i].forward_delay,
+				plat_state.stp_vlan_attr[i].hello_time,
+				plat_state.stp_vlan_attr[i].max_age);
 
 			ret = gnma_stp_vid_set(i, &attr);
 			if (ret) {

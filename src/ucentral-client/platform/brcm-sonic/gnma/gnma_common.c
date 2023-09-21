@@ -4132,10 +4132,6 @@ int gnma_stp_mode_set(gnma_stp_mode_t mode, struct gnma_stp_attr *attr)
 	}
 
 	ret = 1;
-	ret &= !!cJSON_AddNumberToObject(obj, "forward_delay",
-					 attr->forward_delay);
-	ret &= !!cJSON_AddNumberToObject(obj, "hello_time", attr->hello_time);
-	ret &= !!cJSON_AddNumberToObject(obj, "max_age", attr->max_age);
 	ret &= !!cJSON_AddNumberToObject(obj, "priority", attr->priority);
 	ret &= !!cJSON_AddStringToObject(obj, "keyleaf", "GLOBAL");
 	switch (mode) {
@@ -4455,7 +4451,7 @@ out:
 
 }
 
-static int gnma_stp_vid_enable(uint16_t vid, uint16_t prio)
+static int gnma_stp_vid_enable(uint16_t vid, struct gnma_stp_attr *attr)
 {
 	cJSON *root = NULL, *obj, *arr;
 	int err = GNMA_ERR_COMMON, ret;
@@ -4482,7 +4478,10 @@ static int gnma_stp_vid_enable(uint16_t vid, uint16_t prio)
 	sprintf(&vidstr[0], "Vlan%u", vid);
 	ret &= !!cJSON_AddStringToObject(obj, "name", &vidstr[0]);
 	ret &= !!cJSON_AddBoolToObject(obj, "enabled", true);
-	ret &= !!cJSON_AddNumberToObject(obj, "priority", prio);
+	ret &= !!cJSON_AddNumberToObject(obj, "priority", attr->priority);
+	ret &= !!cJSON_AddNumberToObject(obj, "forward_delay", attr->forward_delay);
+	ret &= !!cJSON_AddNumberToObject(obj, "hello_time", attr->hello_time);
+	ret &= !!cJSON_AddNumberToObject(obj, "max_age", attr->max_age);
 	if (!ret)
 		goto out;
 
@@ -4509,7 +4508,7 @@ static int gnma_stp_vid_disable(uint16_t vid)
 int gnma_stp_vid_set(uint16_t vid, struct gnma_stp_attr *attr)
 {
 	if (attr->enabled)
-		return gnma_stp_vid_enable(vid, attr->priority);
+		return gnma_stp_vid_enable(vid, attr);
 	else
 		return gnma_stp_vid_disable(vid);
 }
