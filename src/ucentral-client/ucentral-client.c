@@ -722,7 +722,7 @@ int main(void)
 		UC_LOG_CRIT("Platform initialization failed");
 	}
 
-	plat_running_img_name_get(client.firmware, sizeof(client.firmware));
+	plat_revision_get(client.firmware, sizeof(client.firmware));
 
 	if ((gw_host = getenv("UC_GATEWAY_ADDRESS"))) {
 		gw_host = strdup(gw_host);

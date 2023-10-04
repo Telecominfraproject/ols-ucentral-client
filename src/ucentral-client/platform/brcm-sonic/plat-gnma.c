@@ -27,6 +27,7 @@
 #include <base64.h>
 
 #include "gnma/gnma_common.h"
+#include "plat-revision.h"
 
 #include <cjson/cJSON.h>
 
@@ -2511,6 +2512,12 @@ static int plat_upgrade_state(int *operation, int *percentage)
 int plat_running_img_name_get(char *str, size_t str_max_len)
 {
 	return gnma_image_running_name_get(str, str_max_len);
+}
+
+int plat_revision_get(char *str, size_t str_max_len)
+{
+	snprintf(str, str_max_len, PLATFORM_REVISION);
+	return 0;
 }
 
 static int

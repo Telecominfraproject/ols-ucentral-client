@@ -32,6 +32,7 @@ run-host-env: build-host-env
 	docker run -d -t --name ${CONTAINER_NAME} \
 		-v $(realpath ./):/root/ols-nos \
 		--env UCENTRAL_PLATFORM=$(UCENTRAL_PLATFORM) \
+		--env PLATFORM_REVISION="$(PLATFORM_REVISION)" \
 		${IMG_ID}:${IMG_TAG} \
 		bash
 

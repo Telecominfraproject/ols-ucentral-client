@@ -602,6 +602,7 @@ int plat_run_script(struct plat_run_script *);
 int plat_port_list_get(uint16_t list_size, struct plat_ports_list *ports);
 int plat_port_num_get(uint16_t *num_of_active_ports);
 int plat_running_img_name_get(char *str, size_t str_max_len);
+int plat_revision_get(char *str, size_t str_max_len);
 int
 plat_reboot_cause_get(struct plat_reboot_cause *cause);
 
