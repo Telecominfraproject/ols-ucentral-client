@@ -1,0 +1,88 @@
+{
+  "switch": {
+    "ieee8021x": {
+      "auth-control-enable": true,
+      "radius": [
+        {
+          "server-host": "10.10.20.1",
+          "server-authentication-port": 1812,
+          "server-key": "abc10",
+          "server-priority": 1
+        }
+      ]
+    }
+  },
+  "ethernet": [
+    {
+      "select-ports": [
+        "Ethernet5"
+      ],
+      "speed": 1000,
+      "duplex": "full",
+      "enabled": true,
+      "poe": {
+        "admin-mode": true
+      },
+      "ieee8021x": {
+        "is-authenticator": true,
+        "authentication-mode": "auto",
+        "guest-vlan": 100,
+        "unauthenticated-vlan": 200
+      }
+    },
+    {
+      "select-ports": [
+        "Ethernet2"
+      ],
+      "speed": 1000,
+      "duplex": "full",
+      "enabled": true,
+      "poe": {
+        "admin-mode": true
+      }
+    }
+  ],
+  "interfaces": [
+    {
+      "vlan": {
+        "id": 20,
+        "proto": "802.1q"
+      },
+      "ipv4": {
+        "addressing": "static",
+        "subnet": "10.10.20.100/24"
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet2"
+          ],
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "role": "upstream",
+      "name": "radius-server"
+    },
+    {
+      "vlan": {
+        "id": 50,
+        "proto": "802.1q"
+      },
+      "ipv4": {
+        "addressing": "static",
+        "subnet": "10.10.50.100/24"
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet5"
+          ],
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "role": "upstream",
+      "name": "radius-client"
+    }
+  ],
+  "uuid": 1
+}

@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package gnoi.SonicConfigMgmt;
+
+
+message WriteEraseRequest {
+    message Input {
+        string subcmd = 1 [json_name = "subcmd"];
+    }
+    Input input = 1 [json_name = "sonic-config-mgmt:input"];
+}
+message WriteEraseResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "sonic-config-mgmt:output"];
+}
+message FactoryDefaultProfileRequest {
+    message Input {
+        string profile_name = 1 [json_name = "profile-name"];
+    }
+    Input input = 1 [json_name = "sonic-config-mgmt:input"];
+}
+message FactoryDefaultProfileResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "sonic-config-mgmt:output"];
+}
+message DefaultPortConfigRequest {
+    message Input {
+        string ifname = 1 [json_name = "ifname"];
+    }
+    Input input = 1 [json_name = "sonic-config-mgmt:input"];
+}
+message DefaultPortConfigResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "sonic-config-mgmt:output"];
+}
+
+service SonicConfigMgmtService {
+    rpc WriteErase(WriteEraseRequest) returns(WriteEraseResponse) {}
+    rpc FactoryDefaultProfile(FactoryDefaultProfileRequest) returns(FactoryDefaultProfileResponse) {}
+    rpc DefaultPortConfig(DefaultPortConfigRequest) returns(DefaultPortConfigResponse) {}
+}

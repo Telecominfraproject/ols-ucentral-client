@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+UCENTRAL_CLIENT=/usr/local/bin/ucentral-client.sh
+if [[ -e ${UCENTRAL_CLIENT} ]]; then
+	systemctl stop ucentral-client.service
+	systemctl disable ucentral-client.service
+	/usr/local/bin/ucentral-client.sh remove
+fi

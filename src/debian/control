@@ -1,0 +1,13 @@
+Source: shasta
+Maintainer: Shasta
+Section: net
+Priority: optional
+Build-Depends: dh-exec (>=0.3), debhelper (>= 10), autotools-dev
+Standards-Version: 1.0
+
+
+Package: ucentral-client
+Architecture: any
+Depends: 
+Description: This package contains uCentral client container for SONiC project.
+Replaces: sonic-device-data

@@ -1,0 +1,108 @@
+{
+  "services": {},
+  "ethernet": [
+    {
+      "select-ports": [
+        "Ethernet*"
+      ],
+      "speed": 1000,
+      "duplex": "full",
+      "enabled": true,
+      "poe": {
+        "admin-mode": true
+      }
+    }
+  ],
+  "interfaces": [
+    {
+      "ipv4": {
+        "addressing": "static",
+        "subnet": "20.20.20.20/24",
+        "dhcp": {
+          "relay-server": "172.20.254.8",
+          "circuit-id-format": "{Name}:{VLAN-ID}"
+        }
+      },
+      "vlan": {
+        "id": 10,
+        "proto": "802.1q"
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet0"
+          ],
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "services": [
+        "lldp"
+      ],
+      "role": "upstream",
+      "name": "dhcp-clients-network-1"
+    },
+    {
+      "ipv4": {
+        "addressing": "static",
+        "subnet": "30.30.30.30/24",
+        "dhcp": {
+          "relay-server": "172.20.10.12",
+          "circuit-id-format": "{Name}:{VLAN-ID}"
+        }
+      },
+      "vlan": {
+        "id": 11,
+        "proto": "802.1q"
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet1"
+          ],
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "services": [
+        "lldp"
+      ],
+      "role": "upstream",
+      "name": "dhcp-clients-network-2"
+    },
+    {
+      "ipv4": {
+        "addressing": "static",
+        "subnet": "172.20.10.181/24"
+      },
+      "vlan": {
+        "id": 20,
+        "proto": "802.1q"
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet2"
+          ],
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "services": [
+        "lldp"
+      ],
+      "role": "upstream",
+      "name": "dhcp-relay-server-1"
+    }
+  ],
+  "metrics": {
+    "health": {
+      "interval": 120
+    },
+    "statistics": {
+      "interval": 60,
+      "types": [
+        "lldp",
+        "clients"
+      ]
+    }
+  },
+  "uuid": 6
+}

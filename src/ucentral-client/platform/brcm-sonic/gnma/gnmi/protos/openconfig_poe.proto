@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package gnoi.OpenconfigPoe;
+
+
+message ResetPoeRequest {
+    message Input {
+        string interface_name = 1 [json_name = "interface-name"];
+    }
+    Input input = 1 [json_name = "openconfig-poe:input"];
+}
+message ResetPoeResponse {
+    message Output {
+        enum Status
+        {
+            POE_RESET_SUCCESS = 0 ;
+            POE_NOT_ENABLED = 1 ;
+            POE_RESET_ERROR = 2 ;
+        }
+        Status status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "openconfig-poe:output"];
+}
+message ClearCountersRequest {
+    message Input {
+        string interface_name = 1 [json_name = "interface-name"];
+    }
+    Input input = 1 [json_name = "openconfig-poe:input"];
+}
+message ClearCountersResponse {
+    message Output {
+        enum Status
+        {
+            POE_CLEAR_COUNTERS_SUCCESS = 0 ;
+            POE_NOT_ENABLED = 1 ;
+            POE_CLEAR_COUNTERS_ERROR = 2 ;
+        }
+        Status status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "openconfig-poe:output"];
+}
+
+service OpenconfigPoeService {
+    rpc ResetPoe(ResetPoeRequest) returns(ResetPoeResponse) {}
+    rpc ClearCounters(ClearCountersRequest) returns(ClearCountersResponse) {}
+}

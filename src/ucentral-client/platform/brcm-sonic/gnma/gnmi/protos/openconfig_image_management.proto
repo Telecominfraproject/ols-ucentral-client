@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package gnoi.OpenconfigImageManagement;
+
+
+message ImageInstallRequest {
+    message Input {
+        string image_name = 1 [json_name = "image-name"];
+    }
+    Input input = 1 [json_name = "openconfig-image-management:input"];
+}
+message ImageInstallResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "openconfig-image-management:output"];
+}
+message ImageInstallCancelRequest {
+}
+message ImageInstallCancelResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "openconfig-image-management:output"];
+}
+message ImageRemoveRequest {
+    message Input {
+        string image_name = 1 [json_name = "image-name"];
+    }
+    Input input = 1 [json_name = "openconfig-image-management:input"];
+}
+message ImageRemoveResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "openconfig-image-management:output"];
+}
+message ImageDefaultRequest {
+    message Input {
+        string image_name = 1 [json_name = "image-name"];
+    }
+    Input input = 1 [json_name = "openconfig-image-management:input"];
+}
+message ImageDefaultResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "openconfig-image-management:output"];
+}
+message DoPatchInstallRequest {
+    message Input {
+        string patch_name = 1 [json_name = "patch-name"];
+        string skip_image_check = 2 [json_name = "skip-image-check"];
+    }
+    Input input = 1 [json_name = "openconfig-image-management:input"];
+}
+message DoPatchInstallResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "openconfig-image-management:output"];
+}
+message DoPatchRollbackRequest {
+    message Input {
+        string patch_name = 1 [json_name = "patch-name"];
+    }
+    Input input = 1 [json_name = "openconfig-image-management:input"];
+}
+message DoPatchRollbackResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "openconfig-image-management:output"];
+}
+
+service OpenconfigImageManagementService {
+    rpc ImageInstall(ImageInstallRequest) returns(ImageInstallResponse) {}
+    rpc ImageInstallCancel(ImageInstallCancelRequest) returns(ImageInstallCancelResponse) {}
+    rpc ImageRemove(ImageRemoveRequest) returns(ImageRemoveResponse) {}
+    rpc ImageDefault(ImageDefaultRequest) returns(ImageDefaultResponse) {}
+    rpc DoPatchInstall(DoPatchInstallRequest) returns(DoPatchInstallResponse) {}
+    rpc DoPatchRollback(DoPatchRollbackRequest) returns(DoPatchRollbackResponse) {}
+}

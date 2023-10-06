@@ -1,0 +1,638 @@
+{
+    "COPP_GROUP": {
+{% if (copp_feat_eapol is defined) and (copp_feat_eapol) %}
+        "copp-system-eapol": {
+            "trap_action":"trap",
+            "trap_priority":"24",
+            "queue": "24",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"500",
+            "cbs":"500",
+            "red_action":"drop"
+        },
+{% endif %}
+        "copp-system-lacp": {
+            "trap_action":"trap",
+            "trap_priority":"23",
+            "queue": "23",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"500",
+            "cbs":"500",
+            "red_action":"drop"
+        },
+        "copp-system-udld": {
+            "trap_action":"trap",
+            "trap_priority":"22",
+            "queue": "22",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"500",
+            "cbs":"500",
+            "red_action":"drop"
+        },
+        "copp-system-stp": {
+            "trap_action":"trap",
+            "trap_priority":"21",
+            "queue": "21",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"16000",
+            "cbs":"16000",
+            "red_action":"drop"
+        },
+        "copp-system-bfd": {
+            "trap_action":"trap",
+            "trap_priority":"20",
+            "queue": "20",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"2000",
+            "cbs":"2000",
+            "red_action":"drop"
+        },
+{% if (copp_feat_ptp) or (copp_feat_ptp is not defined) %}
+        "copp-system-ptp": {
+            "trap_action":"trap",
+            "trap_priority":"30",
+            "queue": "30",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"5000",
+            "cbs":"5000",
+            "red_action":"drop"
+        },
+{% endif %}
+        "copp-system-lldp": {
+            "trap_action":"trap",
+            "trap_priority":"18",
+            "queue": "18",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"500",
+            "cbs":"500",
+            "red_action":"drop"
+        },
+        "copp-system-vrrp": {
+            "trap_action":"trap",
+            "trap_priority":"17",
+            "queue": "17",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"500",
+            "cbs":"500",
+            "red_action":"drop"
+        },
+        "copp-system-iccp": {
+            "trap_action":"trap",
+            "trap_priority":"16",
+            "queue": "16",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"5000",
+            "cbs":"5000",
+            "red_action":"drop"
+        },
+        "copp-system-ospf": {
+            "trap_action":"copy",
+            "trap_priority":"15",
+            "queue": "15",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"5000",
+            "cbs":"5000",
+            "red_action":"drop"
+        },
+        "copp-system-bgp": {
+            "trap_action":"trap",
+            "trap_priority":"14",
+            "queue": "14",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"10000",
+            "cbs":"10000",
+            "red_action":"drop"
+        },
+        "copp-system-pim": {
+            "trap_action":"trap",
+            "trap_priority":"13",
+            "queue": "13",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"5000",
+            "cbs":"5000",
+            "red_action":"drop"
+        },
+        "copp-system-igmp": {
+            "trap_action":"trap",
+            "trap_priority":"12",
+            "queue": "12",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"2000",
+            "cbs":"2000",
+            "red_action":"drop"
+        },
+        "copp-system-suppress": {
+            "trap_action":"trap",
+            "trap_priority":"11",
+            "queue": "11",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"3000",
+            "cbs":"3000",
+            "red_action":"drop"
+        },
+        "copp-system-arp": {
+            "trap_action":"copy",
+            "trap_priority":"10",
+            "queue": "10",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"3000",
+            "cbs":"3000",
+            "red_action":"drop"
+        },
+        "copp-system-dhcp": {
+            "trap_action":"trap",
+            "trap_priority":"9",
+            "queue": "9",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"300",
+            "cbs":"300",
+            "red_action":"drop"
+        },
+        "copp-system-icmp": {
+            "trap_action":"trap",
+            "trap_priority":"8",
+            "queue": "8",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"1000",
+            "cbs":"1000",
+            "red_action":"drop"
+        },
+        "copp-system-ip2me": {
+            "trap_action":"trap",
+            "trap_priority":"7",
+            "queue": "7",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"500000",
+            "cbs":"500000",
+            "red_action":"drop"
+        },
+        "copp-system-subnet": {
+            "trap_action":"trap",
+            "trap_priority":"6",
+            "queue": "6",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"500000",
+            "cbs":"500000",
+            "red_action":"forward"
+        },
+{% if (copp_feat_nat) or (copp_feat_nat is not defined) %}
+        "copp-system-nat": {
+            "trap_action":"trap",
+            "trap_priority":"5",
+            "queue": "5",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"300",
+            "cbs":"300",
+            "red_action":"drop"
+        },
+{% endif %}
+{% if (copp_feat_l3_mtu_error) or (copp_feat_l3_mtu_error is not defined) %}
+        "copp-system-mtu": {
+            "trap_action":"trap",
+            "trap_priority":"4",
+            "queue": "4",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"500",
+            "cbs":"500",
+            "red_action":"drop"
+        },
+{% endif %}
+        "copp-system-sflow": {
+            "trap_action":"trap",
+            "trap_priority":"3",
+            "queue": "3",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"8000",
+            "cbs":"8000",
+            "red_action":"drop"
+        },
+{% if (copp_feat_ipmc) or (copp_feat_ipmc is not defined) %}
+        "copp-system-ipmc": {
+            "trap_action":"copy",
+            "trap_priority":"2",
+            "queue": "2",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"600",
+            "cbs":"600",
+            "red_action":"drop"
+        },
+        "copp-system-ipmc-unknown": {
+            "trap_action":"copy",
+            "trap_priority":"1",
+            "queue": "1",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"100",
+            "cbs":"100",
+            "red_action":"drop"
+        },
+{% endif %}
+        "copp-system-ttl": {
+            "trap_action":"trap",
+            "trap_priority":"0",
+            "queue": "0",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"100",
+            "cbs":"100",
+            "red_action":"drop"
+        },
+        "default": {
+            "queue": "0",
+            "meter_type":"packets",
+            "mode":"sr_tcm",
+            "cir":"100",
+            "cbs":"100",
+            "red_action":"drop"
+        }
+    },
+    "COPP_TRAP": {
+{% if (copp_feat_eapol is defined) and (copp_feat_eapol) %}
+        "copp-system-eapol": {
+            "trap_ids": "eapol",
+            "trap_group":"copp-system-eapol"
+        },
+{% endif %}
+        "copp-system-lacp": {
+            "trap_ids": "lacp",
+            "trap_group":"copp-system-lacp"
+        },
+        "copp-system-udld": {
+            "trap_ids": "udld",
+            "trap_group":"copp-system-udld"
+        },
+        "copp-system-stp": {
+            "trap_ids": "stp,pvrst",
+            "trap_group":"copp-system-stp"
+        },
+        "copp-system-bfd": {
+            "trap_ids": "bfd,bfdv6",
+            "trap_group":"copp-system-bfd"
+        },
+{% if (copp_feat_ptp) or (copp_feat_ptp is not defined) %}
+        "copp-system-ptp": {
+            "trap_ids": "ptp",
+            "trap_group":"copp-system-ptp"
+        },
+{% endif %}
+        "copp-system-lldp": {
+            "trap_ids": "lldp",
+            "trap_group":"copp-system-lldp"
+        },
+        "copp-system-vrrp": {
+            "trap_ids": "vrrp,vrrpv6",
+            "trap_group":"copp-system-vrrp"
+        },
+        "copp-system-iccp": {
+            "trap_ids": "iccp",
+            "trap_group":"copp-system-iccp"
+        },
+        "copp-system-ospf": {
+            "trap_ids": "ospf",
+            "trap_group":"copp-system-ospf"
+        },
+        "copp-system-bgp": {
+            "trap_ids": "bgp,bgpv6",
+            "trap_group":"copp-system-bgp"
+        },
+        "copp-system-pim": {
+            "trap_ids": "pim",
+            "trap_group":"copp-system-pim"
+        },
+        "copp-system-igmp": {
+            "trap_ids": "igmp_query",
+            "trap_group":"copp-system-igmp"
+        },
+        "copp-system-suppress": {
+            "trap_ids": "arp_suppress,nd_suppress",
+            "trap_group":"copp-system-suppress"
+        },
+        "copp-system-arp": {
+            "trap_ids": "arp_req,arp_resp,neigh_discovery",
+            "trap_group":"copp-system-arp"
+        },
+        "copp-system-dhcp": {
+            "trap_ids": "dhcp,dhcpv6",
+            "trap_group":"copp-system-dhcp"
+        },
+        "copp-system-dhcpl2": {
+            "trap_ids": "dhcp_l2,dhcpv6_l2",
+            "trap_group":"copp-system-dhcp"
+        },
+        "copp-system-icmp": {
+            "trap_ids": "icmp,icmpv6",
+            "trap_group":"copp-system-icmp"
+        },
+        "copp-system-ip2me": {
+            "trap_ids": "ip2me",
+            "trap_group":"copp-system-ip2me"
+        },
+        "copp-system-subnet": {
+            "trap_ids": "subnet",
+            "trap_group":"copp-system-subnet"
+        },
+{% if (copp_feat_nat) or (copp_feat_nat is not defined) %}
+        "copp-system-nat": {
+            "trap_ids": "src_nat_miss,dest_nat_miss",
+            "trap_group":"copp-system-nat"
+        },
+{% endif %}
+{% if (copp_feat_l3_mtu_error) or (copp_feat_l3_mtu_error is not defined) %}
+        "copp-system-mtu": {
+            "trap_ids": "l3_mtu_error",
+            "trap_group":"copp-system-mtu"
+        }, 
+{% endif %}
+        "copp-system-sflow": {
+            "trap_ids": "sample_packet",
+            "trap_group":"copp-system-sflow"
+        },
+{% if (copp_feat_ipmc) or (copp_feat_ipmc is not defined) %}
+        "copp-system-ipmc": {
+            "trap_ids": "known_l3_mc",
+            "trap_group":"copp-system-ipmc"
+        },
+        "copp-system-ipmc-unknown": {
+            "trap_ids": "unknown_l3_mc",
+            "trap_group":"copp-system-ipmc-unknown"
+        },
+{% endif %}
+        "copp-system-ttl": {
+            "trap_ids": "ttl_error",
+            "trap_group":"copp-system-ttl"
+        },
+        "default": {
+            "trap_group":"default"
+        }
+    },
+    "SCHEDULER": {
+{% if (copp_feat_eapol is defined) and (copp_feat_eapol) %}
+        "copp-scheduler-policy@24": {
+            "type": "WRR",
+            "weight": "1",
+            "meter_type": "packets",
+            "pir": "500"
+        },
+{% endif %}
+        "copp-scheduler-policy@23": {
+            "type": "WRR",
+            "weight": "10",
+            "meter_type": "packets",
+            "pir": "500"
+        },
+        "copp-scheduler-policy@22": {
+            "type": "WRR",
+            "weight": "10",
+            "meter_type": "packets",
+            "pir": "500"
+        },
+        "copp-scheduler-policy@21": {
+            "type": "WRR",
+            "weight": "30",
+            "meter_type": "packets",
+            "pir": "16000"
+        },
+        "copp-scheduler-policy@20": {
+            "type": "WRR",
+            "weight": "10",
+            "meter_type": "packets",
+            "pir": "2000"
+        },
+        "copp-scheduler-policy@19": {
+            "type": "WRR",
+            "weight": "3",
+            "meter_type": "packets",
+            "pir": "5000"
+        },
+        "copp-scheduler-policy@18": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "500"
+        },
+        "copp-scheduler-policy@17": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "500"
+        },
+        "copp-scheduler-policy@16": {
+            "type": "WRR",
+            "weight": "4",
+            "meter_type": "packets",
+            "pir": "5000"
+        },
+        "copp-scheduler-policy@15": {
+            "type": "WRR",
+            "weight": "4",
+            "meter_type": "packets",
+            "pir": "5000"
+        },
+        "copp-scheduler-policy@14": {
+            "type": "WRR",
+            "weight": "6",
+            "meter_type": "packets",
+            "pir": "10000"
+        },
+        "copp-scheduler-policy@13": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "5000"
+        },
+        "copp-scheduler-policy@12": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "2000"
+        },
+        "copp-scheduler-policy@11": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "3000"
+        },
+        "copp-scheduler-policy@10": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "3000"
+        },
+        "copp-scheduler-policy@9": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "300"
+        },
+        "copp-scheduler-policy@8": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "1000"
+        },
+        "copp-scheduler-policy@7": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "500000"
+        },
+        "copp-scheduler-policy@6": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "500000"
+        },
+{% if (copp_feat_nat) or (copp_feat_nat is not defined) %}
+        "copp-scheduler-policy@5": {
+            "type": "WRR",
+            "weight": "1",
+            "meter_type": "packets",
+            "pir": "300"
+        },
+{% endif %}
+{% if (copp_feat_l3_mtu_error) or (copp_feat_l3_mtu_error is not defined) %}
+        "copp-scheduler-policy@4": {
+            "type": "WRR",
+            "weight": "1",
+            "meter_type": "packets",
+            "pir": "500"
+        },
+{% endif %}
+        "copp-scheduler-policy@3": {
+            "type": "WRR",
+            "weight": "1",
+            "meter_type": "packets",
+            "pir": "8000"
+        },
+        "copp-scheduler-policy@2": {
+            "type": "WRR",
+            "weight": "2",
+            "meter_type": "packets",
+            "pir": "600"
+        },
+        "copp-scheduler-policy@1": {
+            "type": "WRR",
+            "weight": "1",
+            "meter_type": "packets",
+            "pir": "100"
+        },
+        "copp-scheduler-policy@0": {
+            "type": "WRR",
+            "weight": "1"
+        },
+        "copp-scheduler-policy@255": {
+            "meter_type": "packets"
+        }
+    },
+    "QUEUE": {
+{% if (copp_feat_eapol is defined) and (copp_feat_eapol) %}
+        "CPU|24": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@24]"
+        },
+{% endif %}
+        "CPU|0": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@0]"
+        },
+        "CPU|1": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@1]"
+        },
+        "CPU|2": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@2]"
+        },
+        "CPU|3": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@3]"
+        },
+{% if (copp_feat_l3_mtu_error) or (copp_feat_l3_mtu_error is not defined) %}
+        "CPU|4": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@4]"
+        },
+{% endif %}
+{% if (copp_feat_nat) or (copp_feat_nat is not defined) %}
+        "CPU|5": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@5]"
+        },
+{% endif %}
+        "CPU|6": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@6]"
+        },
+        "CPU|7": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@7]"
+        },
+        "CPU|8": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@8]"
+        },
+        "CPU|9": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@9]"
+        },
+        "CPU|10": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@10]"
+        },
+        "CPU|11": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@11]"
+        },
+        "CPU|12": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@12]"
+        },
+        "CPU|13": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@13]"
+        },
+        "CPU|14": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@14]"
+        },
+        "CPU|15": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@15]"
+        },
+        "CPU|16": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@16]"
+        },
+        "CPU|17": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@17]"
+        },
+        "CPU|18": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@18]"
+        },
+        "CPU|19": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@19]"
+        },
+        "CPU|20": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@20]"
+        },
+        "CPU|21": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@21]"
+        },
+        "CPU|22": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@22]"
+        },
+        "CPU|23": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@23]"
+        }
+    },
+    "PORT_QOS_MAP": {
+        "CPU": {
+            "scheduler": "[SCHEDULER|copp-scheduler-policy@255]"
+        }
+    }
+}

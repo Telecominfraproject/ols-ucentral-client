@@ -1,0 +1,6 @@
+configure terminal
+ntp server 0.pool.ntp.org prefer true
+ntp server 1.pool.ntp.org prefer true
+ntp server 2.pool.ntp.org prefer true
+ntp server 3.pool.ntp.org prefer true
+ntp authenticate

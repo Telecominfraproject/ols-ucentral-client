@@ -1,0 +1,7 @@
+src/docker/ucentral-client
+.*swp
+.*swo
+*.o
+*.orig
+*.rej
+docker/*

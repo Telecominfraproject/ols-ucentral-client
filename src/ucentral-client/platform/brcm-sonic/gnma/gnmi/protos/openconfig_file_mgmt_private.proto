@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package gnoi.OpenconfigFileMgmtPrivate;
+
+
+message DirRequest {
+    message Input {
+        string folder_name = 1 [json_name = "folder-name"];
+    }
+    Input input = 1 [json_name = "openconfig-file-mgmt-private:input"];
+}
+message DirResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+        string data = 3 [json_name = "data"];
+    }
+    Output output = 1 [json_name = "openconfig-file-mgmt-private:output"];
+}
+message CopyRequest {
+    message Input {
+        string source = 1 [json_name = "source"];
+        string destination = 2 [json_name = "destination"];
+        enum Copy_config_option
+        {
+            MERGE = 0 ;
+            OVERWRITE = 1 ;
+            REPLACE = 2 ;
+        }
+        Copy_config_option copy_config_option = 3 [json_name = "copy-config-option"];
+    }
+    Input input = 1 [json_name = "openconfig-file-mgmt-private:input"];
+}
+message CopyResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "openconfig-file-mgmt-private:output"];
+}
+message DeleteFileRequest {
+    message Input {
+        string filename = 1 [json_name = "filename"];
+    }
+    Input input = 1 [json_name = "openconfig-file-mgmt-private:input"];
+}
+message DeleteFileResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "openconfig-file-mgmt-private:output"];
+}
+
+service OpenconfigFileMgmtPrivateService {
+    rpc Dir(DirRequest) returns(DirResponse) {}
+    rpc Copy(CopyRequest) returns(CopyResponse) {}
+    rpc DeleteFile(DeleteFileRequest) returns(DeleteFileResponse) {}
+}

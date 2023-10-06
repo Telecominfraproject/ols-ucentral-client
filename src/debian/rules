@@ -1,0 +1,61 @@
+#!/usr/bin/make -f
+
+.ONESHELL:
+SHELL = /bin/bash
+.SHELLFLAGS += -e
+
+export DH_VERBOSE = 1
+export DH_BUILD_DDEBS=1
+export DEB_BUILD_OPTIONS=autodbgsym
+
+CONFIGURED_ARCH ?= amd64
+UCENTRAL_CLIENT_VERSION ?= 1.0
+DPKG_EXPORT_BUILDFLAGS = 1
+INSTALL ?= debian/ucentral-client/
+include /usr/share/dpkg/default.mk
+
+%:
+	dh $@  --with autotools-dev
+
+override_dh_build:
+	echo "[BUILD] uCentral client"
+
+override_dh_builddeb:
+	dh_builddeb -- -Zgzip
+
+override_dh_install:
+	echo "[INSTALL] uCentral client"
+	mkdir -p ${INSTALL}/usr/local/bin ${INSTALL}/usr/bin ${INSTALL}/usr/local/lib
+	cp --parents -r lib  ${INSTALL}/usr/local/
+	cp scripts/ucentral-client.sh ${INSTALL}/usr/local/bin/
+	cp scripts/docker-ucentral-client.sh ${INSTALL}/usr/local/bin/
+	# TMP W/A script untill SONIC img POE issues are fixed;
+	# we can't use /usr/local/lib or any other, as it's root-owned;
+	# we can't launch sonic-cli under root, so to make it all simple - copy
+	# script to /home/admin folder and launch sonic-cli with script from
+	# home folder.
+	mkdir -p ${INSTALL}/home/admin
+	cp scripts/OLS_NOS_fixups.script ${INSTALL}/usr/local/lib
+	cp docker-ucentral-client.gz  ${INSTALL}/usr/local/lib
+	# Install Vlan1 in-band management configuration
+	mkdir -p ${INSTALL}/etc/network/interfaces.d/
+	cp configs/interfaces.Vlan1 ${INSTALL}/etc/network/interfaces.d/
+	# Install config_db.json.j2 template that will be handled by
+	# initialization hook 10-render-config-db-json from config-setup service
+	mkdir -p ${INSTALL}/usr/share/broadcom_sonic/config_profiles/l3/templates
+	cp templates/config_db.json.j2 ${INSTALL}/usr/share/broadcom_sonic/config_profiles/l3/templates/
+	#Install copp_config.json
+	mkdir -p ${INSTALL}/usr/share/sonic/templates
+	cp templates/config_db.json.j2 ${INSTALL}/usr/share/sonic/templates/
+	#Install dev specific templates
+	cp -r templates/device ${INSTALL}/usr/share/sonic/
+	#Install script used for partial (debian self-update) update
+	cp -r scripts/ucentral-partialupdate.sh ${INSTALL}/usr/local/bin/
+
+override_dh_usrlocal:
+	echo "[LOCAL]"
+
+.PHONY: override_dh_strip
+override_dh_strip:
+	echo dh_strip --ddebs  --automatic-dbgsym  
+

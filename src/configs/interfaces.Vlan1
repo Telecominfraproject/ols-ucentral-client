@@ -1,0 +1,5 @@
+# In-band management interface
+auto Vlan1
+iface Vlan1 inet dhcp
+iface Vlan1 inet6 dhcp
+#

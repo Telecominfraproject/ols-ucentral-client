@@ -1,0 +1,242 @@
+{
+    "DEVICE_METADATA": {
+      "localhost" : {
+       "hwsku" : "{{ DEVICE_METADATA.localhost.hwsku }}",
+       "mac" : "{{ DEVICE_METADATA.localhost.mac }}",
+       "platform" : "{{ DEVICE_METADATA.localhost.platform }}",
+       "type" : "OLS",
+       "hostname" : "sonic",
+       "default_config_profile" : "l3",
+       "frr_mgmt_framework_config" : "true"
+      }
+    },
+    "ECMP_LOADSHARE_TABLE_IPV4": {
+        "ipv4": {
+            "ipv4_dst_ip": "true",
+            "ipv4_l4_dst_port": "true",
+            "ipv4_l4_src_port": "true",
+            "ipv4_protocol": "true",
+            "ipv4_src_ip": "true"
+        }
+    },
+    "ECMP_LOADSHARE_TABLE_IPV6": {
+        "ipv6": {
+            "ipv6_dst_ip": "true",
+            "ipv6_l4_dst_port": "true",
+            "ipv6_l4_src_port": "true",
+            "ipv6_next_hdr": "true",
+            "ipv6_src_ip": "true"
+        }
+    },
+    "HARDWARE": {
+        "ACCESS_LIST": {
+            "LOOKUP_MODE": "optimized",
+            "COUNTER_MODE": "per-rule"
+        }
+    },
+    "CLASSIFIER_TABLE": {
+        "class-oob-ip-multicast": {
+            "DESCRIPTION": "", 
+            "ETHER_TYPE": "0x800", 
+            "DST_IP": "224.0.0.0/4",
+            "MATCH_TYPE": "FIELDS"
+        },
+        "class-oob-ipv6-multicast": {
+            "DESCRIPTION": "", 
+            "ETHER_TYPE": "0x86DD", 
+            "DST_IPV6": "ff00::/8",
+            "MATCH_TYPE": "FIELDS"
+        },
+        "class-oob-arp": {
+            "DESCRIPTION": "", 
+            "ETHER_TYPE": "0x806", 
+            "MATCH_TYPE": "FIELDS"
+        }, 
+        "class-oob-dhcp-client": {
+            "DESCRIPTION": "", 
+            "ETHER_TYPE": "0x800", 
+            "IP_PROTOCOL": "17", 
+            "L4_DST_PORT": "68", 
+            "MATCH_TYPE": "FIELDS"
+        }, 
+        "class-oob-dhcp-server": {
+            "DESCRIPTION": "", 
+            "ETHER_TYPE": "0x800", 
+            "IP_PROTOCOL": "17", 
+            "L4_DST_PORT": "67", 
+            "MATCH_TYPE": "FIELDS"
+        }
+    }, 
+    "POLICY_TABLE": {
+        "oob-qos-policy": {
+            "DESCRIPTION": "QoS Ratelimiting policy for OOB port", 
+            "TYPE": "QOS"
+        }
+    },
+    "POLICY_SECTIONS_TABLE": {
+        "oob-qos-policy|class-oob-ip-multicast": {
+            "DESCRIPTION": "",
+            "PRIORITY": "1000",
+            "SET_POLICER_CIR": "256000"
+        },
+        "oob-qos-policy|class-oob-ipv6-multicast": {
+            "DESCRIPTION": "",
+            "PRIORITY": "1005",
+            "SET_POLICER_CIR": "256000"
+        },
+        "oob-qos-policy|class-oob-arp": {
+            "DESCRIPTION": "", 
+            "PRIORITY": "1010", 
+            "SET_POLICER_CIR": "256000"
+        }, 
+        "oob-qos-policy|class-oob-dhcp-server": {
+            "DESCRIPTION": "", 
+            "PRIORITY": "1015", 
+            "SET_POLICER_CIR": "512000"
+        }, 
+        "oob-qos-policy|class-oob-dhcp-client": {
+            "DESCRIPTION": "", 
+            "PRIORITY": "1020", 
+            "SET_POLICER_CIR": "512000"
+        }
+    }, 
+    "POLICY_BINDING_TABLE": {
+        "CtrlPlane": {
+            "INGRESS_QOS_POLICY": "oob-qos-policy"
+        }
+    },
+    "STP": {
+        "GLOBAL": {
+            "bpdu_filter": "false",
+            "forward_delay": "15",
+            "hello_time": "2",
+            "max_age": "20",
+            "mode": "pvst",
+            "portfast": "false",
+            "priority": "32768",
+            "rootguard_timeout": "30"
+        }
+    },
+    "STP_PORT": {
+{% for port in PORT %}
+        "{{port}}": {
+            "bpdu_guard": "false",
+            "bpdu_guard_do_disable": "false",
+            "enabled": "true",
+            "portfast": "false",
+            "root_guard": "false",
+            "uplink_fast": "false"
+        }{%- if loop.last == False -%},{% endif %}
+{% endfor %}
+    },
+    "STP_VLAN": {
+        "Vlan1": {
+            "enabled": "true",
+            "forward_delay": "15",
+            "hello_time": "2",
+            "max_age": "20",
+            "priority": "32768"
+        }
+    },
+    "SWITCH": {
+        "switch": {
+            "fdb_aging_time": "600"
+        }
+    },
+    "VLAN": {
+        "Vlan1": {
+            "autostate": "disable",
+            "members": [
+{% for port in PORT %}
+                "{{port}}"{%- if loop.last == False -%},{% endif %}
+{% endfor %}
+            ],
+            "vlanid": "1"
+        }
+    },
+    "VLAN_MEMBER": {
+{% for port in PORT %}
+        "Vlan1|{{port}}": {
+            "tagging_mode": "untagged"
+        }{%- if loop.last == False -%},{% endif %}
+{% endfor %}
+    },
+    "INTERFACE": {
+        "Vlan1": {}
+    },
+    "MGMT_VRF_CONFIG": {
+        "vrf_global": {
+            "mgmtVrfEnabled": "true"
+        }
+    },
+    "VRF": {
+        "default": {
+            "enabled": "true"
+        }
+    },
+    "PORT": {
+{% for port in PORT %}
+         "{{port}}" : {
+                "index": "{{ PORT[port].index }}",
+                "lanes": "{{ PORT[port].lanes }}",
+                "mtu":   "9100",
+{% if PORT[port].alias is defined and PORT[port].alias != "" %}
+                "alias": "{{ PORT[port].alias }}",
+{% endif %}
+{% if PORT[port].speed is defined and PORT[port].speed != "" %}
+                "speed": "{{ PORT[port].speed }}",
+{% endif %}
+{% if PORT[port].valid_speeds is defined and PORT[port].valid_speeds != "" %}
+                "valid_speeds": "{{ PORT[port].valid_speeds }}",
+{% endif %}
+{% if PORT[port].autoneg is defined and PORT[port].autoneg != "" %}
+                "autoneg": "{{ PORT[port].autoneg }}",
+{% endif %}
+{% if PORT[port].fec is defined and PORT[port].fec != "" %}
+                "fec": "{{ PORT[port].fec }}",
+{% endif %}
+                "admin_status": "up"
+         }{%- if loop.last == False -%},{% endif %}
+
+{% endfor %}
+   },
+{% if BREAKOUT_CFG is defined %}
+   "BREAKOUT_CFG": {
+{% for port in BREAKOUT_CFG %}
+         "{{port}}" : {
+{% if BREAKOUT_CFG[port].lanes is defined and BREAKOUT_CFG[port].lanes != "" %}
+                "lanes": "{{ BREAKOUT_CFG[port].lanes }}",
+{% endif %}
+{% if BREAKOUT_CFG[port].port is defined and BREAKOUT_CFG[port].port != "" %}
+                "port": "{{ BREAKOUT_CFG[port].port }}",
+{% endif %}
+                "brkout_mode": "{{ BREAKOUT_CFG[port].brkout_mode }}"
+         }{%- if loop.last == False -%},{% endif %}
+
+{% endfor %}
+   },
+{% endif %}
+{% if BREAKOUT_PORTS is defined %}
+   "BREAKOUT_PORTS": {
+{% for port in BREAKOUT_PORTS %}
+         "{{port}}" : {
+                "master": "{{ BREAKOUT_PORTS[port].master }}"
+         }{%- if loop.last == False -%},{% endif %}
+
+{% endfor %}
+   },
+{% endif %}
+   "KDUMP": {
+        "config": {
+            "enabled": "true",
+            "num_dumps": "3",
+            "memory": "0M-2G:256M,2G-4G:256M,4G-8G:384M,8G-:448M"
+        }
+   },
+   "COREDUMP" : {
+        "config": {
+            "enabled": "true"
+        }
+   }
+}
+

@@ -1,0 +1,16 @@
+[Unit]
+Description=uCentral Client container service
+After=rc-local.service network-online.target
+Before=config-setup.service interfaces-config.service
+
+[Service]
+StandardOutput=syslog+console
+ExecStartPre=/usr/local/bin/ucentral-client.sh start
+ExecStart=/usr/local/bin/ucentral-client.sh wait
+ExecStop=/usr/local/bin/ucentral-client.sh stop
+TimeoutSec=0
+RemainAfterExit=yes
+GuessMainPID=no
+
+[Install]
+WantedBy=multi-user.target

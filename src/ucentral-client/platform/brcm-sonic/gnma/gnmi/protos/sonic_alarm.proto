@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package gnoi.SonicAlarm;
+
+
+message AcknowledgeAlarmsRequest {
+    message Input {
+        repeated string id = 1 [json_name = "id"];
+    }
+    Input input = 1 [json_name = "sonic-alarm:input"];
+}
+message AcknowledgeAlarmsResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "sonic-alarm:output"];
+}
+message UnacknowledgeAlarmsRequest {
+    message Input {
+        repeated string id = 1 [json_name = "id"];
+    }
+    Input input = 1 [json_name = "sonic-alarm:input"];
+}
+message UnacknowledgeAlarmsResponse {
+    message Output {
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+    }
+    Output output = 1 [json_name = "sonic-alarm:output"];
+}
+message ShowAlarmsRequest {
+    message Input {
+        message Time {
+            string begin = 1 [json_name = "begin"];
+            string end = 2 [json_name = "end"];
+        }
+        message Id {
+            string begin = 1 [json_name = "begin"];
+            string end = 2 [json_name = "end"];
+        }
+        Time time = 1 [json_name = "time"];
+        string interval = 2 [json_name = "interval"];
+        enum Severity
+        {
+            CRITICAL = 0 ;
+            MAJOR = 1 ;
+            MINOR = 2 ;
+            WARNING = 3 ;
+            INFORMATIONAL = 4 ;
+        }
+        Severity severity = 3 [json_name = "severity"];
+        Id id = 4 [json_name = "id"];
+    }
+    Input input = 1 [json_name = "sonic-alarm:input"];
+}
+message ShowAlarmsResponse {
+    message Output {
+        message Alarm {
+            message AlarmList {
+                string id = 1 [json_name = "id"];
+                string resource = 2 [json_name = "resource"];
+                string text = 3 [json_name = "text"];
+                uint64 time_created = 4 [json_name = "time-created"];
+                string type_id = 5 [json_name = "type-id"];
+                enum Severity
+                {
+                    CRITICAL = 0 ;
+                    MAJOR = 1 ;
+                    MINOR = 2 ;
+                    WARNING = 3 ;
+                    INFORMATIONAL = 4 ;
+                }
+                Severity severity = 6 [json_name = "severity"];
+                bool acknowledged = 7 [json_name = "acknowledged"];
+                uint64 acknowledge_time = 8 [json_name = "acknowledge-time"];
+            }
+            repeated AlarmList ALARM_LIST = 1 [json_name = "ALARM_LIST"];
+        }
+        int32 status = 1 [json_name = "status"];
+        string status_detail = 2 [json_name = "status-detail"];
+        Alarm ALARM = 3 [json_name = "ALARM"];
+    }
+    Output output = 1 [json_name = "sonic-alarm:output"];
+}
+
+service SonicAlarmService {
+    rpc AcknowledgeAlarms(AcknowledgeAlarmsRequest) returns(AcknowledgeAlarmsResponse) {}
+    rpc UnacknowledgeAlarms(UnacknowledgeAlarmsRequest) returns(UnacknowledgeAlarmsResponse) {}
+    rpc ShowAlarms(ShowAlarmsRequest) returns(ShowAlarmsResponse) {}
+}

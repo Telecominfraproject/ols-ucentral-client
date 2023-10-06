@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+UCENTRAL_CLIENT=/usr/local/lib/docker-ucentral-client.gz
+if [[ -e ${UCENTRAL_CLIENT} ]]; then
+	if docker load < ${UCENTRAL_CLIENT} ;then
+		rm ${UCENTRAL_CLIENT}
+	fi
+fi
+
+systemctl enable ucentral-client.service

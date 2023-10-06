@@ -1,0 +1,35 @@
+{
+  "ethernet": [
+    {
+      "duplex": "full",
+      "enabled": true,
+      "speed": 1000,
+      "select-ports": [
+        "Ethernet1",
+        "Ethernet2"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "vlan": {
+        "id": 10,
+        "proto": "802.1q"
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet1",
+            "Ethernet2"
+          ],
+          "vlan-tag": "tagged"
+        }
+      ],
+      "name": "mgmt",
+      "role": "upstream",
+      "services": []
+    }
+  ],
+  "services": {},
+  "uuid": 3
+}
