@@ -11,6 +11,7 @@ start() {
     fi
 
     cp /usr/local/lib/OLS_NOS_fixups.script /home/admin/OLS_NOS_fixups.script
+    cp /usr/local/lib/OLS_NOS_upgrade_override.script /home/admin/OLS_NOS_upgrade_override.script
 
     if [ $(systemctl is-active config-setup.service) == "active" ]; then
         # do nothing on service restart
@@ -29,10 +30,20 @@ start() {
 }
 
 wait() {
+    test -d /var/lib/ucentral || mkdir /var/lib/ucentral
+
     # Wait for at least one Vlan to be created - a signal that telemetry is up.
     # Even if vlan table is empty, private 3967 will be allocated with all
     # ports in it.
     while ! ls /sys/class/net/Vlan* &>/dev/null; do sleep 1; done
+
+    # Detect first boot on this version
+    # Run upgrade overrides before fixups
+    conf_upgrade_md5sum=$(md5sum /home/admin/OLS_NOS_upgrade_override.script | cut -d ' ' -f1)
+    if test "$conf_upgrade_md5sum" != "$(test -f /var/lib/ucentral/upgrade-override.md5sum && cat /var/lib/ucentral/upgrade-override.md5sum)"; then
+	    sudo -u admin -- bash "sonic-cli" "/home/admin/OLS_NOS_upgrade_override.script"
+	    echo -n "$conf_upgrade_md5sum" >/var/lib/ucentral/upgrade-override.md5sum
+    fi
 
     # Temporary NTP fixup / WA: configure a list of default NTP servers.
     # Should mature into a default-config option to make sure board has right
@@ -65,7 +76,6 @@ wait() {
 
     # change admin password
     # NOTE: This could lead to access escalation, if you got image from running device
-    test -d /var/lib/ucentral || mkdir /var/lib/ucentral
     if ! test -f /var/lib/ucentral/admin-cred.changed; then
 	    #ADMIN_PASSWD=`openssl rand -hex 10`
 	    ADMIN_PASSWD=broadcom
