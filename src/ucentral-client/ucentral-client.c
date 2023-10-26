@@ -29,6 +29,11 @@
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
 
+#ifdef PLAT_EC
+#include "api_device.h"
+#include "api_session.h"
+#endif
+
 struct per_vhost_data__minimal {
 	struct lws_context *context;
 	struct lws_vhost *vhost;
@@ -65,8 +70,13 @@ lws_protocols protocols[] = {
 };
 
 struct client_config client = {
+#ifdef PLAT_EC
+	.redirector_file = "/etc/ucentral/redirector.json",
+	.redirector_file_dbg = "/etc/ucentral/firstcontact.hdr",
+#else
 	.redirector_file = "/tmp/ucentral-redirector.json",
 	.redirector_file_dbg = "/tmp/firstcontact.hdr",
+#endif
 	.server = NULL,
 	.port = 15002,
 	.path = "/",
@@ -374,8 +384,12 @@ static int gateway_cert_trust(void)
 
 static int redirector_cert_trust(void)
 {
+#ifdef PLAT_EC
+  return 1;
+#else
 	char *v = getenv("UC_REDIRECTOR_CERT_TRUST");
 	return v && *v && strcmp("0", v);
+#endif
 }
 
 static int
@@ -696,6 +710,10 @@ int main(void)
 	struct stat st;
 	int ret;
 
+#ifdef PLAT_EC
+	sleep(50); // wait for system ready
+#endif
+
 	sigthread_create(); /* move signal handling to a dedicated thread */
 
 	openlog("ucentral-client", LOG_CONS | LOG_NDELAY | LOG_PERROR, LOG_DAEMON);
@@ -713,6 +731,17 @@ int main(void)
 	uc_log_severity_set(UC_LOG_COMPONENT_CLIENT, UC_LOG_SV_ERR);
 	uc_log_severity_set(UC_LOG_COMPONENT_PLAT, UC_LOG_SV_ERR);
 
+#ifdef PLAT_EC
+	int status = session_start();
+
+	if (status == STATUS_SUCCESS) {
+		UC_LOG_INFO("Successfully connected to SNMP!\n");
+	} else {
+		UC_LOG_INFO("Could not connect to SNMP!\n");
+		exit(EXIT_FAILURE);;
+	}
+#endif
+	
 	if (client_config_read()) {
 		UC_LOG_CRIT("client_config_read failed");
 		exit(EXIT_FAILURE);
@@ -724,16 +753,37 @@ int main(void)
 
 	plat_running_img_name_get(client.firmware, sizeof(client.firmware));
 
+#ifdef PLAT_EC
+	FILE *f = fopen(REDIRECTOR_USER_DEFINE_FILE, "r");
+
+	if (f) {
+		size_t cnt;
+		char redirector_url[256];
+		memset(redirector_url, 0, sizeof(redirector_url));
+
+		cnt = fread(redirector_url, 1, sizeof(redirector_url), f);
+		fclose(f);
+		client.server = redirector_url;
+	} else {
+		ret = ucentral_redirector_parse(&gw_host);
+		if (ret) {
+		/* parse failed by present redirector file, try to get redirector file from digicert */
+#else
 	if ((gw_host = getenv("UC_GATEWAY_ADDRESS"))) {
 		gw_host = strdup(gw_host);
 	} else {
+#endif
 		while (1) {
 			if (uc_loop_interrupted_get())
 				goto exit;
 			if (firstcontact()) {
 				UC_LOG_INFO(
-					"Firstcontact failed; trying again in 1 second...\n");
+					"Firstcontact failed; trying again in 30 second...\n");
+#ifdef PLAT_EC
+				sleep(30);
+#else
 				sleep(1);
+#endif
 				continue;
 			}
 
@@ -748,6 +798,11 @@ int main(void)
 		} else {
 			client.server = gw_host;
 		}
+#ifdef PLAT_EC
+		} else {
+			client.server = gw_host;
+		}
+#endif
 	}
 
 	memset(&info, 0, sizeof info);
@@ -793,5 +848,9 @@ exit:
 
 	free(gw_host);
 	curl_global_cleanup();
+#ifdef PLAT_EC
+	session_close();
+	clean_stats();
+#endif
 	return 0;
 }

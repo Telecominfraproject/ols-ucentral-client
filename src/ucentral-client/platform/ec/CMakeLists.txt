@@ -1,0 +1,3 @@
+list(APPEND PLAT_SOURCES
+    ${CMAKE_CURRENT_LIST_DIR}/plat-ec.c
+)

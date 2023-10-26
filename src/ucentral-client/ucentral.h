@@ -32,6 +32,10 @@ extern "C" {
 #define UCENTRAL_TMP	"/tmp/ucentral.cfg"
 #define UCENTRAL_LATEST	"/etc/ucentral/ucentral.active"
 
+#ifdef PLAT_EC
+#define REDIRECTOR_USER_DEFINE_FILE "/etc/ucentral/redirector-user-defined"
+#endif
+
 /* It's expected that dev-id format is the following:
  * 11111111-1111-1111-1111-111111111111
  * and the max size of such string is 36 symbols.

@@ -175,7 +175,12 @@ void uc_json_parser_init(struct uc_json_parser *uctx, uc_json_parse_cb cb,
 
 void uc_json_parser_uninit(struct uc_json_parser *uctx)
 {
+	 /* The function lejp_destruct() cause segmentation fault on EC platform, comment out this line when building EC platform.
+	  * The function lejp_destruct() describes "no allocations... just let callback know what it happening".
+	  */
+#ifndef PLAT_EC
 	lejp_destruct(&uctx->ctx);
+#endif
 	free(uctx->str);
 	cJSON_Delete(uctx->root);
 	*uctx = (struct uc_json_parser){ 0 };

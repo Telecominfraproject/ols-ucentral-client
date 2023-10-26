@@ -7,6 +7,10 @@
 #include <cjson/cJSON.h>
 #include <curl/curl.h>
 
+#ifdef PLAT_EC
+#include <inttypes.h>
+#endif
+
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_PROTO
 
 #include "ucentral.h"
@@ -782,9 +786,19 @@ static int cfg_ethernet_poe_parse(cJSON *poe,
 	cJSON *do_reset;
 
 	admin_mode = cJSON_GetObjectItemCaseSensitive(poe, "admin-mode");
+#ifdef PLAT_EC
+	/* When ucentralgw push configuration to client, it could modify key "admin-mode" to "poe.admin-mode" */
+	if (!admin_mode)
+		admin_mode = cJSON_GetObjectItemCaseSensitive(poe, "poe.admin-mode");		
+#endif
 	do_reset = cJSON_GetObjectItemCaseSensitive(poe, "do-reset");
 	detection = cJSON_GetObjectItemCaseSensitive(poe, "detection");
 	power_limit = cJSON_GetObjectItemCaseSensitive(poe, "power-limit");
+#ifdef PLAT_EC
+	/* When ucentralgw push configuration to client, it could modify key "power-limit" to "poe.power-limit" */
+	if (!power_limit)
+		power_limit = cJSON_GetObjectItemCaseSensitive(poe, "poe.power-limit");
+#endif
 	priority = cJSON_GetObjectItemCaseSensitive(poe, "priority");
 
 	if (admin_mode && !cJSON_IsBool(admin_mode)) {
@@ -917,8 +931,13 @@ static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 		struct plat_port tmp_port = {0};
 		size_t ports_selected = 0;
 		cJSON *select_ports;
+#ifdef PLAT_EC
+		cJSON *duplex;
+		cJSON *speed;
+#else
 		const char *duplex;
 		double speed = 0;
+#endif
 		cJSON *ieee8021x;
 		bool enabled;
 		cJSON *poe;
@@ -928,10 +947,16 @@ static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 		select_ports = cJSON_GetObjectItemCaseSensitive(eth, "select-ports");
 		enabled =
 			cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(eth, "enabled"));
+
+#ifdef PLAT_EC
+		duplex = cJSON_GetObjectItemCaseSensitive(eth, "duplex");
+		speed = cJSON_GetObjectItemCaseSensitive(eth, "speed");
+#else
 		duplex =
 			cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(eth, "duplex"));
 		speed =
 			cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(eth, "speed"));
+#endif
 
 		if (!duplex || !speed || !select_ports) {
 			UC_LOG_ERR("Ethernet obj doesn't hold duplex, speed or select-ports fields, parse failed\n");
@@ -962,9 +987,14 @@ static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 			}
 		}
 
+#ifdef PLAT_EC
+		proto_port_duplex_to_num(cJSON_GetStringValue(duplex), &tmp_port.duplex);
+		proto_port_speed_to_num(cJSON_GetNumberValue(speed), &tmp_port.speed);
+#else
 		proto_port_duplex_to_num(duplex, &tmp_port.duplex);
-		proto_port_state_to_num(enabled, &tmp_port.state);
 		proto_port_speed_to_num(speed, &tmp_port.speed);
+#endif
+		proto_port_state_to_num(enabled, &tmp_port.state);
 
 		ret = cfg_ethernet_select_ports_parse(select_ports,
 						      tmp_port_bmap,
@@ -1083,6 +1113,10 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 	cJSON *ipv4;
 	cJSON *dhcp;
 	cJSON *eth;
+#ifdef PLAT_EC
+	cJSON *pvid;
+	cJSON *vid_name;
+#endif
 
 	/* Ignore interface with l2 type: not vlan */
 	if (!cJSON_GetObjectItemCaseSensitive(interface, "vlan"))
@@ -1095,6 +1129,12 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 		return -1;
 
 	BITMAP_SET_BIT(cfg->vlans_to_cfg, vid);
+
+#ifdef PLAT_EC
+	vid_name = cJSON_GetObjectItemCaseSensitive(interface, "name");
+	if (vid_name && cJSON_IsString(vid_name))
+		snprintf(cfg->vlans[vid].name, sizeof(cfg->vlans[vid].name), "%s", cJSON_GetStringValue(vid_name));
+#endif
 
 	ethernet = cJSON_GetObjectItemCaseSensitive(interface, "ethernet");
 	cJSON_ArrayForEach(eth, ethernet) {
@@ -1110,12 +1150,22 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 
 		vlan_tag = cJSON_GetObjectItemCaseSensitive(eth, "vlan-tag");
 
+#ifdef PLAT_EC
+		if (!vlan_tag) {
+#else
 		ret = proto_vlan_tagged_to_num(cJSON_GetStringValue(vlan_tag),
 					       &tagged);
 		if (ret) {
+#endif
 			UC_LOG_ERR("Ethernet doesn't hold 'vlan-tag' field, parse failed\n");
 			return -1;
 		}
+
+#ifdef PLAT_EC
+		proto_vlan_tagged_to_num(cJSON_GetStringValue(vlan_tag), &tagged);
+		
+		pvid = cJSON_GetObjectItemCaseSensitive(eth, "pvid");
+#endif
 
 		BITMAP_FOR_EACH_BIT_SET(i, tmp_port_bmap, MAX_NUM_OF_PORTS) {
 			char port_name[PORT_MAX_NAME_LEN];
@@ -1132,6 +1182,11 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 			memberlist_node->tagged =
 				(tagged == UCENTRAL_VLAN_1Q_TAG_TAGGED_E);
 
+#ifdef PLAT_EC
+			if (pvid)
+				memberlist_node->pvid =	cJSON_IsTrue(pvid);
+#endif
+				
 			UCENTRAL_LIST_PUSH_MEMBER(&cfg->vlans[vid].members_list_head,
 						  memberlist_node);
 		}
@@ -1683,6 +1738,10 @@ static int cfg_unit_parse(cJSON *unit, struct plat_cfg *cfg)
 {
 	cJSON *usage_threshold;
 	cJSON *power_mgmt;
+#ifdef PLAT_EC
+	power_mgmt = cJSON_GetObjectItemCaseSensitive(unit, "power-management");
+	usage_threshold = cJSON_GetObjectItemCaseSensitive(unit, "usage-threshold");
+#else
 	cJSON *poe;
 
 	poe = cJSON_GetObjectItemCaseSensitive(unit, "poe");
@@ -1691,6 +1750,7 @@ static int cfg_unit_parse(cJSON *unit, struct plat_cfg *cfg)
 
 	power_mgmt = cJSON_GetObjectItemCaseSensitive(poe, "power-management");
 	usage_threshold = cJSON_GetObjectItemCaseSensitive(poe, "usage-threshold");
+#endif
 
 	if (cJSON_GetStringValue(power_mgmt)) {
 		strcpy(cfg->unit.poe.power_mgmt, cJSON_GetStringValue(power_mgmt));
@@ -1899,7 +1959,11 @@ configure_handle(cJSON **rpc)
 
 	if (!tb[PARAMS_UUID] || !tb[PARAMS_SERIAL] || !tb[PARAMS_CONFIG]) {
 		UC_LOG_ERR("configure message is missing parameters\n");
+#ifdef PLAT_EC
+		configure_reply(CONFIGURE_STATUS_PARTIALLY_APPLIED, "invalid parameters", 0, id);
+#else
 		configure_reply(CONFIGURE_STATUS_REJECTED, "invalid parameters", 0, id);
+#endif
 		return;
 	}
 
@@ -1917,7 +1981,11 @@ configure_handle(cJSON **rpc)
 	plat_cfg = cfg_parse(tb[PARAMS_CONFIG]);
 	if (!plat_cfg) {
 		UC_LOG_ERR("configure parse failed");
+#ifdef PLAT_EC
+		configure_reply(CONFIGURE_STATUS_PARTIALLY_APPLIED,
+#else
 		configure_reply(CONFIGURE_STATUS_REJECTED,
+#endif
 				"Configure parse failed", 0, id);
 		return;
 	}
@@ -1965,7 +2033,15 @@ err_apply:
 	free(plat_cfg);
 
 	log_msg = plat_log_pop_concatenate();
+#ifdef PLAT_EC
+	/* if error code return CONFIGURE_STATUS_REJECTED, ucentralgw will deliver configuration almost every 2 seconds. 
+	 * Changing error code to CONFIGURE_STATUS_PARTIALLY_APPLIED, ucentralgw will deliver configuration depending on 
+	 * health-check interval.
+	 */
+	configure_reply((ret ? CONFIGURE_STATUS_PARTIALLY_APPLIED :	
+#else
 	configure_reply((ret ? CONFIGURE_STATUS_REJECTED :
+#endif
 				     CONFIGURE_STATUS_APPLIED),
 			log_msg ? log_msg : "", uuid_latest, id);
 	free(log_msg);
@@ -2006,13 +2082,20 @@ factory_handle(cJSON **rpc)
 {
 	cJSON *tb[__PARAMS_MAX] = {0};
 	double id = 0;
-
+#ifdef PLAT_EC	
+	bool keep_redirector = true;
+#endif
 	tb[PARAMS_SERIAL] =
 		cJSON_GetObjectItemCaseSensitive(rpc[JSONRPC_PARAMS], "serial");
 	/* Currently unused; rework needed for <redirector parse>/ save logic */
 	tb[PARAMS_FACTORY_KEEP_REDIRECTOR] =
 		cJSON_GetObjectItemCaseSensitive(rpc[JSONRPC_PARAMS],
-						 "keep_redirectory");
+						 "keep_redirector");
+
+#ifdef PLAT_EC
+	if (tb[PARAMS_FACTORY_KEEP_REDIRECTOR])
+		keep_redirector = (bool)cJSON_GetNumberValue(tb[PARAMS_FACTORY_KEEP_REDIRECTOR]);
+#endif
 
 	if (rpc[JSONRPC_ID])
 		id = cJSON_GetNumberValue(rpc[JSONRPC_ID]);
@@ -2023,7 +2106,11 @@ factory_handle(cJSON **rpc)
 		return;
 	}
 
+#ifdef PLAT_EC
+	if (plat_factory_default(keep_redirector)) {
+#else
 	if (plat_factory_default()) {
+#endif
 		UC_LOG_ERR("factory failed\n");
 		action_reply(1, "factory failed", 1, id);
 		return;

@@ -22,6 +22,9 @@ extern "C" {
 #define MAX_NUM_OF_PORTS (100)
 
 #define PORT_MAX_NAME_LEN (32)
+#ifdef PLAT_EC
+#define VLAN_MAX_NAME_LEN PORT_MAX_NAME_LEN
+#endif
 #define RTTY_CFG_FIELD_STR_MAX_LEN (64)
 #define PLATFORM_INFO_STR_MAX_LEN (96)
 #define SYSLOG_CFG_FIELD_STR_MAX_LEN (64)
@@ -256,6 +259,9 @@ struct plat_port_vlan {
 	struct plat_dhcp dhcp;
 	uint16_t id;
 	uint16_t mstp_instance;
+#ifdef PLAT_EC
+	char name[VLAN_MAX_NAME_LEN];
+#endif
 };
 
 struct plat_vlans_list {
@@ -269,6 +275,9 @@ struct plat_vlan_memberlist {
 		uint16_t fp_id;
 	} port;
 	bool tagged;
+#ifdef PLAT_EC
+	bool pvid;
+#endif
 	struct plat_vlan_memberlist *next;
 };
 
@@ -448,6 +457,9 @@ typedef void (*plat_run_script_cb)(int err, struct plat_run_script_result *,
 				   void *ctx);
 
 enum {
+#ifdef PLAT_EC
+	UCENTRAL_PORT_SPEED_NONE,
+#endif
 	UCENTRAL_PORT_SPEED_10_E,
 	UCENTRAL_PORT_SPEED_100_E,
 	UCENTRAL_PORT_SPEED_1000_E,
@@ -460,6 +472,9 @@ enum {
 };
 
 enum {
+#ifdef PLAT_EC
+	UCENTRAL_PORT_DUPLEX_NONE,
+#endif
 	UCENTRAL_PORT_DUPLEX_HALF_E,
 	UCENTRAL_PORT_DUPLEX_FULL_E,
 };
@@ -571,7 +586,11 @@ int plat_metrics_save(const struct plat_metrics_cfg *cfg);
 int plat_metrics_restore(struct plat_metrics_cfg *cfg);
 int plat_saved_config_id_get(uint64_t *id);
 void plat_config_destroy(struct plat_cfg *cfg);
+#ifdef PLAT_EC
+int plat_factory_default(bool keep_redirector);
+#else
 int plat_factory_default(void);
+#endif
 int plat_rtty(struct plat_rtty_cfg *rtty_cfg);
 int plat_upgrade(char *uri, char *signature);
 
@@ -606,6 +625,10 @@ int
 plat_reboot_cause_get(struct plat_reboot_cause *cause);
 
 int plat_diagnostic(char *res_path);
+
+#ifdef PLAT_EC
+void clean_stats();
+#endif
 
 #ifdef __cplusplus
 }

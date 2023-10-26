@@ -7,7 +7,8 @@ IMG_ID := "ucentral-client-build-env"
 IMG_TAG := $(shell cat Dockerfile | sha1sum | awk '{print substr($$1,0,11);}')
 CONTAINER_NAME := "ucentral_client_build_env"
 
-.PHONY: all clean build-host-env build-final-deb build-ucentral-docker-img run-host-env run-ucentral-docker-img
+.PHONY: all clean build-host-env build-final-deb build-ucentral-docker-img run-host-env run-ucentral-docker-img \
+        plat-ec plat-ec-clean
 
 all: build-host-env build-ucentral-app build-ucentral-docker-img build-final-deb
 
@@ -80,6 +81,9 @@ build-final-deb: build-ucentral-docker-img
 	@echo
 	@echo "ucentral client deb pkg is available under ./output/ dir"
 
+plat-ec:
+	src/ec-private/build.sh
+
 clean:
 	docker container stop ${CONTAINER_NAME} > /dev/null 2>&1 || true;
 	docker container rm ${CONTAINER_NAME} > /dev/null 2>&1 || true;
@@ -96,3 +100,13 @@ clean:
 	rm -rf src/debian/shasta-ucentral-client* 2>/dev/null || true;
 	rm -rf src/debian/debhelper-build-stamp* 2>/dev/null || true;
 	rm -rf src/debian/files shasta_1.0_amd64.changes shasta_1.0_amd64.buildinfo 2>/dev/null || true;
+
+plat-ec-clean:
+	rm -rf src/ec-private/cjson
+	rm -rf src/ec-private/curl
+	rm -rf src/ec-private/libwebsockets
+	rm -rf src/ec-private/openssl
+	rm -rf src/ec-private/openssl
+	rm -rf src/ec-private/ecapi/build
+	rm -rf src/ec-private/ucentral
+	rm -rf output

@@ -1,0 +1,7 @@
+list(APPEND LIB_SOURCES
+    ${CMAKE_CURRENT_LIST_DIR}/device.c
+    ${CMAKE_CURRENT_LIST_DIR}/helper.c
+    ${CMAKE_CURRENT_LIST_DIR}/session.c
+    ${CMAKE_CURRENT_LIST_DIR}/stats.c
+)
+
