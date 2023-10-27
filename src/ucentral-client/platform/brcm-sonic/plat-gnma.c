@@ -882,6 +882,7 @@ static int plat_state_init()
 	struct gnma_route_attrs *attrs_list = NULL;
 	struct gnma_ip_prefix *prefix_list = NULL;
 	uint32_t prefix_list_size = 0, prefix_iter;
+	struct ucentral_router_fib_node node;
 	uint16_t vid;
 	int ret = 0;
 	size_t i;
@@ -997,12 +998,16 @@ static int plat_state_init()
 	}
 
 	for (prefix_iter = 0; prefix_iter < prefix_list_size; prefix_iter++) {
-		gnma_prefix2router_fib_key(&prefix_list[prefix_iter],
-					   &router_db_get(&plat_state.router, prefix_iter)->key);
-		ret = gnma_attr2router_fib_info(&attrs_list[prefix_iter],
-						&router_db_get(&plat_state.router, prefix_iter)->info);
+		gnma_prefix2router_fib_key(&prefix_list[prefix_iter], &node.key);
+		ret = gnma_attr2router_fib_info(&attrs_list[prefix_iter], &node.info);
 		if (ret) {
 			UC_LOG_CRIT("gnma_attr2router_fib_info");
+			goto err;
+		}
+
+		ret = ucentral_router_fib_db_append(&plat_state.router, &node);
+		if (ret) {
+			UC_LOG_CRIT("ucentral_router_fib_db_append");
 			goto err;
 		}
 	}
