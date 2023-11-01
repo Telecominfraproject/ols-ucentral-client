@@ -70,12 +70,13 @@ int ucentral_router_fib_key_cmp(const struct ucentral_router_fib_key *a,
 	return 0;
 }
 
-/* bool result, as we have no criteria to sort this */
-bool ucentral_router_fib_info_cmp(const struct ucentral_router_fib_info *a,
-				  const struct ucentral_router_fib_info *b)
+int ucentral_router_fib_info_cmp(const struct ucentral_router_fib_info *a,
+				 const struct ucentral_router_fib_info *b)
 {
-	if (a->type != b->type)
-		return false;
+	if (a->type > b->type)
+		return 1;
+	if (a->type < b->type)
+		return -1;
 
 	switch (a->type) {
 	case UCENTRAL_ROUTE_BLACKHOLE:
@@ -83,24 +84,32 @@ bool ucentral_router_fib_info_cmp(const struct ucentral_router_fib_info *a,
 	case UCENTRAL_ROUTE_UNREACHABLE:
 		break;
 	case UCENTRAL_ROUTE_CONNECTED:
-		if (a->connected.vid != b->connected.vid)
-			return false;
+		if (a->connected.vid > b->connected.vid)
+			return 1;
+		if (a->connected.vid < b->connected.vid)
+			return -1;
 		break;
 	case UCENTRAL_ROUTE_BROADCAST:
-		if (a->broadcast.vid != b->broadcast.vid)
-			return false;
+		if (a->broadcast.vid > b->broadcast.vid)
+			return 1;
+		if (a->broadcast.vid < b->broadcast.vid)
+			return -1;
 		break;
 	case UCENTRAL_ROUTE_NH:
-		if (a->nh.vid != b->nh.vid)
-			return false;
-		if (a->nh.gw.s_addr != b->nh.gw.s_addr)
-			return false;
+		if (a->nh.vid > b->nh.vid)
+			return 1;
+		if (a->nh.vid < b->nh.vid)
+			return -1;
+		if (a->nh.gw.s_addr > b->nh.gw.s_addr)
+			return 1;
+		if (a->nh.gw.s_addr < b->nh.gw.s_addr)
+			return -1;
 		break;
 	default:
 		break;
 	}
 
-	return true;
+	return 0;
 }
 
 static int __fib_node_key_cmp_cb(const void *a, const void *b)

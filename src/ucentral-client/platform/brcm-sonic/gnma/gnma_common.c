@@ -3884,14 +3884,14 @@ err_path_alloc:
 }
 
 
-/* sai_create_route_entry_fn              
- * sai_remove_route_entry_fn              
- * sai_set_route_entry_attribute_fn       
- * sai_get_route_entry_attribute_fn       
- *                                        
- * sai_bulk_create_route_entry_fn         
- * sai_bulk_remove_route_entry_fn         
- * sai_bulk_set_route_entry_attribute_fn  
+/* sai_create_route_entry_fn
+ * sai_remove_route_entry_fn
+ * sai_set_route_entry_attribute_fn
+ * sai_get_route_entry_attribute_fn
+ *
+ * sai_bulk_create_route_entry_fn
+ * sai_bulk_remove_route_entry_fn
+ * sai_bulk_set_route_entry_attribute_fn
  * sai_bulk_get_route_entry_attribute_fn
  * ---------------------------------------
  * SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID

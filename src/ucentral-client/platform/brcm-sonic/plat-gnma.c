@@ -3650,8 +3650,15 @@ static int config_router_apply(struct plat_cfg *cfg)
 	if (ret)
 		return ret;
 
+	if (!newr.sorted)
+		ucentral_router_fib_db_sort(&newr);
+	if (!oldr.sorted)
+		ucentral_router_fib_db_sort(&oldr);
+
 	for_router_db_diff(&newr, &oldr, ni, oi, diff) {
-		for_router_db_diff_CASE_UPD(diff) {
+		diff = router_db_diff_get(&newr, &oldr, ni, oi);
+
+		if (diff_case_upd(diff)) {
 			if (!ucentral_router_fib_info_cmp(&router_db_get(&newr, ni)->info,
 							  &router_db_get(&oldr, oi)->info))
 				continue;
@@ -3668,13 +3675,13 @@ static int config_router_apply(struct plat_cfg *cfg)
 				return -1;
 		}
 
-		for_router_db_diff_CASE_DEL(diff) {
+		if (diff_case_del(diff)) {
 			router_fib_key2gnma_prefix(&router_db_get(&oldr, oi)->key,
 						   &gpref);
 			gnma_route_remove(0, &gpref);
 		}
 
-		for_router_db_diff_CASE_ADD(diff) {
+		if (diff_case_add(diff)) {
 			router_fib_key2gnma_prefix(&router_db_get(&newr, ni)->key, &gpref);
 
 			ret = router_fib_info2gnma_attr(&router_db_get(&newr, ni)->info,
