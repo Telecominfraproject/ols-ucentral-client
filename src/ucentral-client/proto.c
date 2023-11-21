@@ -3947,6 +3947,10 @@ void device_rebootcause_send(void)
 		if (!cJSON_AddStringToObject(event, "type", "device.crash"))
 			goto err;
 		break;
+	case PLAT_REBOOT_CAUSE_UNAVAILABLE:
+		if (!cJSON_AddStringToObject(event, "type", "device.reboot-cause-unavailable"))
+			goto err;
+		break;
 	default: goto err;
 	}
 

@@ -2554,7 +2554,13 @@ __reboot_cause_buf_parse(char *buf, size_t buf_size,
 	 * In case if reboot is issued, cause will be explicitly set to reboot;
 	 * And in case of crash any other value or 'kdump issued' will be set.
 	 */
-	if (strstr(cause_str, "Unknown")) {
+	if (strstr(cause_str, "not yet available")) {
+		UC_LOG_ERR("uCentral SW failed to fetch reboot cause string");
+		cause->cause = PLAT_REBOOT_CAUSE_UNAVAILABLE;
+		strncpy(cause->desc,
+			"uCentral SW failed to fetch reboot cause string (not available)",
+			sizeof cause->desc - 1);
+	} else if (strstr(cause_str, "Unknown")) {
 		cause->cause = PLAT_REBOOT_CAUSE_POWERLOSS;
 		strncpy(cause->desc,
 			"Powerloss detected.",
