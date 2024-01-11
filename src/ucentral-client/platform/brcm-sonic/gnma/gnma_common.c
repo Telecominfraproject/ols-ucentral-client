@@ -4825,3 +4825,119 @@ int gnma_techsupport_start(char *res_path)
 
 	return 0;
 }
+
+int gnma_mac_address_list_get(size_t *list_size, struct gnma_fdb_entry *list)
+{
+	const char *gpath = "/openconfig-network-instance:network-instances/network-instance[name=default]/fdb";
+	cJSON *root, *fdb, *state, *entry_list, *entry, *field;
+	char *buf = NULL, *port, *mac;
+	gnma_fdb_entry_type_t type;
+	int vlan, ret, idx = 0;
+	size_t num_entries;
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	/*
+	{"openconfig-network-instance:fdb": {
+		"mac-table": {"entries": {"entry": [ ... ]}},
+		"state": {"dynamic-count": #, "static-count": #}}
+	}
+	*/
+	root = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!root) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	ret = GNMA_ERR_COMMON;
+	/* get number of entries */
+	fdb = cJSON_GetObjectItemCaseSensitive(root, "openconfig-network-instance:fdb");
+	state = cJSON_GetObjectItemCaseSensitive(fdb, "state");
+	field = cJSON_GetObjectItemCaseSensitive(state, "dynamic-count");
+	if (!fdb || !state || !cJSON_IsNumber(field))
+		goto err_gnmi_get_obj;
+	num_entries = field->valueint;
+	field = cJSON_GetObjectItemCaseSensitive(state, "static-count");
+	if (!cJSON_IsNumber(field))
+		goto err_gnmi_get_obj;
+	num_entries += field->valueint;
+
+	/* check that provided buffer is big enough */
+	if (*list_size < num_entries) {
+		*list_size = num_entries;
+		ret = GNMA_ERR_OVERFLOW;
+		goto err_gnmi_get_obj;
+	}
+
+	/* if fdb is empty there is nothing to do */
+	if (num_entries == 0)
+		goto err_gnmi_no_entries;
+
+	if (list == NULL)
+		goto err_gnmi_get_obj;
+
+	/* parse fdb entries */
+	entry_list = cJSON_GetObjectItemCaseSensitive(fdb, "mac-table");
+	entry_list = cJSON_GetObjectItemCaseSensitive(entry_list, "entries");
+	entry_list = cJSON_GetObjectItemCaseSensitive(entry_list, "entry");
+	if (!entry_list)
+		goto err_gnmi_get_obj;
+
+	/*
+	{"interface": {"interface-ref": {"state": {"interface": "Ethernet#"}}},
+	 "state": {"entry-type": "STATIC" | "DYNAMIC",
+		   "mac-address": "XX:XX:XX:XX:XX:XX",
+		   "vlan": #}
+	}
+	*/
+	cJSON_ArrayForEach(entry, entry_list) {
+		if (cJSON_IsInvalid(entry) || cJSON_IsNull(entry))
+			goto err_gnmi_get_obj;
+
+		state = cJSON_GetObjectItemCaseSensitive(entry, "state");
+		field = cJSON_GetObjectItemCaseSensitive(state, "mac-address");
+		if (!state || !cJSON_IsString(field) || !field->valuestring)
+			goto err_gnmi_get_obj;
+		mac = field->valuestring;
+
+		field = cJSON_GetObjectItemCaseSensitive(state, "vlan");
+		if (!cJSON_IsNumber(field))
+			goto err_gnmi_get_obj;
+		vlan = field->valueint;
+
+		field = cJSON_GetObjectItemCaseSensitive(state, "entry-type");
+		if (!cJSON_IsString(field) || !field->valuestring)
+			goto err_gnmi_get_obj;
+		type = strcmp(field->valuestring, "STATIC") == 0
+			? GNMA_FDB_ENTRY_TYPE_STATIC
+			: GNMA_FDB_ENTRY_TYPE_DYNAMIC;
+
+		field = cJSON_GetObjectItemCaseSensitive(entry, "interface");
+		field = cJSON_GetObjectItemCaseSensitive(field, "interface-ref");
+		field = cJSON_GetObjectItemCaseSensitive(field, "state");
+		field = cJSON_GetObjectItemCaseSensitive(field, "interface");
+		if (!cJSON_IsString(field) || !field->valuestring)
+			goto err_gnmi_get_obj;
+		port = field->valuestring;
+
+		strncpy(list[idx].port.name, port, sizeof(list[idx].port.name));
+		strncpy(list[idx].mac, mac, sizeof(list[idx].mac));
+		list[idx].type = type;
+		list[idx].vid = vlan;
+		idx++;
+		*list_size = idx;
+	}
+
+err_gnmi_no_entries:
+	ret = GNMA_OK;
+err_gnmi_get_obj:
+	cJSON_Delete(root);  /* only need to free root */
+err_gnmi_get:
+	return ret;
+}
