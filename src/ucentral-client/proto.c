@@ -3255,8 +3255,46 @@ static int state_fill_public_ip(cJSON *state)
 	return ret;
 }
 
+static int state_fill_mac_addr_list_data(cJSON *root,
+					 struct plat_state_info *state)
+{
+	struct plat_learned_mac_addr *learned_entry;
+	cJSON *port, *vid, *mac;
+	size_t i, num_elem;
+	char vid_key[6];
+
+	num_elem = state->learned_mac_list_size;
+
+	for (i = 0; i < num_elem; i++) {
+		learned_entry = &state->learned_mac_list[i];
+		if (!(port = cJSON_GetObjectItemCaseSensitive(root, learned_entry->port)))
+			if (!(port = cJSON_AddObjectToObject(root, learned_entry->port)))
+				goto err;
+
+		snprintf(vid_key, sizeof(vid_key), "%u", learned_entry->vid);
+		if (!(vid = cJSON_GetObjectItemCaseSensitive(port, vid_key)))
+			if (!(vid = cJSON_AddArrayToObject(port, vid_key)))
+				goto err;
+
+		if (!(mac = cJSON_CreateString(learned_entry->mac)))
+			goto err;
+		if (!cJSON_AddItemToArray(vid, mac)) {
+			/**
+			 * element created but still not attached to
+			 * anything, so we have to delete it ourselves
+			 */
+			cJSON_Delete(mac);
+			goto err;
+		}
+	}
+	return 0;
+err:
+	return -1;
+}
+
 static int state_fill(cJSON *state, struct plat_state_info *plat_state_info)
 {
+	cJSON *mac_forwarding_table;
 	cJSON *link_state;
 	cJSON *lldp_peers;
 	cJSON *interfaces;
@@ -3290,6 +3328,17 @@ static int state_fill(cJSON *state, struct plat_state_info *plat_state_info)
 		}
 		if (state_fill_lldp_peers(lldp_peers, plat_state_info)) {
 			UC_LOG_ERR("state_fill_lldp_peers failed");
+			goto err;
+		}
+	}
+
+	if (ucentral_metrics.state.enabled &&
+	    ucentral_metrics.state.clients_enabled) {
+		mac_forwarding_table = cJSON_AddObjectToObject(state, "mac-forwarding-table");
+		if (!mac_forwarding_table ||
+		    state_fill_mac_addr_list_data(mac_forwarding_table, plat_state_info)) {
+			UC_LOG_ERR("!mac_forwarding_table(%p) || state_fill_mac_addr_list_data",
+				(void *)mac_forwarding_table);
 			goto err;
 		}
 	}
