@@ -31,6 +31,7 @@ extern "C" {
 #define RADIUS_CFG_DEFAULT_PRIO (1)
 #define HEALTHCHEK_MESSAGE_MAX_COUNT (10)
 #define HEALTHCHEK_MESSAGE_MAX_LEN (100)
+#define PLATFORM_MAC_STR_SIZE (18)
 
 /*
  * TODO(vb) likely we need to parse interfaces in proto to understand
@@ -75,7 +76,7 @@ struct plat_port_lldp_peer_info {
 	/* The chassis name that our neighbour is announcing */
 	char name[64];
 	/* The chassis MAC that our neighbour is announcing */
-	char mac[18];
+	char mac[PLATFORM_MAC_STR_SIZE];
 	/* The chassis description that our neighbour is announcing */
 	char description[512];
 	/* The management IPs that our neighbour is announcing */
@@ -113,7 +114,7 @@ struct plat_poe_port_state {
 
 struct plat_ieee8021x_authenticated_client_info {
 	char auth_method[32];
-	char mac_addr[18];
+	char mac_addr[PLATFORM_MAC_STR_SIZE];
 	size_t session_time;
 	char username[64];
 	char vlan_type[32];
@@ -387,6 +388,11 @@ struct plat_cfg {
 	bool ieee8021x_is_auth_ctrl_enabled;
 };
 
+struct plat_learned_mac_addr {
+	char port[PORT_MAX_NAME_LEN];
+	int vid;
+	char mac[PLATFORM_MAC_STR_SIZE];
+};
 
 typedef void (*plat_alarm_cb)(struct plat_alarm *);
 
@@ -518,6 +524,8 @@ struct plat_state_info {
 
 	struct plat_port_info *port_info;
 	int port_info_count;
+	struct plat_learned_mac_addr *learned_mac_list;
+	size_t learned_mac_list_size;
 
 	struct plat_system_info system_info;
 };

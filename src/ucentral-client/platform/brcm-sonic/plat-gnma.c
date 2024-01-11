@@ -2887,6 +2887,7 @@ int plat_portl2_rif_set(uint16_t fp_p_id, struct plat_ipv4 *ipv4)
 
 static void plat_state_deinit(struct plat_state_info *state)
 {
+	free(state->learned_mac_list);
 	free(state->port_info);
 	*state = (struct plat_state_info){ 0 };
 }
@@ -3022,6 +3023,57 @@ static int plat_system_info_get(struct plat_system_info *info)
 	return 0;
 }
 
+static int
+plat_learned_mac_addrs_get(struct plat_learned_mac_addr **mac_list,
+			   size_t *mac_list_size)
+{
+	struct plat_learned_mac_addr *m_list;
+	struct gnma_fdb_entry *list;
+	size_t list_size = 0, i, k;
+	int ret;
+
+	ret = gnma_mac_address_list_get(&list_size, NULL);
+	if (ret && ret != GNMA_ERR_OVERFLOW)
+		return ret;
+
+	if (list_size == 0) {
+		*mac_list = NULL;
+		*mac_list_size = 0;
+		return 0;
+	}
+
+	if (!(list = calloc(list_size, sizeof(*list)))) {
+		UC_LOG_ERR("ENOMEM");
+		return -1;
+	}
+
+	/** TODO: number of entries might change between calls and this will fail */
+	ret = gnma_mac_address_list_get(&list_size, list);
+	if (ret)
+		goto err;
+
+	if (!(m_list = calloc(list_size, sizeof(*m_list)))) {
+		UC_LOG_ERR("ENOMEM");
+		ret = -1;
+		goto err;
+	}
+
+	for (i = 0, k = 0; i < list_size; i++) {
+		if (list[i].type != GNMA_FDB_ENTRY_TYPE_DYNAMIC)
+			continue;
+		strncpy(m_list[k].port, list[i].port.name, sizeof(m_list[k].port));
+		strncpy(m_list[k].mac, list[i].mac, sizeof(m_list[k].mac));
+		m_list[k].vid = list[i].vid;
+		k++;
+	}
+
+	*mac_list = m_list;
+	*mac_list_size = k;
+err:
+	free(list);
+	return ret;
+}
+
 static int plat_state_get(struct plat_state_info *state)
 {
 	size_t i;
@@ -3038,6 +3090,10 @@ static int plat_state_get(struct plat_state_info *state)
 		return -1;
 
 	if (plat_port_info_get(&state->port_info, &state->port_info_count))
+		return -1;
+
+	if (plat_learned_mac_addrs_get(&state->learned_mac_list,
+				       &state->learned_mac_list_size))
 		return -1;
 
 	return 0;
