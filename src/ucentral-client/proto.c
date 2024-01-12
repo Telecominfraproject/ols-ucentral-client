@@ -1628,6 +1628,7 @@ static int cfg_metrics_parse(cJSON *metrics, struct plat_cfg *cfg)
 	 */
 	cJSON *statistics_types;
 	cJSON *statistics_type;
+	cJSON *max_mac_count;
 	cJSON *statistics;
 	cJSON *interval;
 	cJSON *health;
@@ -1637,6 +1638,7 @@ static int cfg_metrics_parse(cJSON *metrics, struct plat_cfg *cfg)
 	statistics = cJSON_GetObjectItemCaseSensitive(metrics, "statistics");
 	interval = cJSON_GetObjectItemCaseSensitive(statistics, "interval");
 	statistics_types = cJSON_GetObjectItemCaseSensitive(statistics, "types");
+	max_mac_count = cJSON_GetObjectItemCaseSensitive(statistics, "wired-clients-max-num");  /* optional */
 	if (!statistics || !interval || !statistics_types)
 		goto skip_statistics_parse;
 
@@ -1656,6 +1658,11 @@ static int cfg_metrics_parse(cJSON *metrics, struct plat_cfg *cfg)
 	/* Interval >0 == enabled. */
 	cfg->metrics.state.interval = (size_t)cJSON_GetNumberValue(interval);
 	cfg->metrics.state.enabled = (bool)cJSON_GetNumberValue(interval);
+
+	if (cJSON_IsNumber(max_mac_count))  /** TODO: validate number */
+		cfg->metrics.state.max_mac_count = (unsigned)cJSON_GetNumberValue(max_mac_count);
+	else
+		cfg->metrics.state.max_mac_count = METRICS_WIRED_CLIENTS_MAX_NUM;
 
 	if (cfg->metrics.state.enabled && !cfg->metrics.state.lldp_enabled &&
 	    cfg->metrics.state.clients_enabled) {
@@ -3262,8 +3269,15 @@ static int state_fill_mac_addr_list_data(cJSON *root,
 	cJSON *port, *vid, *mac;
 	size_t i, num_elem;
 	char vid_key[6];
+	bool overflow;
 
-	num_elem = state->learned_mac_list_size;
+	overflow = ((state->learned_mac_list_size > ucentral_metrics.state.max_mac_count) ||
+		    (ucentral_metrics.state.max_mac_count == 0));
+	num_elem = overflow ? ucentral_metrics.state.max_mac_count
+			    : state->learned_mac_list_size;
+
+	if (!cJSON_AddBoolToObject(root, "overflow", overflow))
+		goto err;
 
 	for (i = 0; i < num_elem; i++) {
 		learned_entry = &state->learned_mac_list[i];

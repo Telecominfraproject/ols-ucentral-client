@@ -4059,6 +4059,9 @@ int plat_metrics_restore(struct plat_metrics_cfg *cfg)
 	if (len && cfg->state.public_ip_lookup[len - 1] == '\n')
 		cfg->state.public_ip_lookup[len - 1] = 0;
 
+	/** FIXME: this should be read from cfg_file */
+	cfg->state.max_mac_count = METRICS_WIRED_CLIENTS_MAX_NUM;
+
 	fclose(cfg_file);
 	return 0;
 }

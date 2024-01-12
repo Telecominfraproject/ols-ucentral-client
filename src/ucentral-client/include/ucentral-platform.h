@@ -32,6 +32,7 @@ extern "C" {
 #define HEALTHCHEK_MESSAGE_MAX_COUNT (10)
 #define HEALTHCHEK_MESSAGE_MAX_LEN (100)
 #define PLATFORM_MAC_STR_SIZE (18)
+#define METRICS_WIRED_CLIENTS_MAX_NUM (2000)
 
 /*
  * TODO(vb) likely we need to parse interfaces in proto to understand
@@ -323,6 +324,7 @@ struct plat_metrics_cfg {
 		int lldp_enabled;
 		int clients_enabled;
 		size_t interval;
+		unsigned max_mac_count;
 		/* IE GET max length. Should be enoug. */
 		char public_ip_lookup[2048];
 	} state;
