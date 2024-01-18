@@ -4801,6 +4801,32 @@ err_path_alloc:
 	return ret;
 }
 
+int gnma_system_password_set(char *password)
+{
+	char *gpath = "/openconfig-system:system/aaa/authentication/users/user[username=admin]/config/password";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (!cJSON_AddStringToObject(root, "role", "admin"))
+		goto err_json;
+
+	if (!cJSON_AddStringToObject(root, "password", password))
+		goto err_json;
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
 struct gnma_change *gnma_change_create(void)
 {
 	return (struct gnma_change *)gnmi_setrq_create();

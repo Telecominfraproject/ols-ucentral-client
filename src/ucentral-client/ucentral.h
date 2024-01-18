@@ -67,7 +67,7 @@ void connect_send(void);
 void ping_send(void);
 void health_send(struct plat_health_info *);
 void state_send(struct plat_state_info *plat_state_info);
-void deviceupdate_send(void);
+void deviceupdate_send(const char *updated_pass);
 void device_rebootcause_send(void);
 void telemetry_send(struct plat_state_info *plat_state_info);
 void log_send(const char *message, int severity);

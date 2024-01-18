@@ -1690,24 +1690,29 @@ static int cfg_unit_parse(cJSON *unit, struct plat_cfg *cfg)
 {
 	cJSON *usage_threshold;
 	cJSON *power_mgmt;
+	cJSON *password;
 	cJSON *poe;
 
-	poe = cJSON_GetObjectItemCaseSensitive(unit, "poe");
-	if (!poe)
-		return 0;
+	if ((poe = cJSON_GetObjectItemCaseSensitive(unit, "poe"))) {
+		power_mgmt = cJSON_GetObjectItemCaseSensitive(poe, "power-management");
+		usage_threshold = cJSON_GetObjectItemCaseSensitive(poe, "usage-threshold");
 
-	power_mgmt = cJSON_GetObjectItemCaseSensitive(poe, "power-management");
-	usage_threshold = cJSON_GetObjectItemCaseSensitive(poe, "usage-threshold");
+		if (cJSON_GetStringValue(power_mgmt)) {
+			strcpy(cfg->unit.poe.power_mgmt, cJSON_GetStringValue(power_mgmt));
+			cfg->unit.poe.is_power_mgmt_set = true;
+		}
 
-	if (cJSON_GetStringValue(power_mgmt)) {
-		strcpy(cfg->unit.poe.power_mgmt, cJSON_GetStringValue(power_mgmt));
-		cfg->unit.poe.is_power_mgmt_set = true;
+		if (cJSON_IsNumber(usage_threshold)) {
+			cfg->unit.poe.usage_threshold =
+				(uint8_t)cJSON_GetNumberValue(usage_threshold);
+			cfg->unit.poe.is_usage_threshold_set = true;
+		}
 	}
 
-	if (cJSON_IsNumber(usage_threshold)) {
-		cfg->unit.poe.usage_threshold =
-			(uint8_t)cJSON_GetNumberValue(usage_threshold);
-		cfg->unit.poe.is_usage_threshold_set = true;
+	if ((password = cJSON_GetObjectItemCaseSensitive(unit, "system-password"))) {
+		strncpy(cfg->unit.system.password, password->valuestring,
+			sizeof(cfg->unit.system.password));
+		cfg->unit.system.password_changed = true;
 	}
 
 	return 0;
@@ -1941,6 +1946,9 @@ configure_handle(cJSON **rpc)
 		plat_config_save(uuid_active);
 		plat_metrics_save(&plat_cfg->metrics);
 	}
+
+	if (plat_cfg->unit.system.password_changed)
+		deviceupdate_send(plat_cfg->unit.system.password);
 
 	/* Apply metrics config. We got parsed cfg->metrics and now we need
 	 * to copy all data to ucentral_metrics struct to read from
@@ -3416,45 +3424,17 @@ err:
 	proto_destroy_blob(&blob);
 }
 
-void deviceupdate_send(void)
+void deviceupdate_send(const char *updated_pass)
 {
-	char *passwd_file_path = "/var/lib/ucentral/admin-cred.buf";
 	struct blob blob = {0};
-	ssize_t passwd_size;
-	int passwd_fd = -1;
-	char passwd[64];
 	cJSON *params;
 
-	if (access(passwd_file_path, F_OK))
+	if (!updated_pass)
 		return;
-
-	passwd_fd = open(passwd_file_path, O_RDONLY);
-	if (passwd_fd < 0) {
-		UC_LOG_ERR("Failed to open %s", passwd_file_path);
-		goto out;
-	}
-
-	memset(&passwd, 0, sizeof(passwd));
-	passwd_size = read(passwd_fd, &passwd, sizeof(passwd));
-	if (passwd_size == sizeof(passwd)) {
-		UC_LOG_ERR("%s is too big", passwd_file_path);
-		goto out;
-	}
-
-	if (!passwd_size)
-		goto out;
-
-	/*  remove password from buffer */
-	close(passwd_fd);
-	passwd_fd = -1;
-	if (remove(passwd_file_path)) {
-		UC_LOG_ERR("Failed to remove %s", passwd_file_path);
-		goto out;
-	}
 
 	blob.obj = proto_new_blob("deviceupdate");
 	if (!blob.obj)
-		goto out;
+		return;
 
 	params = cJSON_GetObjectItemCaseSensitive(blob.obj, "params");
 	if (!params)
@@ -3463,18 +3443,14 @@ void deviceupdate_send(void)
 	if (!cJSON_AddStringToObject(params, "serial", client.serial))
 		goto out;
 
-	if (!cJSON_AddStringToObject(params, "currentPassword", passwd))
+	if (!cJSON_AddStringToObject(params, "currentPassword", updated_pass))
 		goto out;
 
 	UC_LOG_DBG("xmit deviceupdate \n");
 
 	proto_send_blob(&blob);
 out:
-	if (blob.obj)
-		proto_destroy_blob(&blob);
-
-	if (passwd_fd > 0)
-		close(passwd_fd);
+	proto_destroy_blob(&blob);
 }
 
 void telemetry_send(struct plat_state_info *plat_state_info)

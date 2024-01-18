@@ -337,8 +337,14 @@ struct plat_unit_poe_cfg {
 	bool is_usage_threshold_set;
 };
 
+struct plat_unit_system_cfg {
+	char password[64];
+	bool password_changed;
+};
+
 struct plat_unit {
 	struct plat_unit_poe_cfg poe;
+	struct plat_unit_system_cfg system;
 };
 
 enum plat_stp_mode {

@@ -418,6 +418,7 @@ int gnma_radius_host_add(struct gnma_radius_host_key *key, const char *passkey,
 			 uint16_t auth_port, uint8_t prio);
 int gnma_radius_host_remove(struct gnma_radius_host_key *key);
 int gnma_mac_address_list_get(size_t *list_size, struct gnma_fdb_entry *list);
+int gnma_system_password_set(char *password);
 
 struct gnma_change *gnma_change_create(void);
 void gnma_change_destory(struct gnma_change *);

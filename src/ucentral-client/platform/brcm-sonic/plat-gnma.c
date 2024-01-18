@@ -3921,6 +3921,19 @@ static int config_ieee8021x_apply(struct plat_cfg *cfg)
 	return 0;
 }
 
+static int config_system_password_apply(struct plat_cfg *cfg)
+{
+	int ret;
+	if (cfg->unit.system.password_changed) {
+		UC_LOG_DBG("Updating system password\n");
+		if ((ret = gnma_system_password_set(cfg->unit.system.password))) {
+			UC_LOG_ERR("Failed updating system password\n");
+			return ret;
+		}
+	}
+	return 0;
+}
+
 int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 {
 	int ret;
@@ -3975,6 +3988,11 @@ int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 		CFG_LOG_CRIT(
 			"AAA feature is not initialized, skipping configuration");
 	}
+
+	/* there is no rollback for password, so this should be run last */
+	ret = config_system_password_apply(cfg);
+	if (ret)
+		return -1;
 
 	plat_syslog_set(cfg->log_cfg, cfg->log_cfg_cnt);
 
