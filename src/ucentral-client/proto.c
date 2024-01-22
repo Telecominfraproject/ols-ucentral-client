@@ -2990,10 +2990,81 @@ err:
 	return -1;
 }
 
+static int state_fill_transceiver_info(cJSON *root,
+				       struct plat_port_transceiver_info *info)
+{
+	char *form_factor[] = {
+		[UCENTRAL_SFP_FORM_FACTOR_NA] = "",
+		[UCENTRAL_SFP_FORM_FACTOR_SFP] = "SFP",
+		[UCENTRAL_SFP_FORM_FACTOR_SFP_PLUS] = "SFP+",
+		[UCENTRAL_SFP_FORM_FACTOR_SFP_28] = "SFP28",
+		[UCENTRAL_SFP_FORM_FACTOR_SFP_DD] = "SFP-DD",
+		[UCENTRAL_SFP_FORM_FACTOR_QSFP] = "QSFP",
+		[UCENTRAL_SFP_FORM_FACTOR_QSFP_PLUS] = "QSFP+",
+		[UCENTRAL_SFP_FORM_FACTOR_QSFP_28] = "QSFP28",
+		[UCENTRAL_SFP_FORM_FACTOR_QSFP_DD] = "QSFP-DD"
+	};
+	char *link_mode[] = {
+		[UCENTRAL_SFP_LINK_MODE_NA] = "",
+		[UCENTRAL_SFP_LINK_MODE_1000_X] = "1G",
+		[UCENTRAL_SFP_LINK_MODE_2500_X] = "2.5G",
+		[UCENTRAL_SFP_LINK_MODE_4000_SR] = "4G SR",
+		[UCENTRAL_SFP_LINK_MODE_10G_SR] = "10G SR",
+		[UCENTRAL_SFP_LINK_MODE_25G_SR] = "25G SR",
+		[UCENTRAL_SFP_LINK_MODE_40G_SR] = "40G SR",
+		[UCENTRAL_SFP_LINK_MODE_50G_SR] = "50G SR",
+		[UCENTRAL_SFP_LINK_MODE_100G_SR] = "100G SR"
+	};
+	cJSON *supp_modes, *mode;
+	size_t i;
+
+	if (!cJSON_AddStringToObject(root, "vendor-name",
+				     info->vendor_name))
+		goto err;
+	if (!cJSON_AddStringToObject(root, "part-number",
+				     info->part_number))
+		goto err;
+	if (!cJSON_AddStringToObject(root, "serial-number",
+				     info->serial_number))
+		goto err;
+	if (!cJSON_AddStringToObject(root, "revision",
+				     info->revision))
+		goto err;
+	if (!cJSON_AddNumberToObject(root, "temperature",
+				     info->temperature))
+		goto err;
+	if (!cJSON_AddNumberToObject(root, "tx-optical-power",
+				     info->tx_optical_power))
+		goto err;
+	if (!cJSON_AddNumberToObject(root, "rx-optical-power",
+				     info->rx_optical_power))
+		goto err;
+	if (!cJSON_AddNumberToObject(root, "max-module-power",
+				     info->max_module_power))
+		goto err;
+	if (!cJSON_AddStringToObject(root, "form-factor",
+				     form_factor[info->form_factor]))
+		goto err;
+	if (!(supp_modes = cJSON_AddArrayToObject(root, "supported-link-modes")))
+		goto err;
+	for (i = 0; i < info->num_supported_link_modes; i++) {
+		if (!(mode = cJSON_CreateString(link_mode[info->supported_link_modes[i]])))
+			goto err;
+		if (!cJSON_AddItemToArray(supp_modes, mode)) {
+			cJSON_Delete(mode);
+			goto err;
+		}
+	}
+	return 0;
+err:
+	return -1;
+}
+
 static int state_fill_interfaces_data(cJSON *interfaces,
 				      struct plat_state_info *state)
 {
 	cJSON *dns_servers;
+	cJSON *transceiver;
 	cJSON *interface;
 	cJSON *counters;
 	cJSON *clients;
@@ -3030,6 +3101,16 @@ static int state_fill_interfaces_data(cJSON *interfaces,
 		ipv4 = cJSON_AddObjectToObject(interface, "ipv4");
 		if (!ipv4)
 			goto err;
+
+		if (state->port_info[i].has_transceiver_info) {
+			transceiver = cJSON_AddObjectToObject(interface, "transceiver-info");
+			if (!transceiver)
+				goto err;
+			ret = state_fill_transceiver_info(transceiver,
+							  &state->port_info[i].transceiver_info);
+			if (ret)
+				goto err;
+		}
 
 		ret = state_fill_interface_clients(clients,
 						   &state->port_info[i]);

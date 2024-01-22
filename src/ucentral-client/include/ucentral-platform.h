@@ -557,15 +557,57 @@ enum {
 	PLAT_REBOOT_CAUSE_UNAVAILABLE,
 };
 
+enum sfp_form_factor {
+	UCENTRAL_SFP_FORM_FACTOR_NA = 0,
+
+	UCENTRAL_SFP_FORM_FACTOR_SFP,
+	UCENTRAL_SFP_FORM_FACTOR_SFP_PLUS,
+	UCENTRAL_SFP_FORM_FACTOR_SFP_28,
+	UCENTRAL_SFP_FORM_FACTOR_SFP_DD,
+	UCENTRAL_SFP_FORM_FACTOR_QSFP,
+	UCENTRAL_SFP_FORM_FACTOR_QSFP_PLUS,
+	UCENTRAL_SFP_FORM_FACTOR_QSFP_28,
+	UCENTRAL_SFP_FORM_FACTOR_QSFP_DD
+};
+
+enum sfp_link_mode {
+	UCENTRAL_SFP_LINK_MODE_NA = 0,
+
+	UCENTRAL_SFP_LINK_MODE_1000_X,
+	UCENTRAL_SFP_LINK_MODE_2500_X,
+	UCENTRAL_SFP_LINK_MODE_4000_SR,
+	UCENTRAL_SFP_LINK_MODE_10G_SR,
+	UCENTRAL_SFP_LINK_MODE_25G_SR,
+	UCENTRAL_SFP_LINK_MODE_40G_SR,
+	UCENTRAL_SFP_LINK_MODE_50G_SR,
+	UCENTRAL_SFP_LINK_MODE_100G_SR,
+};
+
+struct plat_port_transceiver_info {
+	char vendor_name[64];
+	char part_number[64];
+	char serial_number[64];
+	char revision[64];
+	enum sfp_form_factor form_factor;
+	enum sfp_link_mode *supported_link_modes;
+	size_t num_supported_link_modes;
+	float temperature;
+	float tx_optical_power;
+	float rx_optical_power;
+	float max_module_power;
+};
+
 struct plat_port_info {
 	struct plat_port_counters stats;
 	struct plat_port_lldp_peer_info lldp_peer_info;
 	struct plat_ieee8021x_port_info ieee8021x_info;
+	struct plat_port_transceiver_info transceiver_info;
 	uint32_t uptime;
 	uint32_t speed;
 	uint8_t carrier_up;
 	uint8_t duplex;
 	uint8_t has_lldp_peer_info;
+	uint8_t has_transceiver_info;
 	char name[PORT_MAX_NAME_LEN];
 };
 

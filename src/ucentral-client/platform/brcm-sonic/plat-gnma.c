@@ -1894,6 +1894,15 @@ err:
 	return ret;
 }
 
+int plat_port_transceiver_info_get(uint16_t port_id,
+				   struct plat_port_transceiver_info *info)
+{
+	/* TODO */
+	(void)((port_id));
+	(void)((info));
+	return -1;
+}
+
 static int
 __poe_port_state_buf_parse(char *buf, size_t buf_size,
 			   struct plat_poe_port_state *port_state)
@@ -2997,6 +3006,13 @@ int plat_portl2_rif_set(uint16_t fp_p_id, struct plat_ipv4 *ipv4)
 
 static void plat_state_deinit(struct plat_state_info *state)
 {
+	int i;
+	for (i = 0; i < state->port_info_count; i++) {
+		if (state->port_info[i].has_transceiver_info &&
+		    state->port_info[i].transceiver_info.num_supported_link_modes) {
+			free(state->port_info[i].transceiver_info.supported_link_modes);
+		}
+	}
 	free(state->learned_mac_list);
 	free(state->port_info);
 	*state = (struct plat_state_info){ 0 };
@@ -3062,6 +3078,11 @@ static int plat_port_info_get(struct plat_port_info **port_info, int *count)
 		if (!plat_port_lldp_peer_info_get(pid,
 						  &pinfo[i].lldp_peer_info)) {
 			pinfo[i].has_lldp_peer_info = 1;
+		}
+
+		if (!plat_port_transceiver_info_get(pid,
+						    &pinfo[i].transceiver_info)) {
+			pinfo[i].has_transceiver_info = 1;
 		}
 
 		plat_ieee8021x_system_auth_clients_get(pid,
