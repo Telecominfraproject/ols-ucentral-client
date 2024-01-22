@@ -31,6 +31,8 @@ extern "C" {
 #define RADIUS_CFG_DEFAULT_PRIO (1)
 #define HEALTHCHEK_MESSAGE_MAX_COUNT (10)
 #define HEALTHCHEK_MESSAGE_MAX_LEN (100)
+#define PLATFORM_MAC_STR_SIZE (18)
+#define METRICS_WIRED_CLIENTS_MAX_NUM (2000)
 
 /*
  * TODO(vb) likely we need to parse interfaces in proto to understand
@@ -75,7 +77,7 @@ struct plat_port_lldp_peer_info {
 	/* The chassis name that our neighbour is announcing */
 	char name[64];
 	/* The chassis MAC that our neighbour is announcing */
-	char mac[18];
+	char mac[PLATFORM_MAC_STR_SIZE];
 	/* The chassis description that our neighbour is announcing */
 	char description[512];
 	/* The management IPs that our neighbour is announcing */
@@ -113,7 +115,7 @@ struct plat_poe_port_state {
 
 struct plat_ieee8021x_authenticated_client_info {
 	char auth_method[32];
-	char mac_addr[18];
+	char mac_addr[PLATFORM_MAC_STR_SIZE];
 	size_t session_time;
 	char username[64];
 	char vlan_type[32];
@@ -322,6 +324,7 @@ struct plat_metrics_cfg {
 		int lldp_enabled;
 		int clients_enabled;
 		size_t interval;
+		unsigned max_mac_count;
 		/* IE GET max length. Should be enoug. */
 		char public_ip_lookup[2048];
 	} state;
@@ -334,8 +337,14 @@ struct plat_unit_poe_cfg {
 	bool is_usage_threshold_set;
 };
 
+struct plat_unit_system_cfg {
+	char password[64];
+	bool password_changed;
+};
+
 struct plat_unit {
 	struct plat_unit_poe_cfg poe;
+	struct plat_unit_system_cfg system;
 };
 
 enum plat_stp_mode {
@@ -387,6 +396,11 @@ struct plat_cfg {
 	bool ieee8021x_is_auth_ctrl_enabled;
 };
 
+struct plat_learned_mac_addr {
+	char port[PORT_MAX_NAME_LEN];
+	int vid;
+	char mac[PLATFORM_MAC_STR_SIZE];
+};
 
 typedef void (*plat_alarm_cb)(struct plat_alarm *);
 
@@ -486,6 +500,7 @@ enum {
 	PLAT_REBOOT_CAUSE_REBOOT_CMD,
 	PLAT_REBOOT_CAUSE_POWERLOSS,
 	PLAT_REBOOT_CAUSE_CRASH,
+	PLAT_REBOOT_CAUSE_UNAVAILABLE,
 };
 
 struct plat_port_info {
@@ -517,6 +532,8 @@ struct plat_state_info {
 
 	struct plat_port_info *port_info;
 	int port_info_count;
+	struct plat_learned_mac_addr *learned_mac_list;
+	size_t learned_mac_list_size;
 
 	struct plat_system_info system_info;
 };
@@ -602,6 +619,7 @@ int plat_run_script(struct plat_run_script *);
 int plat_port_list_get(uint16_t list_size, struct plat_ports_list *ports);
 int plat_port_num_get(uint16_t *num_of_active_ports);
 int plat_running_img_name_get(char *str, size_t str_max_len);
+int plat_revision_get(char *str, size_t str_max_len);
 int
 plat_reboot_cause_get(struct plat_reboot_cause *cause);
 

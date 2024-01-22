@@ -7,6 +7,7 @@
 #define GNMA_RADIUS_CFG_HOSTNAME_STR_MAX_LEN (64)
 #define GNMA_RADIUS_CFG_PASSKEY_STR_MAX_LEN (64)
 
+#define GNMA_OK 0
 #define GNMA_ERR_COMMON -1
 #define GNMA_ERR_OVERFLOW -2
 
@@ -256,6 +257,18 @@ struct gnma_vlan_member_bmap {
 	} vlan[GNMA_MAX_VLANS];
 };
 
+typedef enum _gnma_fdb_entry_type_t {
+	GNMA_FDB_ENTRY_TYPE_STATIC,
+	GNMA_FDB_ENTRY_TYPE_DYNAMIC,
+} gnma_fdb_entry_type_t;
+
+struct gnma_fdb_entry {
+	struct gnma_port_key port;
+	gnma_fdb_entry_type_t type;
+	int vid;
+	char mac[18];
+};
+
 int gnma_switch_create(/* TODO id */ /* TODO: attr (adr, login, psw) */);
 int gnma_port_admin_state_set(struct gnma_port_key *port_key, bool up);
 int gnma_port_speed_set(struct gnma_port_key *port_key, const char *speed);
@@ -404,6 +417,8 @@ int gnma_radius_hosts_list_get(size_t *list_size,
 int gnma_radius_host_add(struct gnma_radius_host_key *key, const char *passkey,
 			 uint16_t auth_port, uint8_t prio);
 int gnma_radius_host_remove(struct gnma_radius_host_key *key);
+int gnma_mac_address_list_get(size_t *list_size, struct gnma_fdb_entry *list);
+int gnma_system_password_set(char *password);
 
 struct gnma_change *gnma_change_create(void);
 void gnma_change_destory(struct gnma_change *);

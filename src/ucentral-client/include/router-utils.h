@@ -69,26 +69,26 @@ int ucentral_router_fib_db_append(struct ucentral_router *r,
 				  struct ucentral_router_fib_node *n);
 int ucentral_router_fib_key_cmp(const struct ucentral_router_fib_key *a,
 				const struct ucentral_router_fib_key *b);
-bool ucentral_router_fib_info_cmp(const struct ucentral_router_fib_info *a,
-				  const struct ucentral_router_fib_info *b);
+int ucentral_router_fib_info_cmp(const struct ucentral_router_fib_info *a,
+				 const struct ucentral_router_fib_info *b);
 
 #define router_db_get(R, I) (I < (R)->len ? &(R)->arr[(I)] : NULL)
 
-#define for_router_db_diff_CASE_UPD(DIFF) if (!(DIFF))
-#define for_router_db_diff_CASE_DEL(DIFF) if ((DIFF) > 0)
-#define for_router_db_diff_CASE_ADD(DIFF) if ((DIFF) < 0)
+#define diff_case_upd(DIFF) (!(DIFF))
+#define diff_case_del(DIFF) ((DIFF) > 0)
+#define diff_case_add(DIFF) ((DIFF) < 0)
+#define router_db_diff_get(NEW, OLD, INEW, IOLD) \
+	(IOLD) == (OLD)->len \
+		? -1 \
+		: (INEW) == (NEW)->len \
+			? 1 \
+			: ucentral_router_fib_key_cmp(&(NEW)->arr[(INEW)].key, &(OLD)->arr[(IOLD)].key)
 #define for_router_db_diff(NEW, OLD, INEW, IOLD, DIFF) \
-	for ((INEW) = 0, (IOLD) = 0, (NEW)->sorted ? 0 : ucentral_router_fib_db_sort((NEW)), (OLD)->sorted ? 0 : ucentral_router_fib_db_sort((OLD)); \
-		((IOLD) != (OLD)->len || (INEW) != (NEW)->len) && \
-		(( \
-		  (DIFF) = (IOLD) == (OLD)->len ? -1 : (INEW) == (NEW)->len ? 1 : ucentral_router_fib_key_cmp(&(NEW)->arr[(INEW)].key, &(OLD)->arr[(IOLD)].key) \
-		  ) || 1); \
-		  (DIFF) == 0 ? ++(INEW) && ++(IOLD) : 0, (DIFF) > 0 ? ++(IOLD) : 0, (DIFF) < 0 ? ++(INEW) : 0\
+	for ((INEW) = 0, (IOLD) = 0, (DIFF) = 0; \
+	\
+	     ((IOLD) != (OLD)->len || (INEW) != (NEW)->len); \
+	\
+	     (DIFF) == 0 ? ++(INEW) && ++(IOLD) : 0, \
+	     (DIFF) > 0 ? ++(IOLD) : 0, \
+	     (DIFF) < 0 ? ++(INEW) : 0 \
 	)
-
-/*
- * 		((DIFF) == 0 && ++(INEW) && ++(IOLD)) || \
- * 		((DIFF) > 0 && ++(IOLD)) || \
- * 		((DIFF) < 0 && ++(INEW)) \
- */
-

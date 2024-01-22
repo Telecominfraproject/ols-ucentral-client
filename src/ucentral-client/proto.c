@@ -1628,6 +1628,7 @@ static int cfg_metrics_parse(cJSON *metrics, struct plat_cfg *cfg)
 	 */
 	cJSON *statistics_types;
 	cJSON *statistics_type;
+	cJSON *max_mac_count;
 	cJSON *statistics;
 	cJSON *interval;
 	cJSON *health;
@@ -1637,6 +1638,7 @@ static int cfg_metrics_parse(cJSON *metrics, struct plat_cfg *cfg)
 	statistics = cJSON_GetObjectItemCaseSensitive(metrics, "statistics");
 	interval = cJSON_GetObjectItemCaseSensitive(statistics, "interval");
 	statistics_types = cJSON_GetObjectItemCaseSensitive(statistics, "types");
+	max_mac_count = cJSON_GetObjectItemCaseSensitive(statistics, "wired-clients-max-num");  /* optional */
 	if (!statistics || !interval || !statistics_types)
 		goto skip_statistics_parse;
 
@@ -1656,6 +1658,11 @@ static int cfg_metrics_parse(cJSON *metrics, struct plat_cfg *cfg)
 	/* Interval >0 == enabled. */
 	cfg->metrics.state.interval = (size_t)cJSON_GetNumberValue(interval);
 	cfg->metrics.state.enabled = (bool)cJSON_GetNumberValue(interval);
+
+	if (cJSON_IsNumber(max_mac_count))  /** TODO: validate number */
+		cfg->metrics.state.max_mac_count = (unsigned)cJSON_GetNumberValue(max_mac_count);
+	else
+		cfg->metrics.state.max_mac_count = METRICS_WIRED_CLIENTS_MAX_NUM;
 
 	if (cfg->metrics.state.enabled && !cfg->metrics.state.lldp_enabled &&
 	    cfg->metrics.state.clients_enabled) {
@@ -1683,24 +1690,29 @@ static int cfg_unit_parse(cJSON *unit, struct plat_cfg *cfg)
 {
 	cJSON *usage_threshold;
 	cJSON *power_mgmt;
+	cJSON *password;
 	cJSON *poe;
 
-	poe = cJSON_GetObjectItemCaseSensitive(unit, "poe");
-	if (!poe)
-		return 0;
+	if ((poe = cJSON_GetObjectItemCaseSensitive(unit, "poe"))) {
+		power_mgmt = cJSON_GetObjectItemCaseSensitive(poe, "power-management");
+		usage_threshold = cJSON_GetObjectItemCaseSensitive(poe, "usage-threshold");
 
-	power_mgmt = cJSON_GetObjectItemCaseSensitive(poe, "power-management");
-	usage_threshold = cJSON_GetObjectItemCaseSensitive(poe, "usage-threshold");
+		if (cJSON_GetStringValue(power_mgmt)) {
+			strcpy(cfg->unit.poe.power_mgmt, cJSON_GetStringValue(power_mgmt));
+			cfg->unit.poe.is_power_mgmt_set = true;
+		}
 
-	if (cJSON_GetStringValue(power_mgmt)) {
-		strcpy(cfg->unit.poe.power_mgmt, cJSON_GetStringValue(power_mgmt));
-		cfg->unit.poe.is_power_mgmt_set = true;
+		if (cJSON_IsNumber(usage_threshold)) {
+			cfg->unit.poe.usage_threshold =
+				(uint8_t)cJSON_GetNumberValue(usage_threshold);
+			cfg->unit.poe.is_usage_threshold_set = true;
+		}
 	}
 
-	if (cJSON_IsNumber(usage_threshold)) {
-		cfg->unit.poe.usage_threshold =
-			(uint8_t)cJSON_GetNumberValue(usage_threshold);
-		cfg->unit.poe.is_usage_threshold_set = true;
+	if ((password = cJSON_GetObjectItemCaseSensitive(unit, "system-password"))) {
+		strncpy(cfg->unit.system.password, password->valuestring,
+			sizeof(cfg->unit.system.password));
+		cfg->unit.system.password_changed = true;
 	}
 
 	return 0;
@@ -1934,6 +1946,9 @@ configure_handle(cJSON **rpc)
 		plat_config_save(uuid_active);
 		plat_metrics_save(&plat_cfg->metrics);
 	}
+
+	if (plat_cfg->unit.system.password_changed)
+		deviceupdate_send(plat_cfg->unit.system.password);
 
 	/* Apply metrics config. We got parsed cfg->metrics and now we need
 	 * to copy all data to ucentral_metrics struct to read from
@@ -3255,8 +3270,53 @@ static int state_fill_public_ip(cJSON *state)
 	return ret;
 }
 
+static int state_fill_mac_addr_list_data(cJSON *root,
+					 struct plat_state_info *state)
+{
+	struct plat_learned_mac_addr *learned_entry;
+	cJSON *port, *vid, *mac;
+	size_t i, num_elem;
+	char vid_key[6];
+	bool overflow;
+
+	overflow = ((state->learned_mac_list_size > ucentral_metrics.state.max_mac_count) ||
+		    (ucentral_metrics.state.max_mac_count == 0));
+	num_elem = overflow ? ucentral_metrics.state.max_mac_count
+			    : state->learned_mac_list_size;
+
+	if (!cJSON_AddBoolToObject(root, "overflow", overflow))
+		goto err;
+
+	for (i = 0; i < num_elem; i++) {
+		learned_entry = &state->learned_mac_list[i];
+		if (!(port = cJSON_GetObjectItemCaseSensitive(root, learned_entry->port)))
+			if (!(port = cJSON_AddObjectToObject(root, learned_entry->port)))
+				goto err;
+
+		snprintf(vid_key, sizeof(vid_key), "%u", learned_entry->vid);
+		if (!(vid = cJSON_GetObjectItemCaseSensitive(port, vid_key)))
+			if (!(vid = cJSON_AddArrayToObject(port, vid_key)))
+				goto err;
+
+		if (!(mac = cJSON_CreateString(learned_entry->mac)))
+			goto err;
+		if (!cJSON_AddItemToArray(vid, mac)) {
+			/**
+			 * element created but still not attached to
+			 * anything, so we have to delete it ourselves
+			 */
+			cJSON_Delete(mac);
+			goto err;
+		}
+	}
+	return 0;
+err:
+	return -1;
+}
+
 static int state_fill(cJSON *state, struct plat_state_info *plat_state_info)
 {
+	cJSON *mac_forwarding_table;
 	cJSON *link_state;
 	cJSON *lldp_peers;
 	cJSON *interfaces;
@@ -3290,6 +3350,17 @@ static int state_fill(cJSON *state, struct plat_state_info *plat_state_info)
 		}
 		if (state_fill_lldp_peers(lldp_peers, plat_state_info)) {
 			UC_LOG_ERR("state_fill_lldp_peers failed");
+			goto err;
+		}
+	}
+
+	if (ucentral_metrics.state.enabled &&
+	    ucentral_metrics.state.clients_enabled) {
+		mac_forwarding_table = cJSON_AddObjectToObject(state, "mac-forwarding-table");
+		if (!mac_forwarding_table ||
+		    state_fill_mac_addr_list_data(mac_forwarding_table, plat_state_info)) {
+			UC_LOG_ERR("!mac_forwarding_table(%p) || state_fill_mac_addr_list_data",
+				(void *)mac_forwarding_table);
 			goto err;
 		}
 	}
@@ -3353,45 +3424,17 @@ err:
 	proto_destroy_blob(&blob);
 }
 
-void deviceupdate_send(void)
+void deviceupdate_send(const char *updated_pass)
 {
-	char *passwd_file_path = "/var/lib/ucentral/admin-cred.buf";
 	struct blob blob = {0};
-	ssize_t passwd_size;
-	int passwd_fd = -1;
-	char passwd[64];
 	cJSON *params;
 
-	if (access(passwd_file_path, F_OK))
+	if (!updated_pass)
 		return;
-
-	passwd_fd = open(passwd_file_path, O_RDONLY);
-	if (passwd_fd < 0) {
-		UC_LOG_ERR("Failed to open %s", passwd_file_path);
-		goto out;
-	}
-
-	memset(&passwd, 0, sizeof(passwd));
-	passwd_size = read(passwd_fd, &passwd, sizeof(passwd));
-	if (passwd_size == sizeof(passwd)) {
-		UC_LOG_ERR("%s is too big", passwd_file_path);
-		goto out;
-	}
-
-	if (!passwd_size)
-		goto out;
-
-	/*  remove password from buffer */
-	close(passwd_fd);
-	passwd_fd = -1;
-	if (remove(passwd_file_path)) {
-		UC_LOG_ERR("Failed to remove %s", passwd_file_path);
-		goto out;
-	}
 
 	blob.obj = proto_new_blob("deviceupdate");
 	if (!blob.obj)
-		goto out;
+		return;
 
 	params = cJSON_GetObjectItemCaseSensitive(blob.obj, "params");
 	if (!params)
@@ -3400,18 +3443,14 @@ void deviceupdate_send(void)
 	if (!cJSON_AddStringToObject(params, "serial", client.serial))
 		goto out;
 
-	if (!cJSON_AddStringToObject(params, "currentPassword", passwd))
+	if (!cJSON_AddStringToObject(params, "currentPassword", updated_pass))
 		goto out;
 
 	UC_LOG_DBG("xmit deviceupdate \n");
 
 	proto_send_blob(&blob);
 out:
-	if (blob.obj)
-		proto_destroy_blob(&blob);
-
-	if (passwd_fd > 0)
-		close(passwd_fd);
+	proto_destroy_blob(&blob);
 }
 
 void telemetry_send(struct plat_state_info *plat_state_info)
@@ -3945,6 +3984,10 @@ void device_rebootcause_send(void)
 		break;
 	case PLAT_REBOOT_CAUSE_CRASH:
 		if (!cJSON_AddStringToObject(event, "type", "device.crash"))
+			goto err;
+		break;
+	case PLAT_REBOOT_CAUSE_UNAVAILABLE:
+		if (!cJSON_AddStringToObject(event, "type", "device.reboot-cause-unavailable"))
 			goto err;
 		break;
 	default: goto err;

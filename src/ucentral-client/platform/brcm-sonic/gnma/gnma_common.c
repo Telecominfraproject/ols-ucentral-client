@@ -3884,14 +3884,14 @@ err_path_alloc:
 }
 
 
-/* sai_create_route_entry_fn              
- * sai_remove_route_entry_fn              
- * sai_set_route_entry_attribute_fn       
- * sai_get_route_entry_attribute_fn       
- *                                        
- * sai_bulk_create_route_entry_fn         
- * sai_bulk_remove_route_entry_fn         
- * sai_bulk_set_route_entry_attribute_fn  
+/* sai_create_route_entry_fn
+ * sai_remove_route_entry_fn
+ * sai_set_route_entry_attribute_fn
+ * sai_get_route_entry_attribute_fn
+ *
+ * sai_bulk_create_route_entry_fn
+ * sai_bulk_remove_route_entry_fn
+ * sai_bulk_set_route_entry_attribute_fn
  * sai_bulk_get_route_entry_attribute_fn
  * ---------------------------------------
  * SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID
@@ -4132,10 +4132,6 @@ int gnma_stp_mode_set(gnma_stp_mode_t mode, struct gnma_stp_attr *attr)
 	}
 
 	ret = 1;
-	ret &= !!cJSON_AddNumberToObject(obj, "forward_delay",
-					 attr->forward_delay);
-	ret &= !!cJSON_AddNumberToObject(obj, "hello_time", attr->hello_time);
-	ret &= !!cJSON_AddNumberToObject(obj, "max_age", attr->max_age);
 	ret &= !!cJSON_AddNumberToObject(obj, "priority", attr->priority);
 	ret &= !!cJSON_AddStringToObject(obj, "keyleaf", "GLOBAL");
 	switch (mode) {
@@ -4455,7 +4451,7 @@ out:
 
 }
 
-static int gnma_stp_vid_enable(uint16_t vid, uint16_t prio)
+static int gnma_stp_vid_enable(uint16_t vid, struct gnma_stp_attr *attr)
 {
 	cJSON *root = NULL, *obj, *arr;
 	int err = GNMA_ERR_COMMON, ret;
@@ -4482,7 +4478,10 @@ static int gnma_stp_vid_enable(uint16_t vid, uint16_t prio)
 	sprintf(&vidstr[0], "Vlan%u", vid);
 	ret &= !!cJSON_AddStringToObject(obj, "name", &vidstr[0]);
 	ret &= !!cJSON_AddBoolToObject(obj, "enabled", true);
-	ret &= !!cJSON_AddNumberToObject(obj, "priority", prio);
+	ret &= !!cJSON_AddNumberToObject(obj, "priority", attr->priority);
+	ret &= !!cJSON_AddNumberToObject(obj, "forward_delay", attr->forward_delay);
+	ret &= !!cJSON_AddNumberToObject(obj, "hello_time", attr->hello_time);
+	ret &= !!cJSON_AddNumberToObject(obj, "max_age", attr->max_age);
 	if (!ret)
 		goto out;
 
@@ -4509,7 +4508,7 @@ static int gnma_stp_vid_disable(uint16_t vid)
 int gnma_stp_vid_set(uint16_t vid, struct gnma_stp_attr *attr)
 {
 	if (attr->enabled)
-		return gnma_stp_vid_enable(vid, attr->priority);
+		return gnma_stp_vid_enable(vid, attr);
 	else
 		return gnma_stp_vid_disable(vid);
 }
@@ -4802,6 +4801,32 @@ err_path_alloc:
 	return ret;
 }
 
+int gnma_system_password_set(char *password)
+{
+	char *gpath = "/openconfig-system:system/aaa/authentication/users/user[username=admin]/config/password";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (!cJSON_AddStringToObject(root, "role", "admin"))
+		goto err_json;
+
+	if (!cJSON_AddStringToObject(root, "password", password))
+		goto err_json;
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
 struct gnma_change *gnma_change_create(void)
 {
 	return (struct gnma_change *)gnmi_setrq_create();
@@ -4825,4 +4850,120 @@ int gnma_techsupport_start(char *res_path)
 		return GNMA_ERR_COMMON;
 
 	return 0;
+}
+
+int gnma_mac_address_list_get(size_t *list_size, struct gnma_fdb_entry *list)
+{
+	const char *gpath = "/openconfig-network-instance:network-instances/network-instance[name=default]/fdb";
+	cJSON *root, *fdb, *state, *entry_list, *entry, *field;
+	char *buf = NULL, *port, *mac;
+	gnma_fdb_entry_type_t type;
+	int vlan, ret, idx = 0;
+	size_t num_entries;
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	/*
+	{"openconfig-network-instance:fdb": {
+		"mac-table": {"entries": {"entry": [ ... ]}},
+		"state": {"dynamic-count": #, "static-count": #}}
+	}
+	*/
+	root = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!root) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	ret = GNMA_ERR_COMMON;
+	/* get number of entries */
+	fdb = cJSON_GetObjectItemCaseSensitive(root, "openconfig-network-instance:fdb");
+	state = cJSON_GetObjectItemCaseSensitive(fdb, "state");
+	field = cJSON_GetObjectItemCaseSensitive(state, "dynamic-count");
+	if (!fdb || !state || !cJSON_IsNumber(field))
+		goto err_gnmi_get_obj;
+	num_entries = field->valueint;
+	field = cJSON_GetObjectItemCaseSensitive(state, "static-count");
+	if (!cJSON_IsNumber(field))
+		goto err_gnmi_get_obj;
+	num_entries += field->valueint;
+
+	/* check that provided buffer is big enough */
+	if (*list_size < num_entries) {
+		*list_size = num_entries;
+		ret = GNMA_ERR_OVERFLOW;
+		goto err_gnmi_get_obj;
+	}
+
+	/* if fdb is empty there is nothing to do */
+	if (num_entries == 0)
+		goto err_gnmi_no_entries;
+
+	if (list == NULL)
+		goto err_gnmi_get_obj;
+
+	/* parse fdb entries */
+	entry_list = cJSON_GetObjectItemCaseSensitive(fdb, "mac-table");
+	entry_list = cJSON_GetObjectItemCaseSensitive(entry_list, "entries");
+	entry_list = cJSON_GetObjectItemCaseSensitive(entry_list, "entry");
+	if (!entry_list)
+		goto err_gnmi_get_obj;
+
+	/*
+	{"interface": {"interface-ref": {"state": {"interface": "Ethernet#"}}},
+	 "state": {"entry-type": "STATIC" | "DYNAMIC",
+		   "mac-address": "XX:XX:XX:XX:XX:XX",
+		   "vlan": #}
+	}
+	*/
+	cJSON_ArrayForEach(entry, entry_list) {
+		if (cJSON_IsInvalid(entry) || cJSON_IsNull(entry))
+			goto err_gnmi_get_obj;
+
+		state = cJSON_GetObjectItemCaseSensitive(entry, "state");
+		field = cJSON_GetObjectItemCaseSensitive(state, "mac-address");
+		if (!state || !cJSON_IsString(field) || !field->valuestring)
+			goto err_gnmi_get_obj;
+		mac = field->valuestring;
+
+		field = cJSON_GetObjectItemCaseSensitive(state, "vlan");
+		if (!cJSON_IsNumber(field))
+			goto err_gnmi_get_obj;
+		vlan = field->valueint;
+
+		field = cJSON_GetObjectItemCaseSensitive(state, "entry-type");
+		if (!cJSON_IsString(field) || !field->valuestring)
+			goto err_gnmi_get_obj;
+		type = strcmp(field->valuestring, "STATIC") == 0
+			? GNMA_FDB_ENTRY_TYPE_STATIC
+			: GNMA_FDB_ENTRY_TYPE_DYNAMIC;
+
+		field = cJSON_GetObjectItemCaseSensitive(entry, "interface");
+		field = cJSON_GetObjectItemCaseSensitive(field, "interface-ref");
+		field = cJSON_GetObjectItemCaseSensitive(field, "state");
+		field = cJSON_GetObjectItemCaseSensitive(field, "interface");
+		if (!cJSON_IsString(field) || !field->valuestring)
+			goto err_gnmi_get_obj;
+		port = field->valuestring;
+
+		strncpy(list[idx].port.name, port, sizeof(list[idx].port.name));
+		strncpy(list[idx].mac, mac, sizeof(list[idx].mac));
+		list[idx].type = type;
+		list[idx].vid = vlan;
+		idx++;
+		*list_size = idx;
+	}
+
+err_gnmi_no_entries:
+	ret = GNMA_OK;
+err_gnmi_get_obj:
+	cJSON_Delete(root);  /* only need to free root */
+err_gnmi_get:
+	return ret;
 }

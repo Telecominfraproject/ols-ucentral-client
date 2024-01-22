@@ -683,6 +683,57 @@ static void sigthread_create(void)
 	}
 }
 
+static int get_updated_pass(char *pass, size_t *len) {
+	char *passwd_file_path = "/var/lib/ucentral/admin-cred.buf";
+	size_t password_size;
+	int passwd_fd = -1;
+	char password[64];
+
+	if (access(passwd_file_path, F_OK))
+		goto out;
+
+	passwd_fd = open(passwd_file_path, O_RDONLY);
+	if (passwd_fd < 0) {
+		UC_LOG_ERR("Failed to open %s", passwd_file_path);
+		goto out;
+	}
+
+	memset(&password, 0, sizeof(password));
+	password_size = read(passwd_fd, &password, sizeof(password));
+	if (password_size == sizeof(password)) {
+		UC_LOG_ERR("%s is too big", passwd_file_path);
+		goto out_close;
+	}
+
+	if (!password_size) {
+		UC_LOG_ERR("failed to read %s", passwd_file_path);
+		goto out_close;
+	}
+
+	if (*len < password_size) {
+		UC_LOG_ERR("out buffer is too small (%lu < %lu)",
+			   *len, password_size);
+		goto out_close;
+	}
+
+	/* remove password from buffer */
+	close(passwd_fd);
+	passwd_fd = -1;
+	if (remove(passwd_file_path)) {
+		UC_LOG_ERR("Failed to remove %s", passwd_file_path);
+		goto out;
+	}
+
+	strncpy(pass, password, password_size);
+	*len = password_size;
+
+	return 0;
+out_close:
+	close(passwd_fd);
+out:
+	return -1;
+}
+
 int main(void)
 {
 	int logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_CLIENT;
@@ -693,6 +744,8 @@ int main(void)
 	struct lws_context_creation_info info = {0};
 	bool reboot_reason_sent = false;
 	char *gw_host = NULL;
+	size_t password_len;
+	char password[64];
 	struct stat st;
 	int ret;
 
@@ -722,7 +775,7 @@ int main(void)
 		UC_LOG_CRIT("Platform initialization failed");
 	}
 
-	plat_running_img_name_get(client.firmware, sizeof(client.firmware));
+	plat_revision_get(client.firmware, sizeof(client.firmware));
 
 	if ((gw_host = getenv("UC_GATEWAY_ADDRESS"))) {
 		gw_host = strdup(gw_host);
@@ -770,13 +823,18 @@ int main(void)
 	}
 	sigthread_context_set(context);
 
+	password_len = sizeof(password);
+	if (get_updated_pass(password, &password_len))
+		password_len = 0;
+
 	proto_start();
 
 	while (!uc_loop_interrupted_get()) {
 		lws_service_tsi(context, 0, 0);
 
 		if (conn_successfull) {
-			deviceupdate_send();
+			if (password_len)
+				deviceupdate_send(password);
 			if (!reboot_reason_sent) {
 				device_rebootcause_send();
 				reboot_reason_sent = true;

@@ -27,6 +27,7 @@
 #include <base64.h>
 
 #include "gnma/gnma_common.h"
+#include "plat-revision.h"
 
 #include <cjson/cJSON.h>
 
@@ -881,6 +882,7 @@ static int plat_state_init()
 	struct gnma_route_attrs *attrs_list = NULL;
 	struct gnma_ip_prefix *prefix_list = NULL;
 	uint32_t prefix_list_size = 0, prefix_iter;
+	struct ucentral_router_fib_node node;
 	uint16_t vid;
 	int ret = 0;
 	size_t i;
@@ -996,12 +998,16 @@ static int plat_state_init()
 	}
 
 	for (prefix_iter = 0; prefix_iter < prefix_list_size; prefix_iter++) {
-		gnma_prefix2router_fib_key(&prefix_list[prefix_iter],
-					   &router_db_get(&plat_state.router, prefix_iter)->key);
-		ret = gnma_attr2router_fib_info(&attrs_list[prefix_iter],
-						&router_db_get(&plat_state.router, prefix_iter)->info);
+		gnma_prefix2router_fib_key(&prefix_list[prefix_iter], &node.key);
+		ret = gnma_attr2router_fib_info(&attrs_list[prefix_iter], &node.info);
 		if (ret) {
 			UC_LOG_CRIT("gnma_attr2router_fib_info");
+			goto err;
+		}
+
+		ret = ucentral_router_fib_db_append(&plat_state.router, &node);
+		if (ret) {
+			UC_LOG_CRIT("ucentral_router_fib_db_append");
 			goto err;
 		}
 	}
@@ -2513,6 +2519,12 @@ int plat_running_img_name_get(char *str, size_t str_max_len)
 	return gnma_image_running_name_get(str, str_max_len);
 }
 
+int plat_revision_get(char *str, size_t str_max_len)
+{
+	snprintf(str, str_max_len, PLATFORM_REVISION);
+	return 0;
+}
+
 static int
 __reboot_cause_buf_parse(char *buf, size_t buf_size,
 			 struct plat_reboot_cause *cause)
@@ -2542,7 +2554,13 @@ __reboot_cause_buf_parse(char *buf, size_t buf_size,
 	 * In case if reboot is issued, cause will be explicitly set to reboot;
 	 * And in case of crash any other value or 'kdump issued' will be set.
 	 */
-	if (strstr(cause_str, "Unknown")) {
+	if (strstr(cause_str, "not yet available")) {
+		UC_LOG_ERR("uCentral SW failed to fetch reboot cause string");
+		cause->cause = PLAT_REBOOT_CAUSE_UNAVAILABLE;
+		strncpy(cause->desc,
+			"uCentral SW failed to fetch reboot cause string (not available)",
+			sizeof cause->desc - 1);
+	} else if (strstr(cause_str, "Unknown")) {
 		cause->cause = PLAT_REBOOT_CAUSE_POWERLOSS;
 		strncpy(cause->desc,
 			"Powerloss detected.",
@@ -2869,6 +2887,7 @@ int plat_portl2_rif_set(uint16_t fp_p_id, struct plat_ipv4 *ipv4)
 
 static void plat_state_deinit(struct plat_state_info *state)
 {
+	free(state->learned_mac_list);
 	free(state->port_info);
 	*state = (struct plat_state_info){ 0 };
 }
@@ -3004,6 +3023,57 @@ static int plat_system_info_get(struct plat_system_info *info)
 	return 0;
 }
 
+static int
+plat_learned_mac_addrs_get(struct plat_learned_mac_addr **mac_list,
+			   size_t *mac_list_size)
+{
+	struct plat_learned_mac_addr *m_list;
+	struct gnma_fdb_entry *list;
+	size_t list_size = 0, i, k;
+	int ret;
+
+	ret = gnma_mac_address_list_get(&list_size, NULL);
+	if (ret && ret != GNMA_ERR_OVERFLOW)
+		return ret;
+
+	if (list_size == 0) {
+		*mac_list = NULL;
+		*mac_list_size = 0;
+		return 0;
+	}
+
+	if (!(list = calloc(list_size, sizeof(*list)))) {
+		UC_LOG_ERR("ENOMEM");
+		return -1;
+	}
+
+	/** TODO: number of entries might change between calls and this will fail */
+	ret = gnma_mac_address_list_get(&list_size, list);
+	if (ret)
+		goto err;
+
+	if (!(m_list = calloc(list_size, sizeof(*m_list)))) {
+		UC_LOG_ERR("ENOMEM");
+		ret = -1;
+		goto err;
+	}
+
+	for (i = 0, k = 0; i < list_size; i++) {
+		if (list[i].type != GNMA_FDB_ENTRY_TYPE_DYNAMIC)
+			continue;
+		strncpy(m_list[k].port, list[i].port.name, sizeof(m_list[k].port));
+		strncpy(m_list[k].mac, list[i].mac, sizeof(m_list[k].mac));
+		m_list[k].vid = list[i].vid;
+		k++;
+	}
+
+	*mac_list = m_list;
+	*mac_list_size = k;
+err:
+	free(list);
+	return ret;
+}
+
 static int plat_state_get(struct plat_state_info *state)
 {
 	size_t i;
@@ -3020,6 +3090,10 @@ static int plat_state_get(struct plat_state_info *state)
 		return -1;
 
 	if (plat_port_info_get(&state->port_info, &state->port_info_count))
+		return -1;
+
+	if (plat_learned_mac_addrs_get(&state->learned_mac_list,
+				       &state->learned_mac_list_size))
 		return -1;
 
 	return 0;
@@ -3287,9 +3361,6 @@ static int config_stp_apply(struct plat_cfg *cfg)
 	case PLAT_STP_MODE_RPVST:
 		/* Config mode */
 		memset(&attr, 0, sizeof(attr));
-		attr.forward_delay = cfg->stp_instances[0].forward_delay;
-		attr.hello_time = cfg->stp_instances[0].hello_time;
-		attr.max_age = cfg->stp_instances[0].max_age;
 		if (plat_state.stp_mode != GNMA_STP_MODE_RPVST ||
 		    !gnma_stp_attr_cmp(&attr, &plat_state.stp_mode_attr)) {
 			ret = gnma_stp_mode_set(GNMA_STP_MODE_RPVST, &attr);
@@ -3314,6 +3385,9 @@ static int config_stp_apply(struct plat_cfg *cfg)
 		for (i = FIRST_VLAN; i < MAX_VLANS; i++) {
 			attr.enabled = cfg->stp_instances[i].enabled;
 			attr.priority = cfg->stp_instances[i].priority;
+			attr.forward_delay = cfg->stp_instances[i].forward_delay;
+			attr.hello_time = cfg->stp_instances[i].hello_time;
+			attr.max_age = cfg->stp_instances[i].max_age;
 
 			if (!plat_state.stp_vlan_attr[i].enabled && !attr.enabled) {
 				continue;
@@ -3323,11 +3397,18 @@ static int config_stp_apply(struct plat_cfg *cfg)
 				continue;
 
 			UC_LOG_DBG(
-				"set vlan=%d attr.enabled=%d attr.priority=%d"
-				" state.enabled=%d state.priority=%d",
-				i, attr.enabled, attr.priority,
+				"set vlan=%d attr.enabled=%d attr.priority=%d "
+				"attr.forward_delay=%d attr.hello_time=%d "
+				"attr.max_age=%d state.enabled=%d state.priority=%d "
+				"state.forward_delay=%d state.hello_time=%d "
+				"state.max_age=%d ",
+				i, attr.enabled, attr.priority, attr.forward_delay,
+				attr.hello_time, attr.max_age,
 				plat_state.stp_vlan_attr[i].enabled,
-				plat_state.stp_vlan_attr[i].priority);
+				plat_state.stp_vlan_attr[i].priority,
+				plat_state.stp_vlan_attr[i].forward_delay,
+				plat_state.stp_vlan_attr[i].hello_time,
+				plat_state.stp_vlan_attr[i].max_age);
 
 			ret = gnma_stp_vid_set(i, &attr);
 			if (ret) {
@@ -3625,8 +3706,15 @@ static int config_router_apply(struct plat_cfg *cfg)
 	if (ret)
 		return ret;
 
+	if (!newr.sorted)
+		ucentral_router_fib_db_sort(&newr);
+	if (!oldr.sorted)
+		ucentral_router_fib_db_sort(&oldr);
+
 	for_router_db_diff(&newr, &oldr, ni, oi, diff) {
-		for_router_db_diff_CASE_UPD(diff) {
+		diff = router_db_diff_get(&newr, &oldr, ni, oi);
+
+		if (diff_case_upd(diff)) {
 			if (!ucentral_router_fib_info_cmp(&router_db_get(&newr, ni)->info,
 							  &router_db_get(&oldr, oi)->info))
 				continue;
@@ -3643,13 +3731,13 @@ static int config_router_apply(struct plat_cfg *cfg)
 				return -1;
 		}
 
-		for_router_db_diff_CASE_DEL(diff) {
+		if (diff_case_del(diff)) {
 			router_fib_key2gnma_prefix(&router_db_get(&oldr, oi)->key,
 						   &gpref);
 			gnma_route_remove(0, &gpref);
 		}
 
-		for_router_db_diff_CASE_ADD(diff) {
+		if (diff_case_add(diff)) {
 			router_fib_key2gnma_prefix(&router_db_get(&newr, ni)->key, &gpref);
 
 			ret = router_fib_info2gnma_attr(&router_db_get(&newr, ni)->info,
@@ -3833,6 +3921,19 @@ static int config_ieee8021x_apply(struct plat_cfg *cfg)
 	return 0;
 }
 
+static int config_system_password_apply(struct plat_cfg *cfg)
+{
+	int ret;
+	if (cfg->unit.system.password_changed) {
+		UC_LOG_DBG("Updating system password\n");
+		if ((ret = gnma_system_password_set(cfg->unit.system.password))) {
+			UC_LOG_ERR("Failed updating system password\n");
+			return ret;
+		}
+	}
+	return 0;
+}
+
 int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 {
 	int ret;
@@ -3887,6 +3988,11 @@ int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 		CFG_LOG_CRIT(
 			"AAA feature is not initialized, skipping configuration");
 	}
+
+	/* there is no rollback for password, so this should be run last */
+	ret = config_system_password_apply(cfg);
+	if (ret)
+		return -1;
 
 	plat_syslog_set(cfg->log_cfg, cfg->log_cfg_cnt);
 
@@ -3970,6 +4076,9 @@ int plat_metrics_restore(struct plat_metrics_cfg *cfg)
 	len = strlen(cfg->state.public_ip_lookup);
 	if (len && cfg->state.public_ip_lookup[len - 1] == '\n')
 		cfg->state.public_ip_lookup[len - 1] = 0;
+
+	/** FIXME: this should be read from cfg_file */
+	cfg->state.max_mac_count = METRICS_WIRED_CLIENTS_MAX_NUM;
 
 	fclose(cfg_file);
 	return 0;

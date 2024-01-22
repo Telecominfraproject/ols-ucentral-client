@@ -36,6 +36,7 @@ override_dh_install:
 	# home folder.
 	mkdir -p ${INSTALL}/home/admin
 	cp scripts/OLS_NOS_fixups.script ${INSTALL}/usr/local/lib
+	cp scripts/OLS_NOS_upgrade_override.script ${INSTALL}/usr/local/lib
 	cp docker-ucentral-client.gz  ${INSTALL}/usr/local/lib
 	# Install Vlan1 in-band management configuration
 	mkdir -p ${INSTALL}/etc/network/interfaces.d/
