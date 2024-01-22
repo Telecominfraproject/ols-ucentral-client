@@ -282,6 +282,18 @@ struct plat_syslog_cfg {
 	char host[SYSLOG_CFG_FIELD_STR_MAX_LEN];
 };
 
+struct plat_enabled_service_cfg {
+	struct {
+		bool enabled;
+	} ssh;
+	struct telnet {
+		bool enabled;
+	} telnet;
+	struct {
+		bool enabled;
+	} http;
+};
+
 struct plat_rtty_cfg {
 	char id[RTTY_CFG_FIELD_STR_MAX_LEN];
 	char passwd[RTTY_CFG_FIELD_STR_MAX_LEN];
@@ -385,6 +397,7 @@ struct plat_cfg {
 	BITMAP_DECLARE(vlans_to_cfg, MAX_VLANS);
 	struct plat_metrics_cfg metrics;
 	struct plat_syslog_cfg *log_cfg;
+	struct plat_enabled_service_cfg enabled_services_cfg;
 	/* Port's interfaces (provide l2 iface w/o bridge caps) */
 	struct plat_port_l2 portsl2[MAX_NUM_OF_PORTS];
 	struct ucentral_router router;

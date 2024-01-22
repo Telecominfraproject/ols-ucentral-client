@@ -1333,6 +1333,59 @@ static int cfg_services_parse(cJSON *services, struct plat_cfg *cfg)
 		}
 	}
 
+	/* Set default values in case if no cfg supplied */
+	cfg->enabled_services_cfg.ssh.enabled = false;
+	cfg->enabled_services_cfg.telnet.enabled = false;
+	cfg->enabled_services_cfg.http.enabled = false;
+
+	s = cJSON_GetObjectItemCaseSensitive(services, "ssh");
+	if (s) {
+		if (!cJSON_IsObject(s)) {
+			UC_LOG_ERR("Unexpected type of services:ssh: Object expected");
+			return -1;
+		}
+
+		cJSON *enable = cJSON_GetObjectItemCaseSensitive(s, "enable");
+		if (enable && !cJSON_IsBool(enable)) {
+			UC_LOG_ERR("Unexpected type of services:ssh:enable: Boolean expected");
+			return -1;
+		}
+
+		cfg->enabled_services_cfg.ssh.enabled = cJSON_IsTrue(enable);
+	}
+
+	s = cJSON_GetObjectItemCaseSensitive(services, "telnet");
+	if (s) {
+		if (!cJSON_IsObject(s)) {
+			UC_LOG_ERR("Unexpected type of services:telnet: Object expected");
+			return -1;
+		}
+
+		cJSON *enable = cJSON_GetObjectItemCaseSensitive(s, "enable");
+		if (enable && !cJSON_IsBool(enable)) {
+			UC_LOG_ERR("Unexpected type of services:telnet:enable: Boolean expected");
+			return -1;
+		}
+
+		cfg->enabled_services_cfg.telnet.enabled = cJSON_IsTrue(enable);
+	}
+
+	s = cJSON_GetObjectItemCaseSensitive(services, "http");
+	if (s) {
+		if (!cJSON_IsObject(s)) {
+			UC_LOG_ERR("Unexpected type of services:http: Object expected");
+			return -1;
+		}
+
+		cJSON *enable = cJSON_GetObjectItemCaseSensitive(s, "enable");
+		if (enable && !cJSON_IsBool(enable)) {
+			UC_LOG_ERR("Unexpected type of services:http:enable: Boolean expected");
+			return -1;
+		}
+
+		cfg->enabled_services_cfg.http.enabled = cJSON_IsTrue(enable);
+	}
+
 	return 0;
 }
 
