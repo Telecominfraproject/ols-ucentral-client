@@ -388,6 +388,23 @@ struct plat_radius_hosts_list {
 	struct plat_radius_host host;
 };
 
+struct plat_port_isolation_session_ports {
+	/* Selected interface type - either physical or trunk port */
+	bool is_physical;
+	struct plat_ports_list *ports_list;
+};
+
+struct plat_port_isolation_session {
+	uint64_t id;
+	struct plat_port_isolation_session_ports uplink;
+	struct plat_port_isolation_session_ports downlink;
+};
+
+struct plat_port_isolation_cfg {
+	struct plat_port_isolation_session *sessions;
+	size_t sessions_num;
+};
+
 struct plat_cfg {
 	struct plat_unit unit;
 	/* Alloc all ports, but access them only if bit is set. */
@@ -407,6 +424,7 @@ struct plat_cfg {
 	struct plat_stp_instance_cfg stp_instances[MAX_VLANS];
 	struct plat_radius_hosts_list *radius_hosts_list;
 	bool ieee8021x_is_auth_ctrl_enabled;
+	struct plat_port_isolation_cfg port_isolation_cfg;
 };
 
 struct plat_learned_mac_addr {
