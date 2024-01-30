@@ -195,15 +195,6 @@ struct poe_port {
 	gnma_poe_port_priority_t priority;
 };
 
-/* Password is obfuscated and key changes all the time.
- * So cache only actual hosts (ip / hostname), and do a single
- * GNMI request to add host (with all parameters - passkey, port etc) upon
- * every cfg reqest.
- */
-struct radius_host {
-	struct gnma_radius_host_key key;
-};
-
 struct port {
 	struct gnma_port_key key;
 	struct {
