@@ -1576,7 +1576,7 @@ static int cfg_switch_ieee8021x_parse(cJSON *sw, struct plat_cfg *cfg)
 	/* It's safe to check against NULL cJSON obj.
 	 * In case if option is missing - defaulting to 'false' is OK for us.
 	 */
-	cfg->ieee8021x_is_auth_ctrl_enabled = cJSON_IsTrue(auth_ctrl_enabled);
+	cfg->ieee8021x.is_auth_ctrl_enabled = cJSON_IsTrue(auth_ctrl_enabled);
 	radius = cJSON_GetObjectItemCaseSensitive(ieee8021x, "radius");
 
 	if (radius && !cJSON_IsArray(radius)) {

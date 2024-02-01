@@ -4640,6 +4640,499 @@ int gnma_ieee8021x_system_auth_clients_get(char *buf, size_t buf_size)
 		buf, buf_size, DEFAULT_TIMEOUT_US);
 }
 
+int gnma_ieee8021x_das_bounce_port_ignore_set(bool bounce_port_ignore)
+{
+	char *gpath = "/openconfig-das:das/das-global-config-table/config/ignore-bounce-port";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (!cJSON_AddBoolToObject(root, "openconfig-das:ignore-bounce-port",
+				   bounce_port_ignore))
+		goto err_json;
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_bounce_port_ignore_get(bool *bounce_port_ignore)
+{
+	cJSON *parsed_res, *bounce_port;
+	char *buf = NULL;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-global-config-table/config/ignore-bounce-port");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	bounce_port = cJSON_GetObjectItemCaseSensitive(parsed_res, "openconfig-das:ignore-bounce-port");
+	*bounce_port_ignore = cJSON_IsTrue(bounce_port);
+
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_disable_port_ignore_set(bool disable_port_ignore)
+{
+	char *gpath = "/openconfig-das:das/das-global-config-table/config/ignore-disable-port";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (!cJSON_AddBoolToObject(root, "openconfig-das:ignore-disable-port",
+				   disable_port_ignore))
+		goto err_json;
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_disable_port_ignore_get(bool *disable_port_ignore)
+{
+	cJSON *parsed_res, *disable_port;
+	char *buf = NULL;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-global-config-table/config/ignore-disable-port");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	disable_port = cJSON_GetObjectItemCaseSensitive(parsed_res, "openconfig-das:ignore-disable-port");
+	*disable_port_ignore = cJSON_IsTrue(disable_port);
+
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_ignore_server_key_set(bool ignore_server_key)
+{
+	char *gpath = "/openconfig-das:das/das-global-config-table/config/ignore-server-key";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (!cJSON_AddBoolToObject(root, "openconfig-das:ignore-server-key",
+				   ignore_server_key))
+		goto err_json;
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_ignore_server_key_get(bool *ignore_server_key)
+{
+	cJSON *parsed_res, *server_key;
+	char *buf = NULL;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-global-config-table/config/ignore-server-key");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	server_key = cJSON_GetObjectItemCaseSensitive(parsed_res, "openconfig-das:ignore-server-key");
+	*ignore_server_key = cJSON_IsTrue(server_key);
+
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_ignore_session_key_set(bool ignore_session_key)
+{
+	char *gpath = "/openconfig-das:das/das-global-config-table/config/ignore-session-key";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (!cJSON_AddBoolToObject(root, "openconfig-das:ignore-session-key",
+				   ignore_session_key))
+		goto err_json;
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_ignore_session_key_get(bool *ignore_session_key)
+{
+	cJSON *parsed_res, *server_key;
+	char *buf = NULL;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-global-config-table/config/ignore-session-key");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	server_key = cJSON_GetObjectItemCaseSensitive(parsed_res, "openconfig-das:ignore-session-key");
+	*ignore_session_key = cJSON_IsTrue(server_key);
+
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_auth_type_key_set(gnma_das_auth_type_t auth_type)
+{
+	char *gpath = "/openconfig-das:das/das-global-config-table/state/das-auth-type";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (auth_type == GNMA_802_1X_DAS_AUTH_TYPE_ANY) {
+		if (!cJSON_AddStringToObject(root, "openconfig-das:das-auth-type", "ANY"))
+			goto err_json;
+	} else if (auth_type == GNMA_802_1X_DAS_AUTH_TYPE_ALL) {
+		if (!cJSON_AddStringToObject(root, "openconfig-das:das-auth-type", "ALL"))
+			goto err_json;
+	} else if (auth_type == GNMA_802_1X_DAS_AUTH_TYPE_SESSION_KEY) {
+		if (!cJSON_AddStringToObject(root, "openconfig-das:das-auth-type", "SESSION_KEY"))
+			goto err_json;
+	} else {
+		goto err_json;
+	}
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_auth_type_key_get(gnma_das_auth_type_t *auth_type)
+{
+	cJSON *parsed_res, *auth;
+	char *buf = NULL;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-global-config-table/config/das-auth-type");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	auth = cJSON_GetObjectItemCaseSensitive(parsed_res, "openconfig-das:das-auth-type");
+	if (!auth || !cJSON_GetStringValue(auth))
+		goto err_gnmi_parse;
+
+	if (!strcmp("ANY", cJSON_GetStringValue(auth)))
+		*auth_type = GNMA_802_1X_DAS_AUTH_TYPE_ANY;
+	else if (!strcmp("ALL", cJSON_GetStringValue(auth)))
+		*auth_type = GNMA_802_1X_DAS_AUTH_TYPE_ALL;
+	else if (!strcmp("SESSION_KEY", cJSON_GetStringValue(auth)))
+		*auth_type = GNMA_802_1X_DAS_AUTH_TYPE_SESSION_KEY;
+	else
+		ret = GNMA_ERR_COMMON;
+
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_dac_hosts_list_get(size_t *list_size,
+					  struct gnma_das_dac_host_key *hosts_list)
+{
+	cJSON *parsed_res, *host, *hosts_arr, *addr;
+	uint16_t arr_len;
+	char *buf = 0;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-client-config-table/das-client-config-table-entry");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	hosts_arr = cJSON_GetObjectItemCaseSensitive(parsed_res,
+						     "openconfig-das:das-client-config-table-entry");
+
+	arr_len = 0;
+	cJSON_ArrayForEach(host, hosts_arr)
+		arr_len++;
+
+	if (arr_len > *list_size) {
+		ret = GNMA_ERR_OVERFLOW;
+		*list_size = arr_len;
+		goto err_overflow;
+	}
+
+	memset(hosts_list, 0, sizeof(*hosts_list) * (*list_size));
+
+	*list_size = 0;
+	cJSON_ArrayForEach(host, hosts_arr) {
+		addr = cJSON_GetObjectItemCaseSensitive(host, "clientaddress");
+		if (!addr) {
+			ret = GNMA_ERR_COMMON;
+			goto err_gnmi_check_arr;
+		}
+		strcpy(hosts_list[*list_size].hostname,
+		       cJSON_GetStringValue(addr));
+		(*list_size)++;
+	}
+
+	ret = 0;
+
+err_overflow:
+err_gnmi_check_arr:
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_dac_host_add(struct gnma_das_dac_host_key *key,
+				    const char *passkey)
+{
+	cJSON *server_item;
+	cJSON *servers_arr;
+	cJSON *config;
+	cJSON *root;
+	char *path;
+	int ret;
+
+	ret = asprintf(&path,
+		       "/openconfig-das:das/das-client-config-table/das-client-config-table-entry");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	/*
+	{
+	  "openconfig-das:das-client-config-table-entry": [
+	    {
+	      "clientaddress": "test.com",
+	      "config": {
+	        "clientaddress": "test.com",
+	        "encrypted": false,
+	        "server-key": "test"
+	      }
+	    }
+	  ]
+	}
+	 */
+	root = cJSON_CreateObject();
+	servers_arr = cJSON_AddArrayToObject(root, "openconfig-das:das-client-config-table-entry");
+	server_item = cJSON_CreateObject();
+	config = cJSON_AddObjectToObject(server_item, "config");
+	if (!cJSON_AddStringToObject(server_item, "clientaddress", key->hostname) ||
+	    !cJSON_AddBoolToObject(config, "encrypted", false) ||
+	    !cJSON_AddStringToObject(config, "clientaddress", key->hostname) ||
+	    !cJSON_AddItemToArray(servers_arr, server_item)) {
+		cJSON_Delete(server_item);
+		ret = GNMA_ERR_COMMON;
+		goto err_val_alloc;
+	}
+
+	if (passkey[0] != '\0' && !cJSON_AddStringToObject(config, "server-key", passkey)) {
+		ret = GNMA_ERR_COMMON;
+		goto err_val_alloc;
+	}
+
+	ret = gnmi_json_object_set(main_switch, path, root, DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_req_fail;
+	}
+
+	ret = 0;
+err_req_fail:
+err_val_alloc:
+	cJSON_Delete(root);
+	free(path);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_dac_host_remove(struct gnma_das_dac_host_key *key)
+{
+	char *path;
+	int ret;
+
+	ret = asprintf(&path,
+		       "/openconfig-das:das/das-client-config-table/das-client-config-table-entry[clientaddress=%s]/",
+		       key->hostname);
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_del(main_switch, path, DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_req_fail;
+	}
+
+	ret = 0;
+err_req_fail:
+	free(path);
+err_path_alloc:
+	return ret;
+}
+
 int gnma_radius_hosts_list_get(size_t *list_size,
 			       struct gnma_radius_host_key *hosts_list)
 {
@@ -4781,7 +5274,7 @@ int gnma_radius_host_remove(struct gnma_radius_host_key *key)
 	int ret;
 
 	ret = asprintf(&path,
-		       "/openconfig-system:system/aaa/server-groups/server-group[name=RADIUS]/servers/server[address=%s]",
+		       "/openconfig-das:das/das-client-config-table/das-client-config-table-entry[clientaddress=%s]/",
 		       key->hostname);
 	if (ret == -1) {
 		ret = GNMA_ERR_COMMON;

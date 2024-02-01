@@ -27,6 +27,16 @@ struct gnma_radius_host_key {
 	char hostname[GNMA_RADIUS_CFG_HOSTNAME_STR_MAX_LEN];
 };
 
+struct gnma_das_dac_host_key {
+	char hostname[GNMA_RADIUS_CFG_HOSTNAME_STR_MAX_LEN];
+};
+
+typedef enum _gnma_das_auth_type_t {
+	GNMA_802_1X_DAS_AUTH_TYPE_ANY,
+	GNMA_802_1X_DAS_AUTH_TYPE_ALL,
+	GNMA_802_1X_DAS_AUTH_TYPE_SESSION_KEY,
+} gnma_das_auth_type_t;
+
 struct gnma_metadata {
 	char platform[GNMA_METADATA_STR_MAX_LEN];
 	char hwsku[GNMA_METADATA_STR_MAX_LEN];
@@ -411,6 +421,21 @@ int gnma_stp_vid_bulk_get(struct gnma_stp_attr *list, ssize_t size);
 int gnma_ieee8021x_system_auth_control_set(bool is_enabled);
 int gnma_ieee8021x_system_auth_control_get(bool *is_enabled);
 int gnma_ieee8021x_system_auth_clients_get(char *buf, size_t buf_size);
+int gnma_ieee8021x_das_bounce_port_ignore_set(bool bounce_port_ignore);
+int gnma_ieee8021x_das_bounce_port_ignore_get(bool *bounce_port_ignore);
+int gnma_ieee8021x_das_disable_port_ignore_set(bool disable_port_ignore);
+int gnma_ieee8021x_das_disable_port_ignore_get(bool *disable_port_ignore);
+int gnma_ieee8021x_das_ignore_server_key_set(bool ignore_server_key);
+int gnma_ieee8021x_das_ignore_server_key_get(bool *ignore_server_key);
+int gnma_ieee8021x_das_ignore_session_key_set(bool ignore_session_key);
+int gnma_ieee8021x_das_ignore_session_key_get(bool *ignore_session_key);
+int gnma_ieee8021x_das_auth_type_key_set(gnma_das_auth_type_t auth_type);
+int gnma_ieee8021x_das_auth_type_key_get(gnma_das_auth_type_t *auth_type);
+int gnma_ieee8021x_das_dac_hosts_list_get(size_t *list_size,
+					  struct gnma_das_dac_host_key *das_dac_keys_arr);
+int gnma_ieee8021x_das_dac_host_add(struct gnma_das_dac_host_key *key,
+				    const char *passkey);
+int gnma_ieee8021x_das_dac_host_remove(struct gnma_das_dac_host_key *key);
 
 int gnma_radius_hosts_list_get(size_t *list_size,
 			       struct gnma_radius_host_key *hosts_list);

@@ -137,6 +137,17 @@ plat_ieee8021x_system_auth_clients_get(uint16_t port_id,
 	} \
 	(res);})
 
+#define PLAT_DAC_HOST_EXISTS_IN_CFG(_host, head) \
+	({bool res = false; \
+	struct plat_ieee8021x_dac_list *_pos; \
+	UCENTRAL_LIST_FOR_EACH_MEMBER((_pos), (head)) { \
+		if (strcmp((_host), ((_pos)->host.hostname)) == 0) { \
+			res = true; \
+			break; \
+		} \
+	} \
+	(res);})
+
 /* For now, let's define abs max buf size as:
  * 1024 (bytes) per client, 10 clients total at max for 100 ports;
  * Bare minimum client info has ~600B size (raw json).
@@ -235,6 +246,13 @@ struct plat_state {
 	} poe;
 	struct {
 		bool is_auth_control_enabled;
+		bool bounce_port_ignore;
+		bool disable_port_ignore;
+		bool ignore_server_key;
+		bool ignore_session_key;
+		gnma_das_auth_type_t das_auth_type;
+		struct gnma_das_dac_host_key *das_dac_keys_arr;
+		size_t das_dac_keys_arr_size;
 	} ieee8021x;
 	struct {
 		struct gnma_radius_host_key *hosts_keys_arr;
@@ -866,6 +884,98 @@ err:
 	return ret;
 }
 
+static int plat_state_ieee8021x_dac_list_init(void)
+{
+	int ret;
+
+	free(plat_state.ieee8021x.das_dac_keys_arr);
+	plat_state.ieee8021x.das_dac_keys_arr = NULL;
+	plat_state.ieee8021x.das_dac_keys_arr_size = 0;
+
+	ret = gnma_ieee8021x_das_dac_hosts_list_get(&plat_state.ieee8021x.das_dac_keys_arr_size,
+						    NULL);
+	if (ret && ret != GNMA_ERR_OVERFLOW) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_dac_hosts_list_get failed");
+		plat_state.ieee8021x.das_dac_keys_arr_size = 0;
+		return ret;
+	}
+
+	/* No DAC hosts configured, no need to update cache. */
+	if (0 == plat_state.ieee8021x.das_dac_keys_arr_size)
+		return 0;
+
+	plat_state.ieee8021x.das_dac_keys_arr =
+		calloc(plat_state.ieee8021x.das_dac_keys_arr_size,
+		       sizeof(*plat_state.ieee8021x.das_dac_keys_arr));
+	if (!plat_state.ieee8021x.das_dac_keys_arr) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ret = gnma_ieee8021x_das_dac_hosts_list_get(&plat_state.ieee8021x.das_dac_keys_arr_size,
+						    plat_state.ieee8021x.das_dac_keys_arr);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_dac_hosts_list_get failed");
+		goto err;
+	}
+	return 0;
+
+err:
+	free(plat_state.radius.hosts_keys_arr);
+	plat_state.radius.hosts_keys_arr = NULL;
+	plat_state.radius.hosts_keys_arr_size = 0;
+	return ret;
+}
+
+static int plat_state_ieee8021x_init(void)
+{
+	int ret;
+
+	ret = gnma_ieee8021x_system_auth_control_get(&plat_state.ieee8021x.is_auth_control_enabled);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_system_auth_control_get failed");
+		return ret;
+	}
+
+	ret = gnma_ieee8021x_das_bounce_port_ignore_get(&plat_state.ieee8021x.bounce_port_ignore);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_bounce_port_ignore_get failed");
+		return ret;
+	}
+
+	ret = gnma_ieee8021x_das_disable_port_ignore_get(&plat_state.ieee8021x.disable_port_ignore);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_disable_port_ignore_get failed");
+		return ret;
+	}
+
+	ret = gnma_ieee8021x_das_ignore_server_key_get(&plat_state.ieee8021x.ignore_server_key);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_ignore_server_key_get failed");
+		return ret;
+	}
+
+	ret = gnma_ieee8021x_das_ignore_session_key_get(&plat_state.ieee8021x.ignore_session_key);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_ignore_session_key_get failed");
+		return ret;
+	}
+
+	ret = gnma_ieee8021x_das_auth_type_key_get(&plat_state.ieee8021x.das_auth_type);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_auth_type_key_get failed");
+		return ret;
+	}
+
+	ret = plat_state_ieee8021x_dac_list_init();
+	if (ret) {
+		UC_LOG_CRIT("plat_state_ieee8021x_dac_list_init failed");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int plat_state_init()
 {
 	BITMAP_DECLARE(vlans, GNMA_MAX_VLANS);
@@ -883,9 +993,15 @@ static int plat_state_init()
 
 	featsts[FEAT_CORE] = FEATSTS_FAIL;
 
-	ret = gnma_ieee8021x_system_auth_control_get(&plat_state.ieee8021x.is_auth_control_enabled);
+	ret = plat_state_ieee8021x_init();
 	if (ret) {
-		UC_LOG_CRIT("gnma_ieee8021x_system_auth_control_get failed");
+		UC_LOG_CRIT("plat_state_ieee8021x_init failed");
+		featsts[FEAT_AAA] = FEATSTS_FAIL;
+	}
+
+	ret = plat_state_radius_init();
+	if (ret) {
+		UC_LOG_CRIT("plat_state_radius_init failed");
 		featsts[FEAT_AAA] = FEATSTS_FAIL;
 	}
 
@@ -1001,12 +1117,6 @@ static int plat_state_init()
 			UC_LOG_CRIT("ucentral_router_fib_db_append");
 			goto err;
 		}
-	}
-
-	ret = plat_state_radius_init();
-	if (ret) {
-		UC_LOG_CRIT("plat_state_radius_init failed");
-		featsts[FEAT_AAA] = FEATSTS_FAIL;
 	}
 
 	if (featsts[FEAT_AAA] == FEATSTS_FAIL) {
@@ -3897,20 +4007,90 @@ static int plat_port_config_apply(struct plat_cfg *cfg)
 	return 0;
 }
 
+static int plat_dac_list_set(struct plat_ieee8021x_dac_list *hosts)
+{
+	struct plat_ieee8021x_dac_list *iter;
+	bool cache_changed = false;
+	int ret = 0;
+	size_t i;
+
+	/*
+	 * Check cache and remove any host that is not present in
+	 * requested CFG (same as for VLAN: if not present in cfg = to
+	 * be removed).
+	 */
+	for (i = 0; i < plat_state.ieee8021x.das_dac_keys_arr_size; ++i) {
+		if (!PLAT_DAC_HOST_EXISTS_IN_CFG(plat_state.ieee8021x.das_dac_keys_arr[i].hostname, &hosts)) {
+			UC_LOG_DBG("Removing DAC server <%s> (not in cfg, present on system)\n",
+				   plat_state.ieee8021x.das_dac_keys_arr[i].hostname);
+			ret = gnma_ieee8021x_das_dac_host_remove(&plat_state.ieee8021x.das_dac_keys_arr[i]);
+			if (ret)
+				return ret;
+			cache_changed = true;
+		} else {
+			/* Special case, when host exists in cache and new CFG omitted password:
+			 * - remove previous entry
+			 * - recreate it without specifying password.
+			 * Either way SONIC treats this host as if password is set
+			 * explicitly, and might result in false-obfuscations of
+			 * DaS / CoA exchange between DAC and switch.
+			 */
+			UCENTRAL_LIST_FOR_EACH_MEMBER(iter, &hosts) {
+				if (!strcmp(plat_state.ieee8021x.das_dac_keys_arr[i].hostname,
+					   iter->host.hostname) &&
+				    iter->host.passkey[0] == '\0') {
+					ret = gnma_ieee8021x_das_dac_host_remove(&plat_state.ieee8021x.das_dac_keys_arr[i]);
+					if (ret) {
+						UC_LOG_DBG("Failed to remove DAC host <%s> (new CFG pass is empty, tried to delete))\n",
+							   plat_state.ieee8021x.das_dac_keys_arr[i].hostname);
+						return ret;
+					}
+					cache_changed = true;
+					break;
+				}
+			}
+		}
+	}
+
+	/* Add any new hosts that are present in requested CFG. */
+	UCENTRAL_LIST_FOR_EACH_MEMBER(iter, &hosts) {
+		struct gnma_das_dac_host_key key;
+
+		strcpy(key.hostname, iter->host.hostname);
+
+		ret = gnma_ieee8021x_das_dac_host_add(&key, iter->host.passkey);
+		if (ret)
+			return ret;
+		cache_changed = true;
+	}
+
+	/* Reinit DAC hosts cache. */
+	if (cache_changed)
+		plat_state_ieee8021x_dac_list_init();
+
+	return 0;
+}
+
 static int config_ieee8021x_apply(struct plat_cfg *cfg)
 {
 	int ret;
 
-	if (cfg->ieee8021x_is_auth_ctrl_enabled != plat_state.ieee8021x.is_auth_control_enabled) {
+	if (cfg->ieee8021x.is_auth_ctrl_enabled != plat_state.ieee8021x.is_auth_control_enabled) {
 		UC_LOG_DBG("802.1x: changing global auth ctrl state from %d to %d",
 			   plat_state.ieee8021x.is_auth_control_enabled,
-			   cfg->ieee8021x_is_auth_ctrl_enabled);
-		ret = gnma_ieee8021x_system_auth_control_set(cfg->ieee8021x_is_auth_ctrl_enabled);
+			   cfg->ieee8021x.is_auth_ctrl_enabled);
+		ret = gnma_ieee8021x_system_auth_control_set(cfg->ieee8021x.is_auth_ctrl_enabled);
 		if (ret) {
 			UC_LOG_DBG("802.1x: Failed to set global auth ctrl state.");
 			return ret;
 		}
-		plat_state.ieee8021x.is_auth_control_enabled = cfg->ieee8021x_is_auth_ctrl_enabled;
+		plat_state.ieee8021x.is_auth_control_enabled = cfg->ieee8021x.is_auth_ctrl_enabled;
+	}
+
+	ret = plat_dac_list_set(cfg->ieee8021x.das_dac_list);
+	if (ret) {
+		UC_LOG_DBG("802.1x: DAS: Failed to configure DAC hosts list.");
+		return ret;
 	}
 
 	ret = plat_radius_hosts_list_set(cfg->radius_hosts_list);

@@ -64,6 +64,12 @@ enum plat_ieee8021x_port_host_mode {
 	PLAT_802_1X_PORT_HOST_MODE_SINGLE_HOST,
 };
 
+enum plat_ieee8021x_das_auth_type {
+	PLAT_802_1X_DAS_AUTH_TYPE_ANY,
+	PLAT_802_1X_DAS_AUTH_TYPE_ALL,
+	PLAT_802_1X_DAS_AUTH_TYPE_SESSION_KEY,
+};
+
 #define UCENTRAL_PORT_LLDP_PEER_INFO_MAX_MGMT_IPS (2)
 /* Interface LLDP peer's data, as defined in interface.lldp.yml*/
 struct plat_port_lldp_peer_info {
@@ -388,6 +394,16 @@ struct plat_radius_hosts_list {
 	struct plat_radius_host host;
 };
 
+struct plat_ieee8021x_dac_host {
+	char hostname[RADIUS_CFG_HOSTNAME_STR_MAX_LEN];
+	char passkey[RADIUS_CFG_PASSKEY_STR_MAX_LEN];
+};
+
+struct plat_ieee8021x_dac_list {
+	struct plat_ieee8021x_dac_list *next;
+	struct plat_ieee8021x_dac_host host;
+};
+
 struct plat_port_isolation_session_ports {
 	struct plat_ports_list *ports_list;
 };
@@ -421,7 +437,16 @@ struct plat_cfg {
 	/* Instance zero is for global instance (like common values in rstp) */
 	struct plat_stp_instance_cfg stp_instances[MAX_VLANS];
 	struct plat_radius_hosts_list *radius_hosts_list;
-	bool ieee8021x_is_auth_ctrl_enabled;
+	struct {
+		bool is_auth_ctrl_enabled;
+		bool bounce_port_ignore;
+		bool disable_port_ignore;
+		bool ignore_server_key;
+		bool ignore_session_key;
+		char server_key[RADIUS_CFG_PASSKEY_STR_MAX_LEN];
+		enum plat_ieee8021x_das_auth_type das_auth_type;
+		struct plat_ieee8021x_dac_list *das_dac_list;
+	} ieee8021x;
 	struct plat_port_isolation_cfg port_isolation_cfg;
 };
 
