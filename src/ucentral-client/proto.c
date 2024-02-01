@@ -2734,15 +2734,16 @@ static void script_handle(cJSON **rpc)
 			UC_LOG_ERR("script message missing 'uri' parameter");
 			return;
 		}
+
+		script_reply(0, "pending", id);
+		UC_LOG_DBG("Script requested OK (pending. Waiting for plat to execute)\n");
+
 		memset(&file_path[0], 0, sizeof(file_path));
 		if (plat_diagnostic(&file_path[0])) {
 			UC_LOG_ERR("Script failed\n");
 			script_reply(1, "fail", id);
 			return;
 		}
-
-		script_reply(0, "pending", id);
-		UC_LOG_DBG("Script requested OK\n");
 
 		/* Poll upgrade state - start periodical. */
 		while (access(file_path, F_OK))
