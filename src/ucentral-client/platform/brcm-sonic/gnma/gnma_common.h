@@ -69,6 +69,17 @@ typedef enum _gnma_port_stat_type_t {
 
 } gnma_port_stat_type_t;
 
+typedef enum _gnma_ieee8021x_das_dac_stat_type_t {
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_ACK_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_NAK_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_IGNORED_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_VALUE_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_SESSION_CONTEXT_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_ADMINISTRATIVELY_PROHIBITED_REQ_PKTS,
+} gnma_ieee8021x_das_dac_stat_type_t;
+
 struct gnma_alarm {
 	const char *id;
 	const char *resource;
@@ -436,6 +447,10 @@ int gnma_ieee8021x_das_dac_hosts_list_get(size_t *list_size,
 int gnma_ieee8021x_das_dac_host_add(struct gnma_das_dac_host_key *key,
 				    const char *passkey);
 int gnma_ieee8021x_das_dac_host_remove(struct gnma_das_dac_host_key *key);
+int
+gnma_iee8021x_das_dac_global_stats_get(uint32_t num_of_counters,
+				       gnma_ieee8021x_das_dac_stat_type_t *counter_ids,
+				       uint64_t *counters);
 
 int gnma_radius_hosts_list_get(size_t *list_size,
 			       struct gnma_radius_host_key *hosts_list);

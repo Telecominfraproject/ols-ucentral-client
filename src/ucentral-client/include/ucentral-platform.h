@@ -579,6 +579,17 @@ struct plat_system_info {
 	double load_average[3]; /* 1, 5, 15 minutes load average */
 };
 
+struct plat_iee8021x_coa_counters {
+	uint64_t coa_req_received;
+	uint64_t coa_ack_sent;
+	uint64_t coa_nak_sent;
+	uint64_t coa_ignored;
+	uint64_t coa_wrong_attr;
+	uint64_t coa_wrong_attr_value;
+	uint64_t coa_wrong_session_context;
+	uint64_t coa_administratively_prohibited_req;
+};
+
 struct plat_state_info {
 	struct plat_poe_state poe_state;
 	struct plat_poe_port_state poe_ports_state[MAX_NUM_OF_PORTS];
@@ -590,6 +601,7 @@ struct plat_state_info {
 	size_t learned_mac_list_size;
 
 	struct plat_system_info system_info;
+	struct plat_iee8021x_coa_counters ieee8021x_global_coa_counters;
 };
 
 struct plat_upgrade_info {

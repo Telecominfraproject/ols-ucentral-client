@@ -44,6 +44,16 @@
 
 #define RTTY_SESS_MAX (10)
 
+#define ARR_FIND_VALUE_IDX(A, len, value)				\
+	({								\
+		size_t it = 0;						\
+		for ((it) = 0; (it) < (len); (++it)) {			\
+			if ((A)[it] == (value))				\
+				break;					\
+		}							\
+		(it);							\
+	})
+
 static int plat_state_get(struct plat_state_info *state);
 static void plat_state_deinit(struct plat_state_info *state);
 static int plat_port_speed_get(uint16_t fp_p_id, uint32_t *speed);
@@ -1559,16 +1569,6 @@ int plat_port_stats_get(uint16_t fp_p_id, struct plat_port_counters *stats)
 	uint64_t counters[ARRAY_LENGTH(stat_types)];
 	struct gnma_port_key gnma_port;
 
-#define ARR_FIND_VALUE_IDX(A, len, value)				\
-	({								\
-		size_t it = 0;						\
-		for ((it) = 0; (it) < (len); (++it)) {			\
-			if ((A)[it] == (value))				\
-				break;					\
-		}							\
-		(it);							\
-	})
-
 	PID_TO_NAME(fp_p_id, gnma_port.name);
 
 	if (gnma_port_stats_get(&gnma_port, ARRAY_LENGTH(stat_types),
@@ -1623,7 +1623,6 @@ int plat_port_stats_get(uint16_t fp_p_id, struct plat_port_counters *stats)
 	stats->tx_packets +=
 		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
 					    GNMA_PORT_STAT_OUT_BCAST_PKTS)];
-#undef ARR_FIND_VALUE_IDX
 
 	return 0;
 }
@@ -3185,6 +3184,54 @@ err:
 	return ret;
 }
 
+static int
+plat_state_ieee8021x_coa_global_counters_get(struct plat_iee8021x_coa_counters *stats)
+{
+	gnma_ieee8021x_das_dac_stat_type_t stat_types[] = {
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_ACK_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_NAK_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_IGNORED_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_VALUE_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_SESSION_CONTEXT_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_ADMINISTRATIVELY_PROHIBITED_REQ_PKTS,
+	};
+	uint64_t counters[ARRAY_LENGTH(stat_types)];
+
+	if (gnma_iee8021x_das_dac_global_stats_get(ARRAY_LENGTH(stat_types),
+						   &stat_types[0],
+						   &counters[0]))
+		return -EINVAL;
+
+	stats->coa_req_received =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_PKTS)];
+	stats->coa_ack_sent =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_ACK_PKTS)];
+	stats->coa_nak_sent =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_NAK_PKTS)];
+	stats->coa_ignored =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_IGNORED_PKTS)];
+	stats->coa_wrong_attr =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_PKTS)];
+	stats->coa_wrong_attr_value =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					   GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_VALUE_PKTS)];
+	stats->coa_wrong_session_context =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_SESSION_CONTEXT_PKTS)];
+	stats->coa_administratively_prohibited_req =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_ADMINISTRATIVELY_PROHIBITED_REQ_PKTS)];
+
+	return 0;
+}
+
 static int plat_state_get(struct plat_state_info *state)
 {
 	size_t i;
@@ -3205,6 +3252,9 @@ static int plat_state_get(struct plat_state_info *state)
 
 	if (plat_learned_mac_addrs_get(&state->learned_mac_list,
 				       &state->learned_mac_list_size))
+		return -1;
+
+	if (plat_state_ieee8021x_coa_global_counters_get(&state->ieee8021x_global_coa_counters))
 		return -1;
 
 	return 0;

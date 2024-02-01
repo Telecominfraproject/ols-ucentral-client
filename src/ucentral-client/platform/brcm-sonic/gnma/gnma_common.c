@@ -5133,6 +5133,118 @@ err_path_alloc:
 	return ret;
 }
 
+static const char *
+gnma_ieee8021x_das_dac_stats_type_to_string(gnma_ieee8021x_das_dac_stat_type_t counter_id)
+{
+	static struct {
+		gnma_ieee8021x_das_dac_stat_type_t enu_value;
+		const char *str_value;
+	} stats_enum_to_str[] = {
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_PKTS, .str_value = "num_coa_requests_received"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_ACK_PKTS, .str_value = "num_coa_ack_responses_sent"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_NAK_PKTS, .str_value = "num_coa_nak_responses_sent"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_IGNORED_PKTS, .str_value = "num_coa_requests_ignored"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_PKTS, .str_value = "num_coa_missing_unsupported_attributes_requests"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_VALUE_PKTS, .str_value = "num_coa_invalid_attribute_value_requests"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_SESSION_CONTEXT_PKTS, .str_value = "num_coa_session_context_not_found_requests"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_ADMINISTRATIVELY_PROHIBITED_REQ_PKTS, .str_value = "num_coa_administratively_prohibited_requests"},
+	};
+	size_t i;
+
+	for (i = 0; i < ARRAY_LENGTH(stats_enum_to_str); ++i)
+		if (counter_id == stats_enum_to_str[i].enu_value)
+			return stats_enum_to_str[i].str_value;
+
+	return NULL;
+}
+
+int
+gnma_iee8021x_das_dac_global_stats_get(uint32_t num_of_counters,
+				       gnma_ieee8021x_das_dac_stat_type_t *counter_ids,
+				       uint64_t *counters)
+{
+	cJSON *parsed_res, *global_table, *global_counter_table_list, *counter,
+	      *counters_arr;
+	const char *counter_string;
+	char *buf = 0;
+	char *gpath;
+	size_t i;
+	int ret;
+
+	ret = asprintf(&gpath, "/sonic-das:sonic-das/DAS_GLOBAL_COUNTER_TABLE");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	memset(counters, 0, sizeof(*counters) * num_of_counters);
+	/*
+	 * Parse the following table type:
+	{
+	"sonic-das:DAS_GLOBAL_COUNTER_TABLE": {
+		"DAS_GLOBAL_COUNTER_TABLE_LIST": [
+		{
+			"global": "GLOBAL",
+			"num_coa_ack_responses_sent": 0,
+			"num_coa_administratively_prohibited_requests": 0,
+			"num_coa_invalid_attribute_value_requests": 0,
+			"num_coa_missing_unsupported_attributes_requests": 0,
+			"num_coa_nak_responses_sent": 1,
+			"num_coa_requests_ignored": 1,
+			"num_coa_requests_received": 1,
+			"num_coa_session_context_not_found_requests": 0
+		}
+		]
+	}
+	}
+	*/
+
+	global_table =
+		cJSON_GetObjectItemCaseSensitive(parsed_res,
+						 "sonic-das:DAS_GLOBAL_COUNTER_TABLE");
+	global_counter_table_list =
+		cJSON_GetObjectItemCaseSensitive(global_table,
+						 "DAS_GLOBAL_COUNTER_TABLE_LIST");
+	counters_arr = cJSON_GetArrayItem(global_counter_table_list, 0);
+	if (!cJSON_IsObject(counters_arr)) {
+		/* It's okay if these tables do not exists:
+		 * no DAC cfg was present, counters - all zero*/
+		ret = GNMA_OK;
+		goto err_gnmi_get_obj;
+	}
+
+	for (i = 0; i < num_of_counters; ++i) {
+		counter_string = gnma_ieee8021x_das_dac_stats_type_to_string(counter_ids[i]);
+		counter = cJSON_GetObjectItemCaseSensitive(counters_arr,
+							   counter_string);
+		if (counter && cJSON_IsNumber(counter)) {
+			counters[i] = (typeof(counters[i])) cJSON_GetNumberValue(counter);
+		}
+	}
+
+err_gnmi_get_obj:
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
 int gnma_radius_hosts_list_get(size_t *list_size,
 			       struct gnma_radius_host_key *hosts_list)
 {
