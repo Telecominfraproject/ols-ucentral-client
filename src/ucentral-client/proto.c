@@ -910,23 +910,8 @@ static int
 cfg_ethernet_port_isolation_interface_parse(cJSON *iface,
 					    struct plat_port_isolation_session_ports *ports) {
 	struct plat_ports_list *port_node = NULL;
-	cJSON *iface_type, *iface_list;
+	cJSON *iface_list;
 	int i;
-
-	iface_type = cJSON_GetObjectItemCaseSensitive(iface, "interface-type");
-	if (!iface_type || !cJSON_GetStringValue(iface_type)) {
-		UC_LOG_ERR("Ethernet obj 'port_isolation:interface-type' is invalid, parse failed\n");
-		return -1;
-	}
-
-	if (!strcmp(cJSON_GetStringValue(iface_type), "port")) {
-		ports->is_physical = true;
-	} else if (!strcmp(cJSON_GetStringValue(iface_type), "trunk")) {
-		ports->is_physical = false;
-	} else {
-		UC_LOG_ERR("Ethernet obj 'port_isolation:interface-type' value is invalid; 'port' or 'trunk' expected, parse failed\n");
-		return -1;
-	}
 
 	iface_list = cJSON_GetObjectItemCaseSensitive(iface, "interface-list");
 	if (!iface_list || !cJSON_IsArray(iface_list) ||
@@ -948,7 +933,7 @@ cfg_ethernet_port_isolation_interface_parse(cJSON *iface,
 		}
 		strcpy(port_node->name,
 		       cJSON_GetStringValue(cJSON_GetArrayItem(iface_list, i)));
-		UCENTRAL_LIST_PUSH_MEMBER(&__port_list, port_node);
+		UCENTRAL_LIST_PUSH_MEMBER(&ports->ports_list, port_node);
 	}
 
 	return 0;

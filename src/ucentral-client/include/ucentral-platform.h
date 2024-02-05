@@ -389,8 +389,6 @@ struct plat_radius_hosts_list {
 };
 
 struct plat_port_isolation_session_ports {
-	/* Selected interface type - either physical or trunk port */
-	bool is_physical;
 	struct plat_ports_list *ports_list;
 };
 
