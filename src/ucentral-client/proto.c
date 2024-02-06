@@ -3402,8 +3402,51 @@ err:
 	return -1;
 }
 
+static int
+state_fill_unit_ieee8021x_global_counters(cJSON *ieee8021x,
+					  struct plat_iee8021x_coa_counters *c)
+{
+	cJSON *das, *stats;
+
+	das = cJSON_AddObjectToObject(ieee8021x, "dynamic-authorization");
+	if (!das)
+		return -1;
+
+	stats = cJSON_AddObjectToObject(das, "stats");
+	if (!stats)
+		return -1;
+
+	if (!jobj_u64_set(stats, "coa_req_received",
+			  c->coa_req_received))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_ack_sent",
+			  c->coa_ack_sent))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_nak_sent",
+			  c->coa_nak_sent))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_ignored",
+			  c->coa_ignored))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_wrong_attr",
+			  c->coa_wrong_attr))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_wrong_attr_value",
+			  c->coa_wrong_attr_value))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_wrong_session_context",
+			  c->coa_wrong_session_context))
+		return -1;
+	if (!jobj_u64_set(stats, "administratively_prohibited_req",
+			  c->coa_administratively_prohibited_req))
+		return -1;
+
+	return 0;
+}
+
 static int state_fill_unit_data(cJSON *unit, struct plat_state_info *state)
 {
+	cJSON *ieee8021x;
 	cJSON *loadArr;
 	cJSON *memory;
 	cJSON *poe;
@@ -3437,6 +3480,12 @@ static int state_fill_unit_data(cJSON *unit, struct plat_state_info *state)
 
 	poe = cJSON_AddObjectToObject(unit, "poe");
 	if (!poe || state_fill_unit_poe_data(poe, &state->poe_state))
+		goto err;
+
+	ieee8021x = cJSON_AddObjectToObject(unit, "ieee8021x");
+	if (!ieee8021x ||
+	    state_fill_unit_ieee8021x_global_counters(ieee8021x,
+						      &state->ieee8021x_global_coa_counters))
 		goto err;
 
 	return 0;
