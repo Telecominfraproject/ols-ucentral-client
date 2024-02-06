@@ -3381,16 +3381,16 @@ static int
 state_fill_unit_poe_data(cJSON *poe, struct plat_poe_state *poe_state_info)
 {
 
-	if (!cJSON_AddNumberToObject(poe, "max-power-budget",
-				     poe_state_info->max_power_budget))
+	if (!jobj_u64_set(poe, "max-power-budget",
+			  poe_state_info->max_power_budget))
 		goto err;
 
-	if (!cJSON_AddNumberToObject(poe, "power-consumed",
-				     poe_state_info->power_consumed))
+	if (!jobj_u64_set(poe, "power-consumed",
+			  poe_state_info->power_consumed))
 		goto err;
 
-	if (!cJSON_AddNumberToObject(poe, "power-threshold",
-				     poe_state_info->power_threshold))
+	if (!jobj_u64_set(poe, "power-threshold",
+			  poe_state_info->power_threshold))
 		goto err;
 
 	if (!cJSON_AddStringToObject(poe, "power-status",

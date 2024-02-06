@@ -1920,6 +1920,7 @@ __poe_state_buf_parse(char *buf, size_t buf_size,
 {
 	cJSON *status;
 	cJSON *state;
+	cJSON *tmp;
 
 	state = cJSON_ParseWithLength(buf, buf_size);
 	if (!state)
@@ -1927,10 +1928,19 @@ __poe_state_buf_parse(char *buf, size_t buf_size,
 
 	poe_state->max_power_budget =
 		cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(state, "max-power-budget"));
+
+	/* For some reason, new BRCM images report this value as string, not value... */
+	tmp = cJSON_GetObjectItemCaseSensitive(state, "power-threshold");
+	if (!tmp || !cJSON_GetStringValue(tmp))
+		goto err;
 	poe_state->power_threshold =
-		cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(state, "power-threshold"));
+		(typeof(poe_state->power_threshold)) strtod(cJSON_GetStringValue(tmp), NULL);
+
+	tmp = cJSON_GetObjectItemCaseSensitive(state, "power-consumption");
+	if (!tmp || !cJSON_GetStringValue(tmp))
+		goto err;
 	poe_state->power_consumed =
-		cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(state, "power-consumption"));
+		(typeof(poe_state->power_consumed)) strtod(cJSON_GetStringValue(tmp), NULL);
 
 	status = cJSON_GetObjectItemCaseSensitive(state, "pse-oper-status");
 	if (!cJSON_GetStringValue(status))
