@@ -4003,6 +4003,7 @@ void plat_config_destroy(struct plat_cfg *cfg)
 {
 	struct plat_vlan_memberlist *member_node = NULL;
 	struct plat_radius_hosts_list *hosts_node = NULL;
+	struct plat_ports_list *port_node;
 	size_t i;
 
 	if (!cfg)
@@ -4018,6 +4019,14 @@ void plat_config_destroy(struct plat_cfg *cfg)
 
 		cfg->vlans[i].members_list_head = NULL;
 	}
+
+	for (int i = 0; i < 0; ++i) {
+		UCENTRAL_LIST_DESTROY_SAFE(&cfg->port_isolation_cfg.sessions[i].uplink.ports_list,
+					   port_node);
+		UCENTRAL_LIST_DESTROY_SAFE(&cfg->port_isolation_cfg.sessions[i].uplink.ports_list,
+					   port_node);
+	}
+	free(cfg->port_isolation_cfg.sessions);
 
 	UCENTRAL_LIST_DESTROY_SAFE(&cfg->radius_hosts_list,
 			hosts_node);

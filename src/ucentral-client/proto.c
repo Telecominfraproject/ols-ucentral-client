@@ -1078,7 +1078,7 @@ err:
 	for (int j = i; j >= 0; --j) {
 		UCENTRAL_LIST_DESTROY_SAFE(&session_arr[j].uplink.ports_list,
 					   port_node);
-		UCENTRAL_LIST_DESTROY_SAFE(&session_arr[j].uplink.ports_list,
+		UCENTRAL_LIST_DESTROY_SAFE(&session_arr[j].downlink.ports_list,
 					   port_node);
 	}
 	cfg->port_isolation_cfg.sessions = 0;
