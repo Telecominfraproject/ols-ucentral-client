@@ -5572,3 +5572,67 @@ err_gnmi_get_obj:
 err_gnmi_get:
 	return ret;
 }
+
+int gnma_igmp_iface_groups_get(struct gnma_port_key *iface,
+			       char *out_buf, size_t *out_buf_size)
+{
+	char *gpath, *buf = NULL;
+	cJSON *root, *groups;
+	size_t json_len = 0;
+	char *json_buf;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-network-instance:network-instances/network-instance[name=default]"
+		       "/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]"
+		       "/openconfig-network-instance-deviation:igmp-snooping/interfaces"
+		       "/interface[name=%s]",
+		       iface->name);
+
+	if (ret == -1)
+		return GNMA_ERR_COMMON;
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	ZFREE(gpath);
+	if (ret)
+		return GNMA_ERR_COMMON;
+	root = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!root)
+		return GNMA_ERR_COMMON;
+	ret = GNMA_ERR_COMMON;
+	groups = cJSON_GetObjectItemCaseSensitive(root, "openconfig-network-instance-deviation:interface");
+	groups = cJSON_GetArrayItem(groups, 0);
+	groups = cJSON_GetObjectItemCaseSensitive(groups, "staticgrps");
+	groups = cJSON_GetObjectItemCaseSensitive(groups, "static-multicast-group");
+	if (cJSON_GetArraySize(groups) == 0) {
+		/* No IGMP groups exists. */
+		*out_buf_size = 0;
+		goto err_gnmi_no_entries;
+	}
+
+	json_buf = cJSON_PrintUnformatted(groups);
+	if (!json_buf) {
+		ret = GNMA_ERR_COMMON;
+		goto err_buf_print;
+	}
+
+	json_len = strlen(json_buf);
+	/* check that provided buffer is large enough */
+	if (*out_buf_size < json_len) {
+		*out_buf_size = json_len + 1;
+		ret = GNMA_ERR_OVERFLOW;
+		free(json_buf);
+		goto err_gnmi_get_obj;
+	}
+
+	memcpy(out_buf, json_buf, *out_buf_size - 1);
+	free(json_buf);
+
+err_gnmi_no_entries:
+	ret = GNMA_OK;
+err_buf_print:
+err_gnmi_get_obj:
+	cJSON_Delete(root);  /* only need to free root */
+	return ret;
+}

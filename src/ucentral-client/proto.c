@@ -3060,15 +3060,65 @@ err:
 	return -1;
 }
 
+static int state_fill_interface_multicast(cJSON *root, struct plat_port_vlan *vlan)
+{
+	cJSON *igmp, *enabled_groups, *group, *outgoing_ports;
+	struct plat_ports_list *port_node = NULL;
+	char ip_addr[] = {"255.255.255.255"};
+	int ret = -1;
+	size_t idx;
+
+	if (!vlan->igmp_info.exist)
+		return 0;
+
+	igmp = cJSON_AddObjectToObject(root, "igmp");
+	enabled_groups = cJSON_AddArrayToObject(igmp, "enabled-groups");
+	if (!igmp || !enabled_groups)
+		goto err;
+
+	for (idx = 0; idx < vlan->igmp_info.num_groups; idx++) {
+		if (!(group = cJSON_CreateObject()))
+			goto err;
+
+		if (!inet_ntop(AF_INET, &vlan->igmp_info.groups[idx].addr,
+			       ip_addr, sizeof(ip_addr)))
+			goto err;
+
+		if (!(cJSON_AddStringToObject(group, "address", ip_addr)))
+			goto err;
+
+		if (!(outgoing_ports = cJSON_AddArrayToObject(group, "egress-ports")))
+			goto err;
+
+		UCENTRAL_LIST_FOR_EACH_MEMBER(
+				port_node,
+				&vlan->igmp_info.groups[idx].egress_ports_list) {
+			if (!cJSON_AddItemToArray(outgoing_ports, cJSON_CreateString(port_node->name)))
+				goto err;
+		}
+
+		if (!cJSON_AddItemToArray(enabled_groups, group))
+			goto err;
+	}
+
+	ret = 0;
+err:
+	return ret;
+}
+
 static int state_fill_interfaces_data(cJSON *interfaces,
 				      struct plat_state_info *state)
 {
+	char location[] = { "/interfaces/XXXX" };
+	char vlan_name[] = { "VlanXXXX" };
 	cJSON *dns_servers;
 	cJSON *transceiver;
 	cJSON *interface;
+	cJSON *multicast;
 	cJSON *counters;
 	cJSON *clients;
 	cJSON *ipv4;
+	uint16_t id;
 	int ret;
 	int i;
 
@@ -3137,20 +3187,43 @@ static int state_fill_interfaces_data(cJSON *interfaces,
 		}
 
 		/* TBD: find out (?) proper <location> */
-		{
-			char location[] = { "/interfaces/XXXX" };
-			uint16_t pid;
+		NAME_TO_PID(&id, state->port_info[i].name);
+		sprintf(location, "/interfaces/%hu", id);
 
-			NAME_TO_PID(&pid, state->port_info[i].name);
-			sprintf(location, "/interfaces/%hu", pid);
-
-			if (!cJSON_AddStringToObject(interface, "location",
-						     location))
-				goto err;
-		}
+		if (!cJSON_AddStringToObject(interface, "location",
+					     location))
+			goto err;
 
 		if (!jobj_u64_set(interface, "uptime",
 				  state->system_info.uptime))
+			goto err;
+	}
+
+	for (i = 0; i < (int)state->vlan_info_count; i++) {
+		interface = cJSON_CreateObject();
+		if (!interface || !cJSON_AddItemToArray(interfaces, interface))
+			goto err;
+
+		clients = cJSON_AddArrayToObject(interface, "clients");
+		counters = cJSON_AddObjectToObject(interface, "counters");
+		dns_servers = cJSON_AddArrayToObject(interface, "dns_servers");
+		ipv4 = cJSON_AddObjectToObject(interface, "ipv4");
+		multicast = cJSON_AddObjectToObject(interface, "multicast");
+		if (!clients || !counters || !dns_servers || !ipv4 || !multicast)
+			goto err;
+
+		ret = state_fill_interface_multicast(multicast, &state->vlan_info[i]);
+		if (ret)
+			goto err;
+
+		sprintf(location, "/SVI/%u", state->vlan_info[i].id);
+		sprintf(vlan_name, "Vlan%u", state->vlan_info[i].id);
+
+		if (!cJSON_AddStringToObject(interface, "name", vlan_name))
+			goto err;
+		if (!cJSON_AddStringToObject(interface, "location", location))
+			goto err;
+		if (!jobj_u64_set(interface, "uptime", state->system_info.uptime))
 			goto err;
 	}
 

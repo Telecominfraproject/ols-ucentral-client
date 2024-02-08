@@ -460,6 +460,9 @@ int gnma_radius_host_remove(struct gnma_radius_host_key *key);
 int gnma_mac_address_list_get(size_t *list_size, struct gnma_fdb_entry *list);
 int gnma_system_password_set(char *password);
 
+int gnma_igmp_iface_groups_get(struct gnma_port_key *iface,
+			       char *buf, size_t *buf_size);
+
 struct gnma_change *gnma_change_create(void);
 void gnma_change_destory(struct gnma_change *);
 int gnma_change_exec(struct gnma_change *);

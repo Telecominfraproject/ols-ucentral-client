@@ -41,6 +41,7 @@ extern "C" {
  */
 #define PID_TO_NAME(p, name) sprintf(name, "Ethernet%hu", p)
 #define NAME_TO_PID(p, name) sscanf((name), "Ethernet%hu", (p))
+#define VLAN_TO_NAME(v, name) sprintf((name), "Vlan%hu", (v))
 
 struct plat_vlan_memberlist;
 struct plat_port_vlan;
@@ -258,10 +259,20 @@ struct plat_port_l2 {
 	struct plat_ipv4 ipv4;
 };
 
+struct plat_vlan_igmp_info {
+	bool exist;
+	size_t num_groups;
+	struct {
+		struct in_addr addr;
+		struct plat_ports_list *egress_ports_list;
+	} *groups;
+};
+
 struct plat_port_vlan {
 	struct plat_vlan_memberlist *members_list_head;
 	struct plat_ipv4 ipv4;
 	struct plat_dhcp dhcp;
+	struct plat_vlan_igmp_info igmp_info;
 	uint16_t id;
 	uint16_t mstp_instance;
 };
@@ -639,6 +650,8 @@ struct plat_state_info {
 
 	struct plat_port_info *port_info;
 	int port_info_count;
+	struct plat_port_vlan *vlan_info;
+	size_t vlan_info_count;
 	struct plat_learned_mac_addr *learned_mac_list;
 	size_t learned_mac_list_size;
 

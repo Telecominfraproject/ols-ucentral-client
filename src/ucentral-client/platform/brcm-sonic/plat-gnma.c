@@ -1903,6 +1903,115 @@ int plat_port_transceiver_info_get(uint16_t port_id,
 	return -1;
 }
 
+static int plat_vlan_igmp_info_get(uint16_t vid,
+				   struct plat_vlan_igmp_info *info)
+{
+	size_t list_size = 0, group_idx = 0;
+	struct plat_ports_list *port_node;
+	struct gnma_port_key iface = {0};
+	cJSON *groups = NULL, *group;
+	size_t buf_size = 0;
+	char *buf = NULL;
+	int ret = 0;
+
+	VLAN_TO_NAME(vid, iface.name);
+	ret = gnma_igmp_iface_groups_get(&iface, NULL, &buf_size);
+	if (ret == GNMA_OK && !buf_size)
+		return 0;
+	if (ret != GNMA_ERR_OVERFLOW)
+		return -1;
+
+	buf = calloc(buf_size, sizeof(*buf));
+	if (!buf)
+		return -1;
+
+	ret = gnma_igmp_iface_groups_get(&iface, buf, &buf_size);
+	if (ret != GNMA_OK) {
+		ret = -1;
+		goto err;
+	}
+
+	groups = cJSON_Parse(buf);
+	if (!groups) {
+		ret = -1;
+		goto err;
+	}
+
+	list_size = cJSON_GetArraySize(groups);
+	info->groups = calloc(list_size, sizeof(*info->groups));
+	if (!info->groups) {
+		ret = -1;
+		goto err;
+	}
+	info->num_groups = list_size;
+
+	cJSON_ArrayForEach(group, groups) {
+		cJSON *state, *gaddr, *e_ifaces, *e_iface;
+
+		state = cJSON_GetObjectItemCaseSensitive(group, "state");
+		if (!state || !cJSON_IsObject(state)) {
+			ret = -1;
+			goto err;
+		}
+
+		gaddr = cJSON_GetObjectItemCaseSensitive(state, "group");
+		if (!gaddr || !cJSON_GetStringValue(gaddr)) {
+			ret = -1;
+			goto err;
+		}
+
+		e_ifaces = cJSON_GetObjectItemCaseSensitive(state, "outgoing-interface");
+		if (!e_ifaces || !cJSON_IsArray(e_ifaces)) {
+			ret = -1;
+			goto err;
+		}
+
+		if (inet_pton(AF_INET, cJSON_GetStringValue(gaddr),
+			      &info->groups[group_idx].addr) != 1) {
+			ret = -1;
+			goto err;
+		}
+
+		cJSON_ArrayForEach(e_iface, e_ifaces) {
+			if (!cJSON_GetStringValue(e_iface)) {
+				ret = -1;
+				goto err;
+			}
+
+			port_node = calloc(1, sizeof(*port_node));
+			if (!port_node) {
+				ret = -1;
+				goto err;
+			}
+
+			strcpy(port_node->name,
+			       cJSON_GetStringValue(e_iface));
+			UCENTRAL_LIST_PUSH_MEMBER(
+					&info->groups[group_idx].egress_ports_list,
+					port_node);
+		}
+
+		group_idx++;
+	}
+
+	info->exist = true;
+	goto exit;
+
+err:
+	if (info->groups) {
+		for (size_t i = 0; i < info->num_groups; ++i) {
+			UCENTRAL_LIST_DESTROY_SAFE(
+					&info->groups[i].egress_ports_list,
+					port_node);
+		}
+	}
+	free(info->groups);
+exit:
+	cJSON_Delete(groups);
+	free(buf);
+	return ret;
+}
+
 static int
 __poe_port_state_buf_parse(char *buf, size_t buf_size,
 			   struct plat_poe_port_state *port_state)
@@ -3006,15 +3115,32 @@ int plat_portl2_rif_set(uint16_t fp_p_id, struct plat_ipv4 *ipv4)
 
 static void plat_state_deinit(struct plat_state_info *state)
 {
-	int i;
-	for (i = 0; i < state->port_info_count; i++) {
+	struct plat_ports_list *port_node;
+
+	for (int i = 0; i < state->port_info_count; i++) {
 		if (state->port_info[i].has_transceiver_info &&
 		    state->port_info[i].transceiver_info.num_supported_link_modes) {
 			free(state->port_info[i].transceiver_info.supported_link_modes);
 		}
 	}
+
+	for (size_t i = 0; i < state->vlan_info_count; i++) {
+		struct plat_vlan_igmp_info *info =
+			&state->vlan_info[i].igmp_info;
+
+		if (info->num_groups) {
+			for (size_t i = 0; i < info->num_groups; ++i) {
+				UCENTRAL_LIST_DESTROY_SAFE(
+						&info->groups[i].egress_ports_list,
+						port_node);
+			}
+			free(info->groups);
+		}
+	}
+
 	free(state->learned_mac_list);
 	free(state->port_info);
+	free(state->vlan_info);
 	*state = (struct plat_state_info){ 0 };
 }
 
@@ -3102,6 +3228,54 @@ err:
 	if (ret)
 		UC_LOG_DBG("failed");
 	return ret;
+}
+
+static int plat_vlan_info_get(struct plat_port_vlan **vlan_info, size_t *count)
+{
+	BITMAP_DECLARE(vlans_bmp, GNMA_MAX_VLANS);
+	struct plat_port_vlan *vinfo = 0;
+	size_t num_vlans = 0;
+	size_t idx = 0;
+	size_t vid;
+	int ret;
+
+	BITMAP_CLEAR(vlans_bmp, GNMA_MAX_VLANS);
+	ret = gnma_vlan_list_get(vlans_bmp);
+	if (ret)
+		return -1;
+
+	BITMAP_FOR_EACH_BIT_SET(vid, vlans_bmp, GNMA_MAX_VLANS) {
+		num_vlans++;
+	}
+
+	if (!num_vlans) {
+		*count = 0;
+		return 0;
+	}
+
+	vinfo = calloc(num_vlans, sizeof(*vinfo));
+	if (!vinfo) {
+		UC_LOG_ERR("ENOMEM");
+		return -1;
+	}
+	memset(vinfo, 0, num_vlans * sizeof(*vinfo));
+
+	BITMAP_FOR_EACH_BIT_SET(vid, vlans_bmp, GNMA_MAX_VLANS) {
+		vinfo[idx].id = vid;
+
+		if (plat_vlan_igmp_info_get(vid, &vinfo[idx].igmp_info)) {
+			UC_LOG_DBG("plat_vlan_igmp_info_get failed");
+			return -1;
+		}
+
+		idx++;
+		if (idx >= num_vlans)
+			break;
+	}
+
+	*count = idx;
+	*vlan_info = vinfo;
+	return 0;
 }
 
 static int get_meminfo_cached_kib(uint64_t *cached)
@@ -3269,6 +3443,9 @@ static int plat_state_get(struct plat_state_info *state)
 		return -1;
 
 	if (plat_port_info_get(&state->port_info, &state->port_info_count))
+		return -1;
+
+	if (plat_vlan_info_get(&state->vlan_info, &state->vlan_info_count))
 		return -1;
 
 	if (plat_learned_mac_addrs_get(&state->learned_mac_list,
