@@ -71,6 +71,12 @@ enum plat_ieee8021x_das_auth_type {
 	PLAT_802_1X_DAS_AUTH_TYPE_SESSION_KEY,
 };
 
+enum plat_igmp_version {
+	PLAT_IGMP_VERSION_1,
+	PLAT_IGMP_VERSION_2,
+	PLAT_IGMP_VERSION_3
+};
+
 #define UCENTRAL_PORT_LLDP_PEER_INFO_MAX_MGMT_IPS (2)
 /* Interface LLDP peer's data, as defined in interface.lldp.yml*/
 struct plat_port_lldp_peer_info {
@@ -259,8 +265,15 @@ struct plat_port_l2 {
 	struct plat_ipv4 ipv4;
 };
 
-struct plat_vlan_igmp_info {
+struct plat_igmp {
 	bool exist;
+	bool snooping_enabled;
+	bool querier_enabled;
+	bool fast_leave_enabled;
+	uint32_t query_interval;
+	uint32_t last_member_query_interval;
+	uint32_t max_response_time;
+	enum plat_igmp_version version;
 	size_t num_groups;
 	struct {
 		struct in_addr addr;
@@ -272,7 +285,7 @@ struct plat_port_vlan {
 	struct plat_vlan_memberlist *members_list_head;
 	struct plat_ipv4 ipv4;
 	struct plat_dhcp dhcp;
-	struct plat_vlan_igmp_info igmp_info;
+	struct plat_igmp igmp;
 	uint16_t id;
 	uint16_t mstp_instance;
 };

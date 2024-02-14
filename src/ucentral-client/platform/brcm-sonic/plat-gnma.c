@@ -1903,8 +1903,7 @@ int plat_port_transceiver_info_get(uint16_t port_id,
 	return -1;
 }
 
-static int plat_vlan_igmp_info_get(uint16_t vid,
-				   struct plat_vlan_igmp_info *info)
+static int plat_vlan_igmp_info_get(uint16_t vid, struct plat_igmp *info)
 {
 	size_t list_size = 0, group_idx = 0;
 	struct plat_ports_list *port_node;
@@ -1984,13 +1983,13 @@ static int plat_vlan_igmp_info_get(uint16_t vid,
 				goto err;
 			}
 
-			strcpy(port_node->name,
-			       cJSON_GetStringValue(e_iface));
+			strncpy(port_node->name,
+				cJSON_GetStringValue(e_iface),
+				sizeof(*port_node->name));
 			UCENTRAL_LIST_PUSH_MEMBER(
 					&info->groups[group_idx].egress_ports_list,
 					port_node);
 		}
-
 		group_idx++;
 	}
 
@@ -3020,6 +3019,11 @@ err:
 /* NOTE: In case of error this function left partial config */
 int plat_vlan_rif_set(uint16_t vid, struct plat_ipv4 *ipv4)
 {
+	struct gnma_igmp_snoop_attr igmp_snoop_attr = {
+		.enabled=false,
+		.querier_enabled=false,
+		.version=GNMA_IGMP_VERSION_NA
+	};
 	struct gnma_ip_prefix pref, pref_old;
 	uint16_t list_size;
 	int i;
@@ -3044,6 +3048,11 @@ int plat_vlan_rif_set(uint16_t vid, struct plat_ipv4 *ipv4)
 					vid,
 					&plat_state.vlans[vid].dhcp_relay.helper_addresses[i]))
 			return -1;
+	}
+
+	if (gnma_igmp_snooping_set(vid, &igmp_snoop_attr)) {
+		UC_LOG_DBG("Failed to set VLAN igmp.\n");
+		return -1;
 	}
 
 	if (list_size > 0 && !ipv4->exist) {
@@ -3078,6 +3087,83 @@ int plat_vlan_rif_set(uint16_t vid, struct plat_ipv4 *ipv4)
 	}
 
 	return 0;
+}
+
+static int plat_vlan_igmp_set(uint16_t vid, struct plat_igmp *igmp)
+{
+	struct gnma_igmp_static_group_attr *group_list;
+	struct plat_ports_list *e_port;
+	size_t group_idx, port_idx;
+	int ret;
+	struct gnma_igmp_snoop_attr attr = {
+		.last_member_query_interval = igmp->last_member_query_interval,
+		.fast_leave_enabled = igmp->fast_leave_enabled,
+		.max_response_time = igmp->max_response_time,
+		.querier_enabled = igmp->querier_enabled,
+		.query_interval = igmp->query_interval,
+		.enabled = igmp->snooping_enabled,
+	};
+
+	if (!igmp->exist)
+		attr.version = GNMA_IGMP_VERSION_NA;
+	else if (igmp->version == PLAT_IGMP_VERSION_1)
+		attr.version = GNMA_IGMP_VERSION_1;
+	else if (igmp->version == PLAT_IGMP_VERSION_2)
+		attr.version = GNMA_IGMP_VERSION_2;
+	else if (igmp->version == PLAT_IGMP_VERSION_3)
+		attr.version = GNMA_IGMP_VERSION_3;
+	else
+		return -1;
+
+	group_list = calloc(igmp->num_groups, sizeof(*group_list));
+	if (!group_list) {
+		UC_LOG_ERR("ENOMEM");
+		return -1;
+	}
+
+	for (group_idx = 0; group_idx < igmp->num_groups; group_idx++) {
+		group_list[group_idx].address = igmp->groups[group_idx].addr;
+
+		group_list[group_idx].num_ports = 0;
+		UCENTRAL_LIST_FOR_EACH_MEMBER(e_port, &igmp->groups[group_idx].egress_ports_list) {
+			group_list[group_idx].num_ports++;
+		}
+		group_list[group_idx].egress_ports = calloc(group_list[group_idx].num_ports,
+							    sizeof(*group_list[group_idx].egress_ports));
+		if (!group_list[group_idx].egress_ports) {
+			UC_LOG_ERR("ENOMEM");
+			ret = -1;
+			goto err;
+		}
+
+		port_idx = 0;
+		UCENTRAL_LIST_FOR_EACH_MEMBER(e_port, &igmp->groups[group_idx].egress_ports_list) {
+			strncpy(group_list[group_idx].egress_ports[port_idx].name,
+				e_port->name,
+				sizeof(group_list[group_idx].egress_ports[port_idx].name));
+			port_idx++;
+		}
+	}
+
+	ret = gnma_igmp_snooping_set(vid, &attr);
+	if (ret) {
+		UC_LOG_ERR("gnma_igmp_snooping_set");
+		ret = -1;
+		goto err;
+	}
+
+	ret = gnma_igmp_static_groups_set(vid, igmp->num_groups, group_list);
+	if (ret) {
+		UC_LOG_ERR("gnma_igmp_static_groups_set");
+		ret = -1;
+		goto err;
+	}
+err:
+	if (group_list)
+		for (group_idx = 0; group_idx < igmp->num_groups; group_idx++)
+			free(group_list[group_idx].egress_ports);
+	free(group_list);
+	return ret;
 }
 
 /* NOTE: In case of error this function left partial config */
@@ -3125,8 +3211,7 @@ static void plat_state_deinit(struct plat_state_info *state)
 	}
 
 	for (size_t i = 0; i < state->vlan_info_count; i++) {
-		struct plat_vlan_igmp_info *info =
-			&state->vlan_info[i].igmp_info;
+		struct plat_igmp *info = &state->vlan_info[i].igmp;
 
 		if (info->num_groups) {
 			for (size_t i = 0; i < info->num_groups; ++i) {
@@ -3263,7 +3348,7 @@ static int plat_vlan_info_get(struct plat_port_vlan **vlan_info, size_t *count)
 	BITMAP_FOR_EACH_BIT_SET(vid, vlans_bmp, GNMA_MAX_VLANS) {
 		vinfo[idx].id = vid;
 
-		if (plat_vlan_igmp_info_get(vid, &vinfo[idx].igmp_info)) {
+		if (plat_vlan_igmp_info_get(vid, &vinfo[idx].igmp)) {
 			UC_LOG_DBG("plat_vlan_igmp_info_get failed");
 			return -1;
 		}
@@ -3468,6 +3553,12 @@ static int config_vlan_ipv4_apply(struct plat_cfg *cfg)
 		ret = plat_vlan_rif_set(cfg->vlans[i].id, &cfg->vlans[i].ipv4);
 		if (ret) {
 			UC_LOG_DBG("Failed to set VLAN rif.\n");
+			return ret;
+		}
+
+		ret = plat_vlan_igmp_set(cfg->vlans[i].id, &cfg->vlans[i].igmp);
+		if (ret) {
+			UC_LOG_DBG("Failed to set VLAN igmp.\n");
 			return ret;
 		}
 	}

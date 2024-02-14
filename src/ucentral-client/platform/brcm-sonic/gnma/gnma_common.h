@@ -290,6 +290,29 @@ struct gnma_fdb_entry {
 	char mac[18];
 };
 
+typedef enum _gnma_igmp_version_t {
+	GNMA_IGMP_VERSION_NA = 0,
+	GNMA_IGMP_VERSION_1 = 1,
+	GNMA_IGMP_VERSION_2 = 2,
+	GNMA_IGMP_VERSION_3 = 3
+} gnma_igmp_version_t;
+
+struct gnma_igmp_snoop_attr {
+	bool enabled;
+	bool querier_enabled;
+	bool fast_leave_enabled;
+	uint32_t query_interval;
+	uint32_t last_member_query_interval;
+	uint32_t max_response_time;
+	gnma_igmp_version_t version;
+};
+
+struct gnma_igmp_static_group_attr {
+	struct in_addr address;
+	size_t num_ports;
+	struct gnma_port_key *egress_ports;
+};
+
 int gnma_switch_create(/* TODO id */ /* TODO: attr (adr, login, psw) */);
 int gnma_port_admin_state_set(struct gnma_port_key *port_key, bool up);
 int gnma_port_speed_set(struct gnma_port_key *port_key, const char *speed);
@@ -459,6 +482,9 @@ int gnma_radius_host_add(struct gnma_radius_host_key *key, const char *passkey,
 int gnma_radius_host_remove(struct gnma_radius_host_key *key);
 int gnma_mac_address_list_get(size_t *list_size, struct gnma_fdb_entry *list);
 int gnma_system_password_set(char *password);
+int gnma_igmp_snooping_set(uint16_t vid, struct gnma_igmp_snoop_attr *attr);
+int gnma_igmp_static_groups_set(uint16_t vid, size_t num_groups,
+				struct gnma_igmp_static_group_attr *groups);
 
 int gnma_igmp_iface_groups_get(struct gnma_port_key *iface,
 			       char *buf, size_t *buf_size);

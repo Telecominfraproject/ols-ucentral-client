@@ -1233,6 +1233,121 @@ static int cfg_port_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 	return 0;
 }
 
+static int __cfg_vlan_interface_parse_multicast(cJSON *multicast,
+						struct plat_cfg *cfg,
+						uint16_t vid)
+{
+	cJSON *igmp, *field, *group, *addr, *ports, *port;
+	struct plat_ports_list *e_port;
+	struct plat_igmp info = {  /* default values */
+		.snooping_enabled = true,
+		.querier_enabled = false,
+		.fast_leave_enabled = false,
+		.query_interval = 60,
+		.last_member_query_interval = 60,
+		.max_response_time = 10,
+		.version = PLAT_IGMP_VERSION_3,
+		.num_groups = 0,
+		.groups = NULL
+	};
+	size_t group_idx;
+
+	if (!(igmp = cJSON_GetObjectItemCaseSensitive(multicast, "igmp")))
+		return 0;
+
+	/* handle igmp snooping parameters */
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "version")) && cJSON_IsNumber(field)) {
+		switch ((uint32_t)cJSON_GetNumberValue(field)) {
+		case 1:
+			info.version = PLAT_IGMP_VERSION_1;
+			break;
+		case 2:
+			info.version = PLAT_IGMP_VERSION_2;
+			break;
+		case 3:
+			info.version = PLAT_IGMP_VERSION_3;
+			break;
+		default:
+			UC_LOG_ERR("Invalid IGMP version %f", cJSON_GetNumberValue(field));
+			return -1;
+		}
+	}
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "snooping-enable")) && cJSON_IsBool(field))
+		info.snooping_enabled = cJSON_IsTrue(field);
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "querier-enable")) && cJSON_IsBool(field))
+		info.querier_enabled = cJSON_IsTrue(field);
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "fast-leave-enable")) && cJSON_IsBool(field))
+		info.fast_leave_enabled = cJSON_IsTrue(field);
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "query-interval")) && cJSON_IsNumber(field))
+		info.query_interval = cJSON_GetNumberValue(field);
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "last-member-query-interval")) && cJSON_IsNumber(field))
+		info.last_member_query_interval = cJSON_GetNumberValue(field);
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "max-response-time")) && cJSON_IsNumber(field))
+		info.max_response_time = cJSON_GetNumberValue(field);
+
+	field = cJSON_GetObjectItemCaseSensitive(igmp, "static-mcast-groups");
+	if (!field || !cJSON_IsArray(field))
+		goto skip_groups;
+
+	info.num_groups = cJSON_GetArraySize(field);
+	info.groups = calloc(info.num_groups, sizeof(*info.groups));
+	if (!info.groups)
+		goto err;
+
+	/* handle static groups */
+	group_idx = 0;
+	cJSON_ArrayForEach(group, field) {
+		addr = cJSON_GetObjectItemCaseSensitive(group, "address");
+		ports = cJSON_GetObjectItemCaseSensitive(group, "egress-ports");
+		if (!addr || !cJSON_IsString(addr) || !ports || !cJSON_IsArray(ports)) {
+			/* FIXME: workaround for parser issue */
+			addr = cJSON_GetObjectItemCaseSensitive(group, "static-mcast-groups[].address");
+			ports = cJSON_GetObjectItemCaseSensitive(group, "static-mcast-groups[].egress-ports");
+			if (!addr || !cJSON_IsString(addr) || !ports || !cJSON_IsArray(ports)) {
+				UC_LOG_ERR("Missing static group info\n");
+				goto err;
+			}
+		}
+
+		if (inet_pton(AF_INET, addr->valuestring, &info.groups[group_idx].addr.s_addr) != 1) {
+			UC_LOG_ERR("Failed to parse ip addr %s\n", addr->valuestring);
+			goto err;
+		}
+
+		/* handle egress ports */
+		cJSON_ArrayForEach(port, ports) {
+			e_port = calloc(1, sizeof(*e_port));
+			if (!e_port) {
+				UC_LOG_ERR("Can't alloc port node\n");
+				goto err;
+			}
+
+			if (!cJSON_IsString(port)){
+				UC_LOG_ERR("Invalid port name\n");
+				goto err;
+			}
+
+			strncpy(e_port->name, port->valuestring, sizeof(e_port->name));
+			UCENTRAL_LIST_PUSH_MEMBER(&info.groups[group_idx].egress_ports_list, e_port);
+		}
+		group_idx++;
+	}
+skip_groups:
+	info.exist = info.snooping_enabled || info.querier_enabled;
+	cfg->vlans[vid].igmp = info;
+	return 0;
+err:
+	if (info.groups) {
+		for (group_idx = 0; group_idx < info.num_groups; group_idx++) {
+			UCENTRAL_LIST_DESTROY_SAFE(
+				&info.groups[group_idx].egress_ports_list,
+				e_port);
+		}
+	}
+	free(info.groups);
+	return -1;
+}
+
 static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 {
 	size_t i;
@@ -1246,6 +1361,7 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 	char *ipv4_subnet_str;
 	cJSON *select_ports;
 	cJSON *ipv4_subnet;
+	cJSON *multicast;
 	cJSON *vlan_tag;
 	cJSON *ethernet;
 	uint8_t tagged;
@@ -1311,6 +1427,7 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 	cfg->vlans[vid].dhcp.relay.enabled = false;
 	ipv4 = cJSON_GetObjectItemCaseSensitive(interface, "ipv4");
 	dhcp = cJSON_GetObjectItemCaseSensitive(ipv4, "dhcp");
+	multicast = cJSON_GetObjectItemCaseSensitive(ipv4, "multicast");
 	if (ipv4) {
 		/*  TODO addressing */
 		ipv4_subnet_str = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(ipv4, "subnet"));
@@ -1351,6 +1468,13 @@ skip_subnet_old:
 		}
 		cfg->vlans[vid].ipv4.exist = true;
 skip_subnet:
+		if (multicast) {
+			ret = __cfg_vlan_interface_parse_multicast(multicast, cfg, vid);
+			if (ret) {
+				UC_LOG_ERR("Failed parsing multicast config");
+				return ret;
+			}
+		}
 
 		if (!dhcp)
 			return 0;
@@ -3068,7 +3192,7 @@ static int state_fill_interface_multicast(cJSON *root, struct plat_port_vlan *vl
 	int ret = -1;
 	size_t idx;
 
-	if (!vlan->igmp_info.exist)
+	if (!vlan->igmp.exist)
 		return 0;
 
 	igmp = cJSON_AddObjectToObject(root, "igmp");
@@ -3076,11 +3200,11 @@ static int state_fill_interface_multicast(cJSON *root, struct plat_port_vlan *vl
 	if (!igmp || !enabled_groups)
 		goto err;
 
-	for (idx = 0; idx < vlan->igmp_info.num_groups; idx++) {
+	for (idx = 0; idx < vlan->igmp.num_groups; idx++) {
 		if (!(group = cJSON_CreateObject()))
 			goto err;
 
-		if (!inet_ntop(AF_INET, &vlan->igmp_info.groups[idx].addr,
+		if (!inet_ntop(AF_INET, &vlan->igmp.groups[idx].addr,
 			       ip_addr, sizeof(ip_addr)))
 			goto err;
 
@@ -3092,7 +3216,7 @@ static int state_fill_interface_multicast(cJSON *root, struct plat_port_vlan *vl
 
 		UCENTRAL_LIST_FOR_EACH_MEMBER(
 				port_node,
-				&vlan->igmp_info.groups[idx].egress_ports_list) {
+				&vlan->igmp.groups[idx].egress_ports_list) {
 			if (!cJSON_AddItemToArray(outgoing_ports, cJSON_CreateString(port_node->name)))
 				goto err;
 		}

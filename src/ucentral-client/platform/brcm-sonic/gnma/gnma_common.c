@@ -5573,6 +5573,233 @@ err_gnmi_get:
 	return ret;
 }
 
+static int __gnma_igmp_disable(uint16_t vid)
+{
+	char *resource[] = {
+		"/openconfig-interfaces:interfaces/interface[name=Vlan%u]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/openconfig-igmp-ext:igmp",
+		"/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]/openconfig-network-instance-deviation:igmp-snooping/interfaces/interface[name=Vlan%u]/staticgrps",
+		"/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]/openconfig-network-instance-deviation:igmp-snooping/interfaces/interface[name=Vlan%u]"
+	};
+	char gpath[256];
+	size_t i;
+	int ret;
+
+	for (i = 0; i < ARRAY_LENGTH(resource); i++) {
+		ret = snprintf(gpath, sizeof(gpath), resource[i], vid);
+		if (ret == -1)
+			return GNMA_ERR_COMMON;
+		/* ignore return value */
+		gnmi_jsoni_del(main_switch, gpath, DEFAULT_TIMEOUT_US);
+	}
+	return 0;
+}
+
+static int __gnma_ip_igmp_set(uint16_t vid, struct gnma_igmp_snoop_attr *attr)
+{
+	cJSON *root, *config;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-interfaces:interfaces/interface[name=Vlan%u]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/openconfig-igmp-ext:igmp",
+		       vid);
+	if (ret == -1)
+		return GNMA_ERR_COMMON;
+
+	ret = GNMA_ERR_COMMON;
+	root = cJSON_CreateObject();
+	if (!root)
+		goto err;
+
+	config = cJSON_AddObjectToObject(root, "openconfig-igmp-ext:igmp");
+	config = cJSON_AddObjectToObject(config, "config");
+	if (!config)
+		goto err;
+
+	if (!cJSON_AddBoolToObject(config, "enabled", attr->enabled || attr->querier_enabled) ||
+	    !cJSON_AddNumberToObject(config, "query-interval", attr->query_interval) ||
+	    !cJSON_AddNumberToObject(config, "query-max-response-time", attr->max_response_time))
+		goto err;
+
+	if (attr->version != GNMA_IGMP_VERSION_NA)
+		if (!cJSON_AddNumberToObject(config, "version", attr->version))
+			goto err;
+
+	ret = gnmi_json_object_set(main_switch, gpath, root, DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+err:
+	free(gpath);
+	return ret;
+}
+
+static int __gnma_igmp_root_alloc(uint16_t vid, cJSON **root, cJSON **interface)
+{
+	cJSON *root_node, *config, *iface_node, *interfaces_list;
+	char iface_name[] = "VlanXXXX";
+
+	if (vid >= 4096)  /* sanity */
+		return GNMA_ERR_COMMON;
+
+	snprintf(iface_name, sizeof(iface_name), "Vlan%u", vid);
+
+	root_node = cJSON_CreateObject();
+	if (!root_node)
+		return GNMA_ERR_COMMON;
+
+	interfaces_list = cJSON_AddObjectToObject(root_node, "openconfig-network-instance-deviation:igmp-snooping");
+	interfaces_list = cJSON_AddObjectToObject(interfaces_list, "interfaces");
+	interfaces_list = cJSON_AddArrayToObject(interfaces_list, "interface");
+	if (!interfaces_list)
+		goto err;
+
+	iface_node = cJSON_CreateObject();
+	if (!iface_node)
+		goto err;
+	if (!cJSON_AddItemToArray(interfaces_list, iface_node)) {
+		cJSON_Delete(iface_node);
+		goto err;
+	}
+
+	config = cJSON_AddObjectToObject(iface_node, "config");
+	if (!config)
+		goto err;
+
+	if (!cJSON_AddStringToObject(iface_node, "name", iface_name) ||
+	    !cJSON_AddStringToObject(config, "name", iface_name))
+		goto err;
+
+	*root = root_node;
+	*interface = iface_node;
+	return 0;
+err:
+	cJSON_Delete(root_node);
+	*root = NULL;
+	*interface = NULL;
+	return GNMA_ERR_COMMON;
+}
+
+int gnma_igmp_snooping_set(uint16_t vid, struct gnma_igmp_snoop_attr *attr)
+{
+	char *gpath = "/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]/openconfig-network-instance-deviation:igmp-snooping";
+	bool enabled = attr->enabled || attr->querier_enabled;
+	cJSON *root, *config, *interface;
+	int ret;
+
+	if (!enabled) {
+		/* ignore return value */
+		__gnma_igmp_disable(vid);
+		return 0;
+	}
+
+	ret = __gnma_ip_igmp_set(vid, attr);
+	if (ret)
+		return ret;
+
+	/* allocates root object which needs to be freed */
+	ret = __gnma_igmp_root_alloc(vid, &root, &interface);
+	if (ret)
+		return ret;
+
+	config = cJSON_GetObjectItemCaseSensitive(interface, "config");
+	if (!config) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+
+	if (!cJSON_AddBoolToObject(config, "enabled", attr->enabled) ||
+	    !cJSON_AddBoolToObject(config, "querier", attr->querier_enabled) ||
+	    !cJSON_AddBoolToObject(config, "fast-leave", attr->fast_leave_enabled) ||
+	    /* !cJSON_AddNumberToObject(config, "query-interval", attr->query_interval) || */
+	    !cJSON_AddNumberToObject(config, "last-member-query-interval", attr->last_member_query_interval) ||
+	    /* !cJSON_AddNumberToObject(config, "query-max-response-time", attr->max_response_time) || */
+	    !cJSON_AddNumberToObject(config, "version", attr->version)) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+
+	ret = gnmi_json_object_set(main_switch, gpath, root, DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+err:
+	cJSON_Delete(root);
+	return ret;
+}
+
+int gnma_igmp_static_groups_set(uint16_t vid, size_t num_groups,
+				struct gnma_igmp_static_group_attr *groups)
+{
+	char *gpath = "/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]/openconfig-network-instance-deviation:igmp-snooping";
+	cJSON *root, *mcast_groups, *group, *port_list, *port, *interface;
+	char ip_addr[] = {"255.255.255.255"};
+	size_t grp_idx, port_idx;
+	int ret;
+
+	/* allocates root object which needs to be freed */
+	ret = __gnma_igmp_root_alloc(vid, &root, &interface);
+	if (ret)
+		return ret;
+
+	mcast_groups = cJSON_AddObjectToObject(interface, "staticgrps");
+	mcast_groups = cJSON_AddArrayToObject(mcast_groups, "static-multicast-group");
+	if (!mcast_groups) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+
+	for (grp_idx = 0; grp_idx < num_groups; grp_idx++) {
+		group = cJSON_CreateObject();
+		if (!group) {
+			ret = GNMA_ERR_COMMON;
+			goto err;
+		}
+		if (!cJSON_AddItemToArray(mcast_groups, group)) {
+			cJSON_Delete(group);
+			ret = GNMA_ERR_COMMON;
+			goto err;
+		}
+
+		if (!inet_ntop(AF_INET, &groups[grp_idx].address.s_addr, ip_addr, sizeof(ip_addr)) ||
+		    !cJSON_AddStringToObject(group, "group", ip_addr) ||
+		    !cJSON_AddStringToObject(group, "source-addr", "0.0.0.0")) {
+			ret = GNMA_ERR_COMMON;
+			goto err;
+		}
+
+		port_list = cJSON_AddObjectToObject(group, "config");
+		port_list = cJSON_AddArrayToObject(port_list, "outgoing-interface");
+		if (!port_list) {
+			ret = GNMA_ERR_COMMON;
+			goto err;
+		}
+		for (port_idx = 0; port_idx < groups[grp_idx].num_ports; port_idx++) {
+			port = cJSON_CreateString(groups[grp_idx].egress_ports[port_idx].name);
+			if (!port) {
+				ret = GNMA_ERR_COMMON;
+				goto err;
+			}
+			if (!cJSON_AddItemToArray(port_list, port)) {
+				cJSON_Delete(port);
+				ret = GNMA_ERR_COMMON;
+				goto err;
+			}
+		}
+	}
+
+	ret = gnmi_json_object_set(main_switch, gpath, root, DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+err:
+	cJSON_Delete(root);
+	return ret;
+}
+
 int gnma_igmp_iface_groups_get(struct gnma_port_key *iface,
 			       char *out_buf, size_t *out_buf_size)
 {
@@ -5583,10 +5810,7 @@ int gnma_igmp_iface_groups_get(struct gnma_port_key *iface,
 	int ret;
 
 	ret = asprintf(&gpath,
-		       "/openconfig-network-instance:network-instances/network-instance[name=default]"
-		       "/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]"
-		       "/openconfig-network-instance-deviation:igmp-snooping/interfaces"
-		       "/interface[name=%s]",
+		       "/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]/openconfig-network-instance-deviation:igmp-snooping/interfaces/interface[name=%s]",
 		       iface->name);
 
 	if (ret == -1)
