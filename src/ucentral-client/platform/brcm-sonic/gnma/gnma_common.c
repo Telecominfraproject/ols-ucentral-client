@@ -5616,14 +5616,18 @@ static int __gnma_ip_igmp_set(uint16_t vid, struct gnma_igmp_snoop_attr *attr)
 	if (!config)
 		goto err;
 
-	if (!cJSON_AddBoolToObject(config, "enabled", attr->enabled || attr->querier_enabled) ||
-	    !cJSON_AddNumberToObject(config, "query-interval", attr->query_interval) ||
-	    !cJSON_AddNumberToObject(config, "query-max-response-time", attr->max_response_time))
+	if (!cJSON_AddBoolToObject(config, "enabled", attr->querier_enabled))
 		goto err;
 
-	if (attr->version != GNMA_IGMP_VERSION_NA)
-		if (!cJSON_AddNumberToObject(config, "version", attr->version))
+	if (attr->querier_enabled){
+		if (!cJSON_AddNumberToObject(config, "query-interval", attr->query_interval) ||
+		    !cJSON_AddNumberToObject(config, "query-max-response-time", attr->max_response_time) ||
+		    !cJSON_AddNumberToObject(config, "last-member-query-interval", attr->last_member_query_interval))
 			goto err;
+		if (attr->version != GNMA_IGMP_VERSION_NA)
+			if (!cJSON_AddNumberToObject(config, "version", attr->version))
+				goto err;
+	}
 
 	ret = gnmi_json_object_set(main_switch, gpath, root, DEFAULT_TIMEOUT_US);
 	if (ret) {
@@ -5710,14 +5714,17 @@ int gnma_igmp_snooping_set(uint16_t vid, struct gnma_igmp_snoop_attr *attr)
 	}
 
 	if (!cJSON_AddBoolToObject(config, "enabled", attr->enabled) ||
-	    !cJSON_AddBoolToObject(config, "querier", attr->querier_enabled) ||
-	    !cJSON_AddBoolToObject(config, "fast-leave", attr->fast_leave_enabled) ||
-	    /* !cJSON_AddNumberToObject(config, "query-interval", attr->query_interval) || */
-	    !cJSON_AddNumberToObject(config, "last-member-query-interval", attr->last_member_query_interval) ||
-	    /* !cJSON_AddNumberToObject(config, "query-max-response-time", attr->max_response_time) || */
-	    !cJSON_AddNumberToObject(config, "version", attr->version)) {
+	    !cJSON_AddBoolToObject(config, "querier", attr->querier_enabled)) {
 		ret = GNMA_ERR_COMMON;
 		goto err;
+	}
+
+	if (attr->enabled){
+		if (!cJSON_AddBoolToObject(config, "fast-leave", attr->fast_leave_enabled))
+			goto err;
+		if (attr->version != GNMA_IGMP_VERSION_NA)
+			if (!cJSON_AddNumberToObject(config, "version", attr->version))
+				goto err;
 	}
 
 	ret = gnmi_json_object_set(main_switch, gpath, root, DEFAULT_TIMEOUT_US);
