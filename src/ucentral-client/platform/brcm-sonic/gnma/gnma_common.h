@@ -447,8 +447,8 @@ int gnma_stp_ports_enable(uint32_t list_size, struct gnma_port_key *ports_list);
 int gnma_stp_instance_set(uint16_t instance, uint16_t prio,
 			  uint32_t list_size, uint16_t *vid_list);
 
-int gnma_stp_vids_enable(uint32_t list_size, uint16_t *vid_list);
-int gnma_stp_vids_enable_all(void);
+int gnma_stp_vids_set(uint32_t list_size, uint16_t *vid_list, bool enable);
+int gnma_stp_vids_set_all(bool enable);
 int gnma_stp_vid_set(uint16_t vid, struct gnma_stp_attr *attr);
 int gnma_stp_vid_bulk_get(struct gnma_stp_attr *list, ssize_t size);
 

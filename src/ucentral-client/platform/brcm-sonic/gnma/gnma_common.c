@@ -4090,25 +4090,12 @@ int gnma_stp_mode_set(gnma_stp_mode_t mode, struct gnma_stp_attr *attr)
 	int err = GNMA_ERR_COMMON, ret;
 	char gpath[256];
 
+	/* delete global config since you cannot change the stp mode otherwise */
+	gnmi_jsoni_del(main_switch,
+		       "/sonic-spanning-tree:sonic-spanning-tree/STP/STP_LIST[keyleaf=GLOBAL]",
+		       DEFAULT_TIMEOUT_US);
 	if (mode == GNMA_STP_MODE_NONE) {
-		gnmi_jsoni_del(
-			main_switch,
-			"/sonic-spanning-tree:sonic-spanning-tree/STP_VLAN",
-			DEFAULT_TIMEOUT_US);
-		gnmi_jsoni_del(
-			main_switch,
-			"/sonic-spanning-tree:sonic-spanning-tree/STP_PORT",
-			DEFAULT_TIMEOUT_US);
-		gnmi_jsoni_set(
-			main_switch,
-			"/sonic-spanning-tree:sonic-spanning-tree/STP/STP_LIST[keyleaf=GLOBAL]/mode",
-			"{\"sonic-spanning-tree:mode\": \"pvst\"}",
-			DEFAULT_TIMEOUT_US);
-
-		sprintf(&gpath[0], "/sonic-spanning-tree:sonic-spanning-tree");
-		if (!gnmi_jsoni_del(main_switch, gpath, DEFAULT_TIMEOUT_US))
-			err = 0;
-
+		err = 0;
 		goto out;
 	}
 
@@ -4134,15 +4121,21 @@ int gnma_stp_mode_set(gnma_stp_mode_t mode, struct gnma_stp_attr *attr)
 	ret = 1;
 	ret &= !!cJSON_AddNumberToObject(obj, "priority", attr->priority);
 	ret &= !!cJSON_AddStringToObject(obj, "keyleaf", "GLOBAL");
+	ret &= !!cJSON_AddBoolToObject(obj, "bpdu_filter", false);
 	switch (mode) {
 	case GNMA_STP_MODE_PVST:
 		ret &= !!cJSON_AddStringToObject(obj, "mode", "pvst");
+		ret &= !!cJSON_AddBoolToObject(obj, "portfast", false);
+		ret &= !!cJSON_AddNumberToObject(obj, "rootguard_timeout", 30);
 		break;
 	case GNMA_STP_MODE_RPVST:
 		ret &= !!cJSON_AddStringToObject(obj, "mode", "rpvst");
+		ret &= !!cJSON_AddBoolToObject(obj, "loop_guard", false);
+		ret &= !!cJSON_AddNumberToObject(obj, "rootguard_timeout", 30);
 		break;
 	case GNMA_STP_MODE_MST:
 		ret &= !!cJSON_AddStringToObject(obj, "mode", "mst");
+		ret &= !!cJSON_AddBoolToObject(obj, "loop_guard", false);
 		break;
 	default:
 		goto out;
@@ -4366,7 +4359,7 @@ out:
 
 }
 
-int gnma_stp_vids_enable(uint32_t list_size, uint16_t *vid_list)
+int gnma_stp_vids_set(uint32_t list_size, uint16_t *vid_list, bool enable)
 {
 	cJSON *root = NULL, *obj, *arr;
 	int err = GNMA_ERR_COMMON, ret;
@@ -4394,7 +4387,7 @@ int gnma_stp_vids_enable(uint32_t list_size, uint16_t *vid_list)
 		ret = 1;
 		sprintf(&vidstr[0], "Vlan%u", vid_list[i]);
 		ret &= !!cJSON_AddStringToObject(obj, "name", &vidstr[0]);
-		ret &= !!cJSON_AddBoolToObject(obj, "enabled", true);
+		ret &= !!cJSON_AddBoolToObject(obj, "enabled", enable);
 		if (!ret)
 			goto out;
 	}
@@ -4408,47 +4401,23 @@ out:
 	return err;
 }
 
-int gnma_stp_vids_enable_all(void)
+int gnma_stp_vids_set_all(bool enable)
 {
-	cJSON *root = NULL, *obj, *arr;
-	int err = GNMA_ERR_COMMON, ret;
-	char gpath[256], vidstr[64];
-	uint32_t i, from = 1, to = 4096;
+	BITMAP_DECLARE(vlans, GNMA_MAX_VLANS);
+	uint16_t vid_list[GNMA_MAX_VLANS];
+	size_t i, num_vlans = 0;
+	int ret;
 
-	sprintf(&gpath[0], "/sonic-spanning-tree:sonic-spanning-tree/STP_VLAN");
+	ret = gnma_vlan_list_get(vlans);
+	if (ret)
+		return ret;
 
-	root = cJSON_CreateObject();
-	if (!root)
-		goto out;
-
-	obj = cJSON_AddObjectToObject(root, "sonic-spanning-tree:STP_VLAN");
-	arr = cJSON_AddArrayToObject(obj, "STP_VLAN_LIST");
-	if (!arr)
-		goto out;
-
-	for (i = from; i < to; i++) {
-		obj = cJSON_CreateObject();
-		if (!cJSON_AddItemToArray(arr, obj)) {
-			cJSON_Delete(obj); /* Bcs root is not referenced */
-			goto out;
-		}
-
-		ret = 1;
-		sprintf(&vidstr[0], "Vlan%u", i);
-		ret &= !!cJSON_AddStringToObject(obj, "name", &vidstr[0]);
-		ret &= !!cJSON_AddBoolToObject(obj, "enabled", true);
-		if (!ret)
-			goto out;
+	BITMAP_FOR_EACH_BIT_SET(i, vlans, GNMA_MAX_VLANS) {
+		vid_list[num_vlans] = i;
+		num_vlans++;
 	}
 
-	if (gnmi_json_object_set(main_switch, gpath, root, DEFAULT_TIMEOUT_US))
-		goto out;
-
-	err = 0;
-out:
-	cJSON_Delete(root);
-	return err;
-
+	return gnma_stp_vids_set(num_vlans, vid_list, enable);
 }
 
 static int gnma_stp_vid_enable(uint16_t vid, struct gnma_stp_attr *attr)
@@ -4496,12 +4465,7 @@ out:
 
 static int gnma_stp_vid_disable(uint16_t vid)
 {
-	char gpath[256];
-
-	sprintf(&gpath[0], "/sonic-spanning-tree:sonic-spanning-tree/STP_VLAN/STP_VLAN_LIST[name=Vlan%u]",
-		vid);
-
-	gnmi_jsoni_del(main_switch, gpath, DEFAULT_TIMEOUT_US);
+	gnma_stp_vids_set(1, &vid, false);
 	return 0;
 }
 
