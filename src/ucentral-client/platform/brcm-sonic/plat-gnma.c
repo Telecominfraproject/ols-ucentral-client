@@ -1985,7 +1985,7 @@ static int plat_vlan_igmp_info_get(uint16_t vid, struct plat_igmp *info)
 
 			strncpy(port_node->name,
 				cJSON_GetStringValue(e_iface),
-				sizeof(*port_node->name));
+				sizeof(port_node->name));
 			UCENTRAL_LIST_PUSH_MEMBER(
 					&info->groups[group_idx].egress_ports_list,
 					port_node);
