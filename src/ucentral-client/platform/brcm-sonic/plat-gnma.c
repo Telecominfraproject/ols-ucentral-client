@@ -44,6 +44,16 @@
 
 #define RTTY_SESS_MAX (10)
 
+#define ARR_FIND_VALUE_IDX(A, len, value)				\
+	({								\
+		size_t it = 0;						\
+		for ((it) = 0; (it) < (len); (++it)) {			\
+			if ((A)[it] == (value))				\
+				break;					\
+		}							\
+		(it);							\
+	})
+
 static int plat_state_get(struct plat_state_info *state);
 static void plat_state_deinit(struct plat_state_info *state);
 static int plat_port_speed_get(uint16_t fp_p_id, uint32_t *speed);
@@ -137,6 +147,17 @@ plat_ieee8021x_system_auth_clients_get(uint16_t port_id,
 	} \
 	(res);})
 
+#define PLAT_DAC_HOST_EXISTS_IN_CFG(_host, head) \
+	({bool res = false; \
+	struct plat_ieee8021x_dac_list *_pos; \
+	UCENTRAL_LIST_FOR_EACH_MEMBER((_pos), (head)) { \
+		if (strcmp((_host), ((_pos)->host.hostname)) == 0) { \
+			res = true; \
+			break; \
+		} \
+	} \
+	(res);})
+
 /* For now, let's define abs max buf size as:
  * 1024 (bytes) per client, 10 clients total at max for 100 ports;
  * Bare minimum client info has ~600B size (raw json).
@@ -195,15 +216,6 @@ struct poe_port {
 	gnma_poe_port_priority_t priority;
 };
 
-/* Password is obfuscated and key changes all the time.
- * So cache only actual hosts (ip / hostname), and do a single
- * GNMI request to add host (with all parameters - passkey, port etc) upon
- * every cfg reqest.
- */
-struct radius_host {
-	struct gnma_radius_host_key key;
-};
-
 struct port {
 	struct gnma_port_key key;
 	struct {
@@ -244,6 +256,13 @@ struct plat_state {
 	} poe;
 	struct {
 		bool is_auth_control_enabled;
+		bool bounce_port_ignore;
+		bool disable_port_ignore;
+		bool ignore_server_key;
+		bool ignore_session_key;
+		gnma_das_auth_type_t das_auth_type;
+		struct gnma_das_dac_host_key *das_dac_keys_arr;
+		size_t das_dac_keys_arr_size;
 	} ieee8021x;
 	struct {
 		struct gnma_radius_host_key *hosts_keys_arr;
@@ -875,6 +894,98 @@ err:
 	return ret;
 }
 
+static int plat_state_ieee8021x_dac_list_init(void)
+{
+	int ret;
+
+	free(plat_state.ieee8021x.das_dac_keys_arr);
+	plat_state.ieee8021x.das_dac_keys_arr = NULL;
+	plat_state.ieee8021x.das_dac_keys_arr_size = 0;
+
+	ret = gnma_ieee8021x_das_dac_hosts_list_get(&plat_state.ieee8021x.das_dac_keys_arr_size,
+						    NULL);
+	if (ret && ret != GNMA_ERR_OVERFLOW) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_dac_hosts_list_get failed");
+		plat_state.ieee8021x.das_dac_keys_arr_size = 0;
+		return ret;
+	}
+
+	/* No DAC hosts configured, no need to update cache. */
+	if (0 == plat_state.ieee8021x.das_dac_keys_arr_size)
+		return 0;
+
+	plat_state.ieee8021x.das_dac_keys_arr =
+		calloc(plat_state.ieee8021x.das_dac_keys_arr_size,
+		       sizeof(*plat_state.ieee8021x.das_dac_keys_arr));
+	if (!plat_state.ieee8021x.das_dac_keys_arr) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ret = gnma_ieee8021x_das_dac_hosts_list_get(&plat_state.ieee8021x.das_dac_keys_arr_size,
+						    plat_state.ieee8021x.das_dac_keys_arr);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_dac_hosts_list_get failed");
+		goto err;
+	}
+	return 0;
+
+err:
+	free(plat_state.radius.hosts_keys_arr);
+	plat_state.radius.hosts_keys_arr = NULL;
+	plat_state.radius.hosts_keys_arr_size = 0;
+	return ret;
+}
+
+static int plat_state_ieee8021x_init(void)
+{
+	int ret;
+
+	ret = gnma_ieee8021x_system_auth_control_get(&plat_state.ieee8021x.is_auth_control_enabled);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_system_auth_control_get failed");
+		return ret;
+	}
+
+	ret = gnma_ieee8021x_das_bounce_port_ignore_get(&plat_state.ieee8021x.bounce_port_ignore);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_bounce_port_ignore_get failed");
+		return ret;
+	}
+
+	ret = gnma_ieee8021x_das_disable_port_ignore_get(&plat_state.ieee8021x.disable_port_ignore);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_disable_port_ignore_get failed");
+		return ret;
+	}
+
+	ret = gnma_ieee8021x_das_ignore_server_key_get(&plat_state.ieee8021x.ignore_server_key);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_ignore_server_key_get failed");
+		return ret;
+	}
+
+	ret = gnma_ieee8021x_das_ignore_session_key_get(&plat_state.ieee8021x.ignore_session_key);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_ignore_session_key_get failed");
+		return ret;
+	}
+
+	ret = gnma_ieee8021x_das_auth_type_key_get(&plat_state.ieee8021x.das_auth_type);
+	if (ret) {
+		UC_LOG_CRIT("gnma_ieee8021x_das_auth_type_key_get failed");
+		return ret;
+	}
+
+	ret = plat_state_ieee8021x_dac_list_init();
+	if (ret) {
+		UC_LOG_CRIT("plat_state_ieee8021x_dac_list_init failed");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int plat_state_init()
 {
 	BITMAP_DECLARE(vlans, GNMA_MAX_VLANS);
@@ -892,9 +1003,15 @@ static int plat_state_init()
 
 	featsts[FEAT_CORE] = FEATSTS_FAIL;
 
-	ret = gnma_ieee8021x_system_auth_control_get(&plat_state.ieee8021x.is_auth_control_enabled);
+	ret = plat_state_ieee8021x_init();
 	if (ret) {
-		UC_LOG_CRIT("gnma_ieee8021x_system_auth_control_get failed");
+		UC_LOG_CRIT("plat_state_ieee8021x_init failed");
+		featsts[FEAT_AAA] = FEATSTS_FAIL;
+	}
+
+	ret = plat_state_radius_init();
+	if (ret) {
+		UC_LOG_CRIT("plat_state_radius_init failed");
 		featsts[FEAT_AAA] = FEATSTS_FAIL;
 	}
 
@@ -1010,12 +1127,6 @@ static int plat_state_init()
 			UC_LOG_CRIT("ucentral_router_fib_db_append");
 			goto err;
 		}
-	}
-
-	ret = plat_state_radius_init();
-	if (ret) {
-		UC_LOG_CRIT("plat_state_radius_init failed");
-		featsts[FEAT_AAA] = FEATSTS_FAIL;
 	}
 
 	if (featsts[FEAT_AAA] == FEATSTS_FAIL) {
@@ -1458,16 +1569,6 @@ int plat_port_stats_get(uint16_t fp_p_id, struct plat_port_counters *stats)
 	uint64_t counters[ARRAY_LENGTH(stat_types)];
 	struct gnma_port_key gnma_port;
 
-#define ARR_FIND_VALUE_IDX(A, len, value)				\
-	({								\
-		size_t it = 0;						\
-		for ((it) = 0; (it) < (len); (++it)) {			\
-			if ((A)[it] == (value))				\
-				break;					\
-		}							\
-		(it);							\
-	})
-
 	PID_TO_NAME(fp_p_id, gnma_port.name);
 
 	if (gnma_port_stats_get(&gnma_port, ARRAY_LENGTH(stat_types),
@@ -1522,7 +1623,6 @@ int plat_port_stats_get(uint16_t fp_p_id, struct plat_port_counters *stats)
 	stats->tx_packets +=
 		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
 					    GNMA_PORT_STAT_OUT_BCAST_PKTS)];
-#undef ARR_FIND_VALUE_IDX
 
 	return 0;
 }
@@ -1794,6 +1894,123 @@ err:
 	return ret;
 }
 
+int plat_port_transceiver_info_get(uint16_t port_id,
+				   struct plat_port_transceiver_info *info)
+{
+	/* TODO */
+	(void)((port_id));
+	(void)((info));
+	return -1;
+}
+
+static int plat_vlan_igmp_info_get(uint16_t vid, struct plat_igmp *info)
+{
+	size_t list_size = 0, group_idx = 0;
+	struct plat_ports_list *port_node;
+	struct gnma_port_key iface = {0};
+	cJSON *groups = NULL, *group;
+	size_t buf_size = 0;
+	char *buf = NULL;
+	int ret = 0;
+
+	VLAN_TO_NAME(vid, iface.name);
+	ret = gnma_igmp_iface_groups_get(&iface, NULL, &buf_size);
+	if (ret == GNMA_OK && !buf_size)
+		return 0;
+	if (ret != GNMA_ERR_OVERFLOW)
+		return -1;
+
+	buf = calloc(buf_size, sizeof(*buf));
+	if (!buf)
+		return -1;
+
+	ret = gnma_igmp_iface_groups_get(&iface, buf, &buf_size);
+	if (ret != GNMA_OK) {
+		ret = -1;
+		goto err;
+	}
+
+	groups = cJSON_Parse(buf);
+	if (!groups) {
+		ret = -1;
+		goto err;
+	}
+
+	list_size = cJSON_GetArraySize(groups);
+	info->groups = calloc(list_size, sizeof(*info->groups));
+	if (!info->groups) {
+		ret = -1;
+		goto err;
+	}
+	info->num_groups = list_size;
+
+	cJSON_ArrayForEach(group, groups) {
+		cJSON *state, *gaddr, *e_ifaces, *e_iface;
+
+		state = cJSON_GetObjectItemCaseSensitive(group, "state");
+		if (!state || !cJSON_IsObject(state)) {
+			ret = -1;
+			goto err;
+		}
+
+		gaddr = cJSON_GetObjectItemCaseSensitive(state, "group");
+		if (!gaddr || !cJSON_GetStringValue(gaddr)) {
+			ret = -1;
+			goto err;
+		}
+
+		e_ifaces = cJSON_GetObjectItemCaseSensitive(state, "outgoing-interface");
+		if (!e_ifaces || !cJSON_IsArray(e_ifaces)) {
+			ret = -1;
+			goto err;
+		}
+
+		if (inet_pton(AF_INET, cJSON_GetStringValue(gaddr),
+			      &info->groups[group_idx].addr) != 1) {
+			ret = -1;
+			goto err;
+		}
+
+		cJSON_ArrayForEach(e_iface, e_ifaces) {
+			if (!cJSON_GetStringValue(e_iface)) {
+				ret = -1;
+				goto err;
+			}
+
+			port_node = calloc(1, sizeof(*port_node));
+			if (!port_node) {
+				ret = -1;
+				goto err;
+			}
+
+			strncpy(port_node->name,
+				cJSON_GetStringValue(e_iface),
+				sizeof(port_node->name));
+			UCENTRAL_LIST_PUSH_MEMBER(
+					&info->groups[group_idx].egress_ports_list,
+					port_node);
+		}
+		group_idx++;
+	}
+
+	info->exist = true;
+	goto exit;
+
+err:
+	if (info->groups) {
+		for (size_t i = 0; i < info->num_groups; ++i) {
+			UCENTRAL_LIST_DESTROY_SAFE(
+					&info->groups[i].egress_ports_list,
+					port_node);
+		}
+	}
+	free(info->groups);
+exit:
+	cJSON_Delete(groups);
+	free(buf);
+	return ret;
+}
+
 static int
 __poe_port_state_buf_parse(char *buf, size_t buf_size,
 			   struct plat_poe_port_state *port_state)
@@ -1920,6 +2137,7 @@ __poe_state_buf_parse(char *buf, size_t buf_size,
 {
 	cJSON *status;
 	cJSON *state;
+	cJSON *tmp;
 
 	state = cJSON_ParseWithLength(buf, buf_size);
 	if (!state)
@@ -1927,10 +2145,19 @@ __poe_state_buf_parse(char *buf, size_t buf_size,
 
 	poe_state->max_power_budget =
 		cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(state, "max-power-budget"));
+
+	/* For some reason, new BRCM images report this value as string, not value... */
+	tmp = cJSON_GetObjectItemCaseSensitive(state, "power-threshold");
+	if (!tmp || !cJSON_GetStringValue(tmp))
+		goto err;
 	poe_state->power_threshold =
-		cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(state, "power-threshold"));
+		(typeof(poe_state->power_threshold)) strtod(cJSON_GetStringValue(tmp), NULL);
+
+	tmp = cJSON_GetObjectItemCaseSensitive(state, "power-consumption");
+	if (!tmp || !cJSON_GetStringValue(tmp))
+		goto err;
 	poe_state->power_consumed =
-		cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(state, "power-consumption"));
+		(typeof(poe_state->power_consumed)) strtod(cJSON_GetStringValue(tmp), NULL);
 
 	status = cJSON_GetObjectItemCaseSensitive(state, "pse-oper-status");
 	if (!cJSON_GetStringValue(status))
@@ -2792,6 +3019,11 @@ err:
 /* NOTE: In case of error this function left partial config */
 int plat_vlan_rif_set(uint16_t vid, struct plat_ipv4 *ipv4)
 {
+	struct gnma_igmp_snoop_attr igmp_snoop_attr = {
+		.enabled=false,
+		.querier_enabled=false,
+		.version=GNMA_IGMP_VERSION_NA
+	};
 	struct gnma_ip_prefix pref, pref_old;
 	uint16_t list_size;
 	int i;
@@ -2816,6 +3048,11 @@ int plat_vlan_rif_set(uint16_t vid, struct plat_ipv4 *ipv4)
 					vid,
 					&plat_state.vlans[vid].dhcp_relay.helper_addresses[i]))
 			return -1;
+	}
+
+	if (gnma_igmp_snooping_set(vid, &igmp_snoop_attr)) {
+		UC_LOG_DBG("Failed to set VLAN igmp.\n");
+		return -1;
 	}
 
 	if (list_size > 0 && !ipv4->exist) {
@@ -2850,6 +3087,83 @@ int plat_vlan_rif_set(uint16_t vid, struct plat_ipv4 *ipv4)
 	}
 
 	return 0;
+}
+
+static int plat_vlan_igmp_set(uint16_t vid, struct plat_igmp *igmp)
+{
+	struct gnma_igmp_static_group_attr *group_list;
+	struct plat_ports_list *e_port;
+	size_t group_idx, port_idx;
+	int ret;
+	struct gnma_igmp_snoop_attr attr = {
+		.last_member_query_interval = igmp->last_member_query_interval,
+		.fast_leave_enabled = igmp->fast_leave_enabled,
+		.max_response_time = igmp->max_response_time,
+		.querier_enabled = igmp->querier_enabled,
+		.query_interval = igmp->query_interval,
+		.enabled = igmp->snooping_enabled,
+	};
+
+	if (!igmp->exist)
+		attr.version = GNMA_IGMP_VERSION_NA;
+	else if (igmp->version == PLAT_IGMP_VERSION_1)
+		attr.version = GNMA_IGMP_VERSION_1;
+	else if (igmp->version == PLAT_IGMP_VERSION_2)
+		attr.version = GNMA_IGMP_VERSION_2;
+	else if (igmp->version == PLAT_IGMP_VERSION_3)
+		attr.version = GNMA_IGMP_VERSION_3;
+	else
+		return -1;
+
+	group_list = calloc(igmp->num_groups, sizeof(*group_list));
+	if (!group_list) {
+		UC_LOG_ERR("ENOMEM");
+		return -1;
+	}
+
+	for (group_idx = 0; group_idx < igmp->num_groups; group_idx++) {
+		group_list[group_idx].address = igmp->groups[group_idx].addr;
+
+		group_list[group_idx].num_ports = 0;
+		UCENTRAL_LIST_FOR_EACH_MEMBER(e_port, &igmp->groups[group_idx].egress_ports_list) {
+			group_list[group_idx].num_ports++;
+		}
+		group_list[group_idx].egress_ports = calloc(group_list[group_idx].num_ports,
+							    sizeof(*group_list[group_idx].egress_ports));
+		if (!group_list[group_idx].egress_ports) {
+			UC_LOG_ERR("ENOMEM");
+			ret = -1;
+			goto err;
+		}
+
+		port_idx = 0;
+		UCENTRAL_LIST_FOR_EACH_MEMBER(e_port, &igmp->groups[group_idx].egress_ports_list) {
+			strncpy(group_list[group_idx].egress_ports[port_idx].name,
+				e_port->name,
+				sizeof(group_list[group_idx].egress_ports[port_idx].name));
+			port_idx++;
+		}
+	}
+
+	ret = gnma_igmp_snooping_set(vid, &attr);
+	if (ret) {
+		UC_LOG_ERR("gnma_igmp_snooping_set");
+		ret = -1;
+		goto err;
+	}
+
+	ret = gnma_igmp_static_groups_set(vid, igmp->num_groups, group_list);
+	if (ret) {
+		UC_LOG_ERR("gnma_igmp_static_groups_set");
+		ret = -1;
+		goto err;
+	}
+err:
+	if (group_list)
+		for (group_idx = 0; group_idx < igmp->num_groups; group_idx++)
+			free(group_list[group_idx].egress_ports);
+	free(group_list);
+	return ret;
 }
 
 /* NOTE: In case of error this function left partial config */
@@ -2887,8 +3201,31 @@ int plat_portl2_rif_set(uint16_t fp_p_id, struct plat_ipv4 *ipv4)
 
 static void plat_state_deinit(struct plat_state_info *state)
 {
+	struct plat_ports_list *port_node;
+
+	for (int i = 0; i < state->port_info_count; i++) {
+		if (state->port_info[i].has_transceiver_info &&
+		    state->port_info[i].transceiver_info.num_supported_link_modes) {
+			free(state->port_info[i].transceiver_info.supported_link_modes);
+		}
+	}
+
+	for (size_t i = 0; i < state->vlan_info_count; i++) {
+		struct plat_igmp *info = &state->vlan_info[i].igmp;
+
+		if (info->num_groups) {
+			for (size_t i = 0; i < info->num_groups; ++i) {
+				UCENTRAL_LIST_DESTROY_SAFE(
+						&info->groups[i].egress_ports_list,
+						port_node);
+			}
+			free(info->groups);
+		}
+	}
+
 	free(state->learned_mac_list);
 	free(state->port_info);
+	free(state->vlan_info);
 	*state = (struct plat_state_info){ 0 };
 }
 
@@ -2954,6 +3291,11 @@ static int plat_port_info_get(struct plat_port_info **port_info, int *count)
 			pinfo[i].has_lldp_peer_info = 1;
 		}
 
+		if (!plat_port_transceiver_info_get(pid,
+						    &pinfo[i].transceiver_info)) {
+			pinfo[i].has_transceiver_info = 1;
+		}
+
 		plat_ieee8021x_system_auth_clients_get(pid,
 						       &ieee8021x_buf,
 						       &ieee8021x_buf_size,
@@ -2971,6 +3313,54 @@ err:
 	if (ret)
 		UC_LOG_DBG("failed");
 	return ret;
+}
+
+static int plat_vlan_info_get(struct plat_port_vlan **vlan_info, size_t *count)
+{
+	BITMAP_DECLARE(vlans_bmp, GNMA_MAX_VLANS);
+	struct plat_port_vlan *vinfo = 0;
+	size_t num_vlans = 0;
+	size_t idx = 0;
+	size_t vid;
+	int ret;
+
+	BITMAP_CLEAR(vlans_bmp, GNMA_MAX_VLANS);
+	ret = gnma_vlan_list_get(vlans_bmp);
+	if (ret)
+		return -1;
+
+	BITMAP_FOR_EACH_BIT_SET(vid, vlans_bmp, GNMA_MAX_VLANS) {
+		num_vlans++;
+	}
+
+	if (!num_vlans) {
+		*count = 0;
+		return 0;
+	}
+
+	vinfo = calloc(num_vlans, sizeof(*vinfo));
+	if (!vinfo) {
+		UC_LOG_ERR("ENOMEM");
+		return -1;
+	}
+	memset(vinfo, 0, num_vlans * sizeof(*vinfo));
+
+	BITMAP_FOR_EACH_BIT_SET(vid, vlans_bmp, GNMA_MAX_VLANS) {
+		vinfo[idx].id = vid;
+
+		if (plat_vlan_igmp_info_get(vid, &vinfo[idx].igmp)) {
+			UC_LOG_DBG("plat_vlan_igmp_info_get failed");
+			return -1;
+		}
+
+		idx++;
+		if (idx >= num_vlans)
+			break;
+	}
+
+	*count = idx;
+	*vlan_info = vinfo;
+	return 0;
 }
 
 static int get_meminfo_cached_kib(uint64_t *cached)
@@ -3074,6 +3464,54 @@ err:
 	return ret;
 }
 
+static int
+plat_state_ieee8021x_coa_global_counters_get(struct plat_iee8021x_coa_counters *stats)
+{
+	gnma_ieee8021x_das_dac_stat_type_t stat_types[] = {
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_ACK_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_NAK_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_IGNORED_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_VALUE_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_SESSION_CONTEXT_PKTS,
+		GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_ADMINISTRATIVELY_PROHIBITED_REQ_PKTS,
+	};
+	uint64_t counters[ARRAY_LENGTH(stat_types)];
+
+	if (gnma_iee8021x_das_dac_global_stats_get(ARRAY_LENGTH(stat_types),
+						   &stat_types[0],
+						   &counters[0]))
+		return -EINVAL;
+
+	stats->coa_req_received =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_PKTS)];
+	stats->coa_ack_sent =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_ACK_PKTS)];
+	stats->coa_nak_sent =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_NAK_PKTS)];
+	stats->coa_ignored =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_IGNORED_PKTS)];
+	stats->coa_wrong_attr =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_PKTS)];
+	stats->coa_wrong_attr_value =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					   GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_VALUE_PKTS)];
+	stats->coa_wrong_session_context =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_SESSION_CONTEXT_PKTS)];
+	stats->coa_administratively_prohibited_req =
+		counters[ARR_FIND_VALUE_IDX(stat_types, ARRAY_LENGTH(stat_types),
+					    GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_ADMINISTRATIVELY_PROHIBITED_REQ_PKTS)];
+
+	return 0;
+}
+
 static int plat_state_get(struct plat_state_info *state)
 {
 	size_t i;
@@ -3092,8 +3530,14 @@ static int plat_state_get(struct plat_state_info *state)
 	if (plat_port_info_get(&state->port_info, &state->port_info_count))
 		return -1;
 
+	if (plat_vlan_info_get(&state->vlan_info, &state->vlan_info_count))
+		return -1;
+
 	if (plat_learned_mac_addrs_get(&state->learned_mac_list,
 				       &state->learned_mac_list_size))
+		return -1;
+
+	if (plat_state_ieee8021x_coa_global_counters_get(&state->ieee8021x_global_coa_counters))
 		return -1;
 
 	return 0;
@@ -3109,6 +3553,12 @@ static int config_vlan_ipv4_apply(struct plat_cfg *cfg)
 		ret = plat_vlan_rif_set(cfg->vlans[i].id, &cfg->vlans[i].ipv4);
 		if (ret) {
 			UC_LOG_DBG("Failed to set VLAN rif.\n");
+			return ret;
+		}
+
+		ret = plat_vlan_igmp_set(cfg->vlans[i].id, &cfg->vlans[i].igmp);
+		if (ret) {
+			UC_LOG_DBG("Failed to set VLAN igmp.\n");
 			return ret;
 		}
 	}
@@ -3896,20 +4346,90 @@ static int plat_port_config_apply(struct plat_cfg *cfg)
 	return 0;
 }
 
+static int plat_dac_list_set(struct plat_ieee8021x_dac_list *hosts)
+{
+	struct plat_ieee8021x_dac_list *iter;
+	bool cache_changed = false;
+	int ret = 0;
+	size_t i;
+
+	/*
+	 * Check cache and remove any host that is not present in
+	 * requested CFG (same as for VLAN: if not present in cfg = to
+	 * be removed).
+	 */
+	for (i = 0; i < plat_state.ieee8021x.das_dac_keys_arr_size; ++i) {
+		if (!PLAT_DAC_HOST_EXISTS_IN_CFG(plat_state.ieee8021x.das_dac_keys_arr[i].hostname, &hosts)) {
+			UC_LOG_DBG("Removing DAC server <%s> (not in cfg, present on system)\n",
+				   plat_state.ieee8021x.das_dac_keys_arr[i].hostname);
+			ret = gnma_ieee8021x_das_dac_host_remove(&plat_state.ieee8021x.das_dac_keys_arr[i]);
+			if (ret)
+				return ret;
+			cache_changed = true;
+		} else {
+			/* Special case, when host exists in cache and new CFG omitted password:
+			 * - remove previous entry
+			 * - recreate it without specifying password.
+			 * Either way SONIC treats this host as if password is set
+			 * explicitly, and might result in false-obfuscations of
+			 * DaS / CoA exchange between DAC and switch.
+			 */
+			UCENTRAL_LIST_FOR_EACH_MEMBER(iter, &hosts) {
+				if (!strcmp(plat_state.ieee8021x.das_dac_keys_arr[i].hostname,
+					   iter->host.hostname) &&
+				    iter->host.passkey[0] == '\0') {
+					ret = gnma_ieee8021x_das_dac_host_remove(&plat_state.ieee8021x.das_dac_keys_arr[i]);
+					if (ret) {
+						UC_LOG_DBG("Failed to remove DAC host <%s> (new CFG pass is empty, tried to delete))\n",
+							   plat_state.ieee8021x.das_dac_keys_arr[i].hostname);
+						return ret;
+					}
+					cache_changed = true;
+					break;
+				}
+			}
+		}
+	}
+
+	/* Add any new hosts that are present in requested CFG. */
+	UCENTRAL_LIST_FOR_EACH_MEMBER(iter, &hosts) {
+		struct gnma_das_dac_host_key key;
+
+		strcpy(key.hostname, iter->host.hostname);
+
+		ret = gnma_ieee8021x_das_dac_host_add(&key, iter->host.passkey);
+		if (ret)
+			return ret;
+		cache_changed = true;
+	}
+
+	/* Reinit DAC hosts cache. */
+	if (cache_changed)
+		plat_state_ieee8021x_dac_list_init();
+
+	return 0;
+}
+
 static int config_ieee8021x_apply(struct plat_cfg *cfg)
 {
 	int ret;
 
-	if (cfg->ieee8021x_is_auth_ctrl_enabled != plat_state.ieee8021x.is_auth_control_enabled) {
+	if (cfg->ieee8021x.is_auth_ctrl_enabled != plat_state.ieee8021x.is_auth_control_enabled) {
 		UC_LOG_DBG("802.1x: changing global auth ctrl state from %d to %d",
 			   plat_state.ieee8021x.is_auth_control_enabled,
-			   cfg->ieee8021x_is_auth_ctrl_enabled);
-		ret = gnma_ieee8021x_system_auth_control_set(cfg->ieee8021x_is_auth_ctrl_enabled);
+			   cfg->ieee8021x.is_auth_ctrl_enabled);
+		ret = gnma_ieee8021x_system_auth_control_set(cfg->ieee8021x.is_auth_ctrl_enabled);
 		if (ret) {
 			UC_LOG_DBG("802.1x: Failed to set global auth ctrl state.");
 			return ret;
 		}
-		plat_state.ieee8021x.is_auth_control_enabled = cfg->ieee8021x_is_auth_ctrl_enabled;
+		plat_state.ieee8021x.is_auth_control_enabled = cfg->ieee8021x.is_auth_ctrl_enabled;
+	}
+
+	ret = plat_dac_list_set(cfg->ieee8021x.das_dac_list);
+	if (ret) {
+		UC_LOG_DBG("802.1x: DAS: Failed to configure DAC hosts list.");
+		return ret;
 	}
 
 	ret = plat_radius_hosts_list_set(cfg->radius_hosts_list);
@@ -4003,6 +4523,7 @@ void plat_config_destroy(struct plat_cfg *cfg)
 {
 	struct plat_vlan_memberlist *member_node = NULL;
 	struct plat_radius_hosts_list *hosts_node = NULL;
+	struct plat_ports_list *port_node;
 	size_t i;
 
 	if (!cfg)
@@ -4018,6 +4539,14 @@ void plat_config_destroy(struct plat_cfg *cfg)
 
 		cfg->vlans[i].members_list_head = NULL;
 	}
+
+	for (int i = 0; i < 0; ++i) {
+		UCENTRAL_LIST_DESTROY_SAFE(&cfg->port_isolation_cfg.sessions[i].uplink.ports_list,
+					   port_node);
+		UCENTRAL_LIST_DESTROY_SAFE(&cfg->port_isolation_cfg.sessions[i].uplink.ports_list,
+					   port_node);
+	}
+	free(cfg->port_isolation_cfg.sessions);
 
 	UCENTRAL_LIST_DESTROY_SAFE(&cfg->radius_hosts_list,
 			hosts_node);

@@ -4090,25 +4090,12 @@ int gnma_stp_mode_set(gnma_stp_mode_t mode, struct gnma_stp_attr *attr)
 	int err = GNMA_ERR_COMMON, ret;
 	char gpath[256];
 
+	/* delete global config since you cannot change the stp mode otherwise */
+	gnmi_jsoni_del(main_switch,
+		       "/sonic-spanning-tree:sonic-spanning-tree/STP/STP_LIST[keyleaf=GLOBAL]",
+		       DEFAULT_TIMEOUT_US);
 	if (mode == GNMA_STP_MODE_NONE) {
-		gnmi_jsoni_del(
-			main_switch,
-			"/sonic-spanning-tree:sonic-spanning-tree/STP_VLAN",
-			DEFAULT_TIMEOUT_US);
-		gnmi_jsoni_del(
-			main_switch,
-			"/sonic-spanning-tree:sonic-spanning-tree/STP_PORT",
-			DEFAULT_TIMEOUT_US);
-		gnmi_jsoni_set(
-			main_switch,
-			"/sonic-spanning-tree:sonic-spanning-tree/STP/STP_LIST[keyleaf=GLOBAL]/mode",
-			"{\"sonic-spanning-tree:mode\": \"pvst\"}",
-			DEFAULT_TIMEOUT_US);
-
-		sprintf(&gpath[0], "/sonic-spanning-tree:sonic-spanning-tree");
-		if (!gnmi_jsoni_del(main_switch, gpath, DEFAULT_TIMEOUT_US))
-			err = 0;
-
+		err = 0;
 		goto out;
 	}
 
@@ -4134,15 +4121,21 @@ int gnma_stp_mode_set(gnma_stp_mode_t mode, struct gnma_stp_attr *attr)
 	ret = 1;
 	ret &= !!cJSON_AddNumberToObject(obj, "priority", attr->priority);
 	ret &= !!cJSON_AddStringToObject(obj, "keyleaf", "GLOBAL");
+	ret &= !!cJSON_AddBoolToObject(obj, "bpdu_filter", false);
 	switch (mode) {
 	case GNMA_STP_MODE_PVST:
 		ret &= !!cJSON_AddStringToObject(obj, "mode", "pvst");
+		ret &= !!cJSON_AddBoolToObject(obj, "portfast", false);
+		ret &= !!cJSON_AddNumberToObject(obj, "rootguard_timeout", 30);
 		break;
 	case GNMA_STP_MODE_RPVST:
 		ret &= !!cJSON_AddStringToObject(obj, "mode", "rpvst");
+		ret &= !!cJSON_AddBoolToObject(obj, "loop_guard", false);
+		ret &= !!cJSON_AddNumberToObject(obj, "rootguard_timeout", 30);
 		break;
 	case GNMA_STP_MODE_MST:
 		ret &= !!cJSON_AddStringToObject(obj, "mode", "mst");
+		ret &= !!cJSON_AddBoolToObject(obj, "loop_guard", false);
 		break;
 	default:
 		goto out;
@@ -4366,7 +4359,7 @@ out:
 
 }
 
-int gnma_stp_vids_enable(uint32_t list_size, uint16_t *vid_list)
+int gnma_stp_vids_set(uint32_t list_size, uint16_t *vid_list, bool enable)
 {
 	cJSON *root = NULL, *obj, *arr;
 	int err = GNMA_ERR_COMMON, ret;
@@ -4394,7 +4387,7 @@ int gnma_stp_vids_enable(uint32_t list_size, uint16_t *vid_list)
 		ret = 1;
 		sprintf(&vidstr[0], "Vlan%u", vid_list[i]);
 		ret &= !!cJSON_AddStringToObject(obj, "name", &vidstr[0]);
-		ret &= !!cJSON_AddBoolToObject(obj, "enabled", true);
+		ret &= !!cJSON_AddBoolToObject(obj, "enabled", enable);
 		if (!ret)
 			goto out;
 	}
@@ -4408,47 +4401,23 @@ out:
 	return err;
 }
 
-int gnma_stp_vids_enable_all(void)
+int gnma_stp_vids_set_all(bool enable)
 {
-	cJSON *root = NULL, *obj, *arr;
-	int err = GNMA_ERR_COMMON, ret;
-	char gpath[256], vidstr[64];
-	uint32_t i, from = 1, to = 4096;
+	BITMAP_DECLARE(vlans, GNMA_MAX_VLANS);
+	uint16_t vid_list[GNMA_MAX_VLANS];
+	size_t i, num_vlans = 0;
+	int ret;
 
-	sprintf(&gpath[0], "/sonic-spanning-tree:sonic-spanning-tree/STP_VLAN");
+	ret = gnma_vlan_list_get(vlans);
+	if (ret)
+		return ret;
 
-	root = cJSON_CreateObject();
-	if (!root)
-		goto out;
-
-	obj = cJSON_AddObjectToObject(root, "sonic-spanning-tree:STP_VLAN");
-	arr = cJSON_AddArrayToObject(obj, "STP_VLAN_LIST");
-	if (!arr)
-		goto out;
-
-	for (i = from; i < to; i++) {
-		obj = cJSON_CreateObject();
-		if (!cJSON_AddItemToArray(arr, obj)) {
-			cJSON_Delete(obj); /* Bcs root is not referenced */
-			goto out;
-		}
-
-		ret = 1;
-		sprintf(&vidstr[0], "Vlan%u", i);
-		ret &= !!cJSON_AddStringToObject(obj, "name", &vidstr[0]);
-		ret &= !!cJSON_AddBoolToObject(obj, "enabled", true);
-		if (!ret)
-			goto out;
+	BITMAP_FOR_EACH_BIT_SET(i, vlans, GNMA_MAX_VLANS) {
+		vid_list[num_vlans] = i;
+		num_vlans++;
 	}
 
-	if (gnmi_json_object_set(main_switch, gpath, root, DEFAULT_TIMEOUT_US))
-		goto out;
-
-	err = 0;
-out:
-	cJSON_Delete(root);
-	return err;
-
+	return gnma_stp_vids_set(num_vlans, vid_list, enable);
 }
 
 static int gnma_stp_vid_enable(uint16_t vid, struct gnma_stp_attr *attr)
@@ -4496,12 +4465,7 @@ out:
 
 static int gnma_stp_vid_disable(uint16_t vid)
 {
-	char gpath[256];
-
-	sprintf(&gpath[0], "/sonic-spanning-tree:sonic-spanning-tree/STP_VLAN/STP_VLAN_LIST[name=Vlan%u]",
-		vid);
-
-	gnmi_jsoni_del(main_switch, gpath, DEFAULT_TIMEOUT_US);
+	gnma_stp_vids_set(1, &vid, false);
 	return 0;
 }
 
@@ -4638,6 +4602,611 @@ int gnma_ieee8021x_system_auth_clients_get(char *buf, size_t buf_size)
 		main_switch,
 		"/openconfig-authmgr:authmgr/authmgr-authenticated-clients/",
 		buf, buf_size, DEFAULT_TIMEOUT_US);
+}
+
+int gnma_ieee8021x_das_bounce_port_ignore_set(bool bounce_port_ignore)
+{
+	char *gpath = "/openconfig-das:das/das-global-config-table/config/ignore-bounce-port";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (!cJSON_AddBoolToObject(root, "openconfig-das:ignore-bounce-port",
+				   bounce_port_ignore))
+		goto err_json;
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_bounce_port_ignore_get(bool *bounce_port_ignore)
+{
+	cJSON *parsed_res, *bounce_port;
+	char *buf = NULL;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-global-config-table/config/ignore-bounce-port");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	bounce_port = cJSON_GetObjectItemCaseSensitive(parsed_res, "openconfig-das:ignore-bounce-port");
+	*bounce_port_ignore = cJSON_IsTrue(bounce_port);
+
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_disable_port_ignore_set(bool disable_port_ignore)
+{
+	char *gpath = "/openconfig-das:das/das-global-config-table/config/ignore-disable-port";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (!cJSON_AddBoolToObject(root, "openconfig-das:ignore-disable-port",
+				   disable_port_ignore))
+		goto err_json;
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_disable_port_ignore_get(bool *disable_port_ignore)
+{
+	cJSON *parsed_res, *disable_port;
+	char *buf = NULL;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-global-config-table/config/ignore-disable-port");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	disable_port = cJSON_GetObjectItemCaseSensitive(parsed_res, "openconfig-das:ignore-disable-port");
+	*disable_port_ignore = cJSON_IsTrue(disable_port);
+
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_ignore_server_key_set(bool ignore_server_key)
+{
+	char *gpath = "/openconfig-das:das/das-global-config-table/config/ignore-server-key";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (!cJSON_AddBoolToObject(root, "openconfig-das:ignore-server-key",
+				   ignore_server_key))
+		goto err_json;
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_ignore_server_key_get(bool *ignore_server_key)
+{
+	cJSON *parsed_res, *server_key;
+	char *buf = NULL;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-global-config-table/config/ignore-server-key");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	server_key = cJSON_GetObjectItemCaseSensitive(parsed_res, "openconfig-das:ignore-server-key");
+	*ignore_server_key = cJSON_IsTrue(server_key);
+
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_ignore_session_key_set(bool ignore_session_key)
+{
+	char *gpath = "/openconfig-das:das/das-global-config-table/config/ignore-session-key";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (!cJSON_AddBoolToObject(root, "openconfig-das:ignore-session-key",
+				   ignore_session_key))
+		goto err_json;
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_ignore_session_key_get(bool *ignore_session_key)
+{
+	cJSON *parsed_res, *server_key;
+	char *buf = NULL;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-global-config-table/config/ignore-session-key");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	server_key = cJSON_GetObjectItemCaseSensitive(parsed_res, "openconfig-das:ignore-session-key");
+	*ignore_session_key = cJSON_IsTrue(server_key);
+
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_auth_type_key_set(gnma_das_auth_type_t auth_type)
+{
+	char *gpath = "/openconfig-das:das/das-global-config-table/state/das-auth-type";
+	int ret = GNMA_ERR_COMMON;
+	cJSON *root;
+
+	if (!(root = cJSON_CreateObject()))
+		goto err_alloc;
+
+	if (auth_type == GNMA_802_1X_DAS_AUTH_TYPE_ANY) {
+		if (!cJSON_AddStringToObject(root, "openconfig-das:das-auth-type", "ANY"))
+			goto err_json;
+	} else if (auth_type == GNMA_802_1X_DAS_AUTH_TYPE_ALL) {
+		if (!cJSON_AddStringToObject(root, "openconfig-das:das-auth-type", "ALL"))
+			goto err_json;
+	} else if (auth_type == GNMA_802_1X_DAS_AUTH_TYPE_SESSION_KEY) {
+		if (!cJSON_AddStringToObject(root, "openconfig-das:das-auth-type", "SESSION_KEY"))
+			goto err_json;
+	} else {
+		goto err_json;
+	}
+
+	if (gnmi_json_object_set(main_switch, gpath, root,
+				 DEFAULT_TIMEOUT_US))
+		goto err_json;
+
+	ret = GNMA_OK;
+err_json:
+	cJSON_Delete(root);
+err_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_auth_type_key_get(gnma_das_auth_type_t *auth_type)
+{
+	cJSON *parsed_res, *auth;
+	char *buf = NULL;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-global-config-table/config/das-auth-type");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	auth = cJSON_GetObjectItemCaseSensitive(parsed_res, "openconfig-das:das-auth-type");
+	if (!auth || !cJSON_GetStringValue(auth))
+		goto err_gnmi_parse;
+
+	if (!strcmp("ANY", cJSON_GetStringValue(auth)))
+		*auth_type = GNMA_802_1X_DAS_AUTH_TYPE_ANY;
+	else if (!strcmp("ALL", cJSON_GetStringValue(auth)))
+		*auth_type = GNMA_802_1X_DAS_AUTH_TYPE_ALL;
+	else if (!strcmp("SESSION_KEY", cJSON_GetStringValue(auth)))
+		*auth_type = GNMA_802_1X_DAS_AUTH_TYPE_SESSION_KEY;
+	else
+		ret = GNMA_ERR_COMMON;
+
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_dac_hosts_list_get(size_t *list_size,
+					  struct gnma_das_dac_host_key *hosts_list)
+{
+	cJSON *parsed_res, *host, *hosts_arr, *addr;
+	uint16_t arr_len;
+	char *buf = 0;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-das:das/das-client-config-table/das-client-config-table-entry");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	hosts_arr = cJSON_GetObjectItemCaseSensitive(parsed_res,
+						     "openconfig-das:das-client-config-table-entry");
+
+	arr_len = 0;
+	cJSON_ArrayForEach(host, hosts_arr)
+		arr_len++;
+
+	if (arr_len > *list_size) {
+		ret = GNMA_ERR_OVERFLOW;
+		*list_size = arr_len;
+		goto err_overflow;
+	}
+
+	memset(hosts_list, 0, sizeof(*hosts_list) * (*list_size));
+
+	*list_size = 0;
+	cJSON_ArrayForEach(host, hosts_arr) {
+		addr = cJSON_GetObjectItemCaseSensitive(host, "clientaddress");
+		if (!addr) {
+			ret = GNMA_ERR_COMMON;
+			goto err_gnmi_check_arr;
+		}
+		strcpy(hosts_list[*list_size].hostname,
+		       cJSON_GetStringValue(addr));
+		(*list_size)++;
+	}
+
+	ret = 0;
+
+err_overflow:
+err_gnmi_check_arr:
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_dac_host_add(struct gnma_das_dac_host_key *key,
+				    const char *passkey)
+{
+	cJSON *server_item;
+	cJSON *servers_arr;
+	cJSON *config;
+	cJSON *root;
+	char *path;
+	int ret;
+
+	ret = asprintf(&path,
+		       "/openconfig-das:das/das-client-config-table/das-client-config-table-entry");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	/*
+	{
+	  "openconfig-das:das-client-config-table-entry": [
+	    {
+	      "clientaddress": "test.com",
+	      "config": {
+	        "clientaddress": "test.com",
+	        "encrypted": false,
+	        "server-key": "test"
+	      }
+	    }
+	  ]
+	}
+	 */
+	root = cJSON_CreateObject();
+	servers_arr = cJSON_AddArrayToObject(root, "openconfig-das:das-client-config-table-entry");
+	server_item = cJSON_CreateObject();
+	config = cJSON_AddObjectToObject(server_item, "config");
+	if (!cJSON_AddStringToObject(server_item, "clientaddress", key->hostname) ||
+	    !cJSON_AddBoolToObject(config, "encrypted", false) ||
+	    !cJSON_AddStringToObject(config, "clientaddress", key->hostname) ||
+	    !cJSON_AddItemToArray(servers_arr, server_item)) {
+		cJSON_Delete(server_item);
+		ret = GNMA_ERR_COMMON;
+		goto err_val_alloc;
+	}
+
+	if (passkey[0] != '\0' && !cJSON_AddStringToObject(config, "server-key", passkey)) {
+		ret = GNMA_ERR_COMMON;
+		goto err_val_alloc;
+	}
+
+	ret = gnmi_json_object_set(main_switch, path, root, DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_req_fail;
+	}
+
+	ret = 0;
+err_req_fail:
+err_val_alloc:
+	cJSON_Delete(root);
+	free(path);
+err_path_alloc:
+	return ret;
+}
+
+int gnma_ieee8021x_das_dac_host_remove(struct gnma_das_dac_host_key *key)
+{
+	char *path;
+	int ret;
+
+	ret = asprintf(&path,
+		       "/openconfig-das:das/das-client-config-table/das-client-config-table-entry[clientaddress=%s]/",
+		       key->hostname);
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_del(main_switch, path, DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_req_fail;
+	}
+
+	ret = 0;
+err_req_fail:
+	free(path);
+err_path_alloc:
+	return ret;
+}
+
+static const char *
+gnma_ieee8021x_das_dac_stats_type_to_string(gnma_ieee8021x_das_dac_stat_type_t counter_id)
+{
+	static struct {
+		gnma_ieee8021x_das_dac_stat_type_t enu_value;
+		const char *str_value;
+	} stats_enum_to_str[] = {
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_PKTS, .str_value = "num_coa_requests_received"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_ACK_PKTS, .str_value = "num_coa_ack_responses_sent"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_NAK_PKTS, .str_value = "num_coa_nak_responses_sent"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_IGNORED_PKTS, .str_value = "num_coa_requests_ignored"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_PKTS, .str_value = "num_coa_missing_unsupported_attributes_requests"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_VALUE_PKTS, .str_value = "num_coa_invalid_attribute_value_requests"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_SESSION_CONTEXT_PKTS, .str_value = "num_coa_session_context_not_found_requests"},
+		{ .enu_value = GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_ADMINISTRATIVELY_PROHIBITED_REQ_PKTS, .str_value = "num_coa_administratively_prohibited_requests"},
+	};
+	size_t i;
+
+	for (i = 0; i < ARRAY_LENGTH(stats_enum_to_str); ++i)
+		if (counter_id == stats_enum_to_str[i].enu_value)
+			return stats_enum_to_str[i].str_value;
+
+	return NULL;
+}
+
+int
+gnma_iee8021x_das_dac_global_stats_get(uint32_t num_of_counters,
+				       gnma_ieee8021x_das_dac_stat_type_t *counter_ids,
+				       uint64_t *counters)
+{
+	cJSON *parsed_res, *global_table, *global_counter_table_list, *counter,
+	      *counters_arr;
+	const char *counter_string;
+	char *buf = 0;
+	char *gpath;
+	size_t i;
+	int ret;
+
+	ret = asprintf(&gpath, "/sonic-das:sonic-das/DAS_GLOBAL_COUNTER_TABLE");
+	if (ret == -1) {
+		ret = GNMA_ERR_COMMON;
+		goto err_path_alloc;
+	}
+
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_get;
+	}
+
+	parsed_res = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!parsed_res) {
+		ret = GNMA_ERR_COMMON;
+		goto err_gnmi_parse;
+	}
+
+	memset(counters, 0, sizeof(*counters) * num_of_counters);
+	/*
+	 * Parse the following table type:
+	{
+	"sonic-das:DAS_GLOBAL_COUNTER_TABLE": {
+		"DAS_GLOBAL_COUNTER_TABLE_LIST": [
+		{
+			"global": "GLOBAL",
+			"num_coa_ack_responses_sent": 0,
+			"num_coa_administratively_prohibited_requests": 0,
+			"num_coa_invalid_attribute_value_requests": 0,
+			"num_coa_missing_unsupported_attributes_requests": 0,
+			"num_coa_nak_responses_sent": 1,
+			"num_coa_requests_ignored": 1,
+			"num_coa_requests_received": 1,
+			"num_coa_session_context_not_found_requests": 0
+		}
+		]
+	}
+	}
+	*/
+
+	global_table =
+		cJSON_GetObjectItemCaseSensitive(parsed_res,
+						 "sonic-das:DAS_GLOBAL_COUNTER_TABLE");
+	global_counter_table_list =
+		cJSON_GetObjectItemCaseSensitive(global_table,
+						 "DAS_GLOBAL_COUNTER_TABLE_LIST");
+	counters_arr = cJSON_GetArrayItem(global_counter_table_list, 0);
+	if (!cJSON_IsObject(counters_arr)) {
+		/* It's okay if these tables do not exists:
+		 * no DAC cfg was present, counters - all zero*/
+		ret = GNMA_OK;
+		goto err_gnmi_get_obj;
+	}
+
+	for (i = 0; i < num_of_counters; ++i) {
+		counter_string = gnma_ieee8021x_das_dac_stats_type_to_string(counter_ids[i]);
+		counter = cJSON_GetObjectItemCaseSensitive(counters_arr,
+							   counter_string);
+		if (counter && cJSON_IsNumber(counter)) {
+			counters[i] = (typeof(counters[i])) cJSON_GetNumberValue(counter);
+		}
+	}
+
+err_gnmi_get_obj:
+	cJSON_Delete(parsed_res);
+err_gnmi_parse:
+err_gnmi_get:
+	free(gpath);
+err_path_alloc:
+	return ret;
 }
 
 int gnma_radius_hosts_list_get(size_t *list_size,
@@ -4781,7 +5350,7 @@ int gnma_radius_host_remove(struct gnma_radius_host_key *key)
 	int ret;
 
 	ret = asprintf(&path,
-		       "/openconfig-system:system/aaa/server-groups/server-group[name=RADIUS]/servers/server[address=%s]",
+		       "/openconfig-das:das/das-client-config-table/das-client-config-table-entry[clientaddress=%s]/",
 		       key->hostname);
 	if (ret == -1) {
 		ret = GNMA_ERR_COMMON;
@@ -4965,5 +5534,300 @@ err_gnmi_no_entries:
 err_gnmi_get_obj:
 	cJSON_Delete(root);  /* only need to free root */
 err_gnmi_get:
+	return ret;
+}
+
+static int __gnma_igmp_disable(uint16_t vid)
+{
+	char *resource[] = {
+		"/openconfig-interfaces:interfaces/interface[name=Vlan%u]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/openconfig-igmp-ext:igmp",
+		"/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]/openconfig-network-instance-deviation:igmp-snooping/interfaces/interface[name=Vlan%u]/staticgrps",
+		"/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]/openconfig-network-instance-deviation:igmp-snooping/interfaces/interface[name=Vlan%u]"
+	};
+	char gpath[256];
+	size_t i;
+	int ret;
+
+	for (i = 0; i < ARRAY_LENGTH(resource); i++) {
+		ret = snprintf(gpath, sizeof(gpath), resource[i], vid);
+		if (ret == -1)
+			return GNMA_ERR_COMMON;
+		/* ignore return value */
+		gnmi_jsoni_del(main_switch, gpath, DEFAULT_TIMEOUT_US);
+	}
+	return 0;
+}
+
+static int __gnma_ip_igmp_set(uint16_t vid, struct gnma_igmp_snoop_attr *attr)
+{
+	cJSON *root, *config;
+	char *gpath;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-interfaces:interfaces/interface[name=Vlan%u]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/openconfig-igmp-ext:igmp",
+		       vid);
+	if (ret == -1)
+		return GNMA_ERR_COMMON;
+
+	ret = GNMA_ERR_COMMON;
+	root = cJSON_CreateObject();
+	if (!root)
+		goto err;
+
+	config = cJSON_AddObjectToObject(root, "openconfig-igmp-ext:igmp");
+	config = cJSON_AddObjectToObject(config, "config");
+	if (!config)
+		goto err;
+
+	if (!cJSON_AddBoolToObject(config, "enabled", attr->querier_enabled))
+		goto err;
+
+	if (attr->querier_enabled){
+		if (!cJSON_AddNumberToObject(config, "query-interval", attr->query_interval) ||
+		    !cJSON_AddNumberToObject(config, "query-max-response-time", attr->max_response_time) ||
+		    !cJSON_AddNumberToObject(config, "last-member-query-interval", attr->last_member_query_interval))
+			goto err;
+		if (attr->version != GNMA_IGMP_VERSION_NA)
+			if (!cJSON_AddNumberToObject(config, "version", attr->version))
+				goto err;
+	}
+
+	ret = gnmi_json_object_set(main_switch, gpath, root, DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+err:
+	free(gpath);
+	return ret;
+}
+
+static int __gnma_igmp_root_alloc(uint16_t vid, cJSON **root, cJSON **interface)
+{
+	cJSON *root_node, *config, *iface_node, *interfaces_list;
+	char iface_name[] = "VlanXXXX";
+
+	if (vid >= 4096)  /* sanity */
+		return GNMA_ERR_COMMON;
+
+	snprintf(iface_name, sizeof(iface_name), "Vlan%u", vid);
+
+	root_node = cJSON_CreateObject();
+	if (!root_node)
+		return GNMA_ERR_COMMON;
+
+	interfaces_list = cJSON_AddObjectToObject(root_node, "openconfig-network-instance-deviation:igmp-snooping");
+	interfaces_list = cJSON_AddObjectToObject(interfaces_list, "interfaces");
+	interfaces_list = cJSON_AddArrayToObject(interfaces_list, "interface");
+	if (!interfaces_list)
+		goto err;
+
+	iface_node = cJSON_CreateObject();
+	if (!iface_node)
+		goto err;
+	if (!cJSON_AddItemToArray(interfaces_list, iface_node)) {
+		cJSON_Delete(iface_node);
+		goto err;
+	}
+
+	config = cJSON_AddObjectToObject(iface_node, "config");
+	if (!config)
+		goto err;
+
+	if (!cJSON_AddStringToObject(iface_node, "name", iface_name) ||
+	    !cJSON_AddStringToObject(config, "name", iface_name))
+		goto err;
+
+	*root = root_node;
+	*interface = iface_node;
+	return 0;
+err:
+	cJSON_Delete(root_node);
+	*root = NULL;
+	*interface = NULL;
+	return GNMA_ERR_COMMON;
+}
+
+int gnma_igmp_snooping_set(uint16_t vid, struct gnma_igmp_snoop_attr *attr)
+{
+	char *gpath = "/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]/openconfig-network-instance-deviation:igmp-snooping";
+	bool enabled = attr->enabled || attr->querier_enabled;
+	cJSON *root, *config, *interface;
+	int ret;
+
+	if (!enabled) {
+		/* ignore return value */
+		__gnma_igmp_disable(vid);
+		return 0;
+	}
+
+	ret = __gnma_ip_igmp_set(vid, attr);
+	if (ret)
+		return ret;
+
+	/* allocates root object which needs to be freed */
+	ret = __gnma_igmp_root_alloc(vid, &root, &interface);
+	if (ret)
+		return ret;
+
+	config = cJSON_GetObjectItemCaseSensitive(interface, "config");
+	if (!config) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+
+	if (!cJSON_AddBoolToObject(config, "enabled", attr->enabled) ||
+	    !cJSON_AddBoolToObject(config, "querier", attr->querier_enabled)) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+
+	if (attr->enabled){
+		if (!cJSON_AddBoolToObject(config, "fast-leave", attr->fast_leave_enabled))
+			goto err;
+		if (attr->version != GNMA_IGMP_VERSION_NA)
+			if (!cJSON_AddNumberToObject(config, "version", attr->version))
+				goto err;
+	}
+
+	ret = gnmi_json_object_set(main_switch, gpath, root, DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+err:
+	cJSON_Delete(root);
+	return ret;
+}
+
+int gnma_igmp_static_groups_set(uint16_t vid, size_t num_groups,
+				struct gnma_igmp_static_group_attr *groups)
+{
+	char *gpath = "/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]/openconfig-network-instance-deviation:igmp-snooping";
+	cJSON *root, *mcast_groups, *group, *port_list, *port, *interface;
+	char ip_addr[] = {"255.255.255.255"};
+	size_t grp_idx, port_idx;
+	int ret;
+
+	/* allocates root object which needs to be freed */
+	ret = __gnma_igmp_root_alloc(vid, &root, &interface);
+	if (ret)
+		return ret;
+
+	mcast_groups = cJSON_AddObjectToObject(interface, "staticgrps");
+	mcast_groups = cJSON_AddArrayToObject(mcast_groups, "static-multicast-group");
+	if (!mcast_groups) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+
+	for (grp_idx = 0; grp_idx < num_groups; grp_idx++) {
+		group = cJSON_CreateObject();
+		if (!group) {
+			ret = GNMA_ERR_COMMON;
+			goto err;
+		}
+		if (!cJSON_AddItemToArray(mcast_groups, group)) {
+			cJSON_Delete(group);
+			ret = GNMA_ERR_COMMON;
+			goto err;
+		}
+
+		if (!inet_ntop(AF_INET, &groups[grp_idx].address.s_addr, ip_addr, sizeof(ip_addr)) ||
+		    !cJSON_AddStringToObject(group, "group", ip_addr) ||
+		    !cJSON_AddStringToObject(group, "source-addr", "0.0.0.0")) {
+			ret = GNMA_ERR_COMMON;
+			goto err;
+		}
+
+		port_list = cJSON_AddObjectToObject(group, "config");
+		port_list = cJSON_AddArrayToObject(port_list, "outgoing-interface");
+		if (!port_list) {
+			ret = GNMA_ERR_COMMON;
+			goto err;
+		}
+		for (port_idx = 0; port_idx < groups[grp_idx].num_ports; port_idx++) {
+			port = cJSON_CreateString(groups[grp_idx].egress_ports[port_idx].name);
+			if (!port) {
+				ret = GNMA_ERR_COMMON;
+				goto err;
+			}
+			if (!cJSON_AddItemToArray(port_list, port)) {
+				cJSON_Delete(port);
+				ret = GNMA_ERR_COMMON;
+				goto err;
+			}
+		}
+	}
+
+	ret = gnmi_json_object_set(main_switch, gpath, root, DEFAULT_TIMEOUT_US);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+err:
+	cJSON_Delete(root);
+	return ret;
+}
+
+int gnma_igmp_iface_groups_get(struct gnma_port_key *iface,
+			       char *out_buf, size_t *out_buf_size)
+{
+	char *gpath, *buf = NULL;
+	cJSON *root, *groups;
+	size_t json_len = 0;
+	char *json_buf;
+	int ret;
+
+	ret = asprintf(&gpath,
+		       "/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=IGMP_SNOOPING][name=IGMP-SNOOPING]/openconfig-network-instance-deviation:igmp-snooping/interfaces/interface[name=%s]",
+		       iface->name);
+
+	if (ret == -1)
+		return GNMA_ERR_COMMON;
+	ret = gnmi_jsoni_get_alloc(main_switch, &gpath[0], &buf, 0,
+				   DEFAULT_TIMEOUT_US);
+	ZFREE(gpath);
+	if (ret)
+		return GNMA_ERR_COMMON;
+	root = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!root)
+		return GNMA_ERR_COMMON;
+	ret = GNMA_ERR_COMMON;
+	groups = cJSON_GetObjectItemCaseSensitive(root, "openconfig-network-instance-deviation:interface");
+	groups = cJSON_GetArrayItem(groups, 0);
+	groups = cJSON_GetObjectItemCaseSensitive(groups, "staticgrps");
+	groups = cJSON_GetObjectItemCaseSensitive(groups, "static-multicast-group");
+	if (cJSON_GetArraySize(groups) == 0) {
+		/* No IGMP groups exists. */
+		*out_buf_size = 0;
+		goto err_gnmi_no_entries;
+	}
+
+	json_buf = cJSON_PrintUnformatted(groups);
+	if (!json_buf) {
+		ret = GNMA_ERR_COMMON;
+		goto err_buf_print;
+	}
+
+	json_len = strlen(json_buf);
+	/* check that provided buffer is large enough */
+	if (*out_buf_size < json_len) {
+		*out_buf_size = json_len + 1;
+		ret = GNMA_ERR_OVERFLOW;
+		free(json_buf);
+		goto err_gnmi_get_obj;
+	}
+
+	memcpy(out_buf, json_buf, *out_buf_size - 1);
+	free(json_buf);
+
+err_gnmi_no_entries:
+	ret = GNMA_OK;
+err_buf_print:
+err_gnmi_get_obj:
+	cJSON_Delete(root);  /* only need to free root */
 	return ret;
 }

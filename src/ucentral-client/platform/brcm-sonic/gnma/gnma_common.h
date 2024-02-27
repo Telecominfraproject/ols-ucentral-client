@@ -27,6 +27,16 @@ struct gnma_radius_host_key {
 	char hostname[GNMA_RADIUS_CFG_HOSTNAME_STR_MAX_LEN];
 };
 
+struct gnma_das_dac_host_key {
+	char hostname[GNMA_RADIUS_CFG_HOSTNAME_STR_MAX_LEN];
+};
+
+typedef enum _gnma_das_auth_type_t {
+	GNMA_802_1X_DAS_AUTH_TYPE_ANY,
+	GNMA_802_1X_DAS_AUTH_TYPE_ALL,
+	GNMA_802_1X_DAS_AUTH_TYPE_SESSION_KEY,
+} gnma_das_auth_type_t;
+
 struct gnma_metadata {
 	char platform[GNMA_METADATA_STR_MAX_LEN];
 	char hwsku[GNMA_METADATA_STR_MAX_LEN];
@@ -58,6 +68,17 @@ typedef enum _gnma_port_stat_type_t {
 	GNMA_PORT_STAT_OUT_UCAST_PKTS,		/* SAI_PORT_STAT_IF_IN_UCAST_PKTS */
 
 } gnma_port_stat_type_t;
+
+typedef enum _gnma_ieee8021x_das_dac_stat_type_t {
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_ACK_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_OUT_COA_NAK_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_IGNORED_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_ATTR_VALUE_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_WRONG_SESSION_CONTEXT_PKTS,
+	GNMA_IEEE8021X_DAS_DAC_STAT_IN_COA_ADMINISTRATIVELY_PROHIBITED_REQ_PKTS,
+} gnma_ieee8021x_das_dac_stat_type_t;
 
 struct gnma_alarm {
 	const char *id;
@@ -269,6 +290,29 @@ struct gnma_fdb_entry {
 	char mac[18];
 };
 
+typedef enum _gnma_igmp_version_t {
+	GNMA_IGMP_VERSION_NA = 0,
+	GNMA_IGMP_VERSION_1 = 1,
+	GNMA_IGMP_VERSION_2 = 2,
+	GNMA_IGMP_VERSION_3 = 3
+} gnma_igmp_version_t;
+
+struct gnma_igmp_snoop_attr {
+	bool enabled;
+	bool querier_enabled;
+	bool fast_leave_enabled;
+	uint32_t query_interval;
+	uint32_t last_member_query_interval;
+	uint32_t max_response_time;
+	gnma_igmp_version_t version;
+};
+
+struct gnma_igmp_static_group_attr {
+	struct in_addr address;
+	size_t num_ports;
+	struct gnma_port_key *egress_ports;
+};
+
 int gnma_switch_create(/* TODO id */ /* TODO: attr (adr, login, psw) */);
 int gnma_port_admin_state_set(struct gnma_port_key *port_key, bool up);
 int gnma_port_speed_set(struct gnma_port_key *port_key, const char *speed);
@@ -403,14 +447,33 @@ int gnma_stp_ports_enable(uint32_t list_size, struct gnma_port_key *ports_list);
 int gnma_stp_instance_set(uint16_t instance, uint16_t prio,
 			  uint32_t list_size, uint16_t *vid_list);
 
-int gnma_stp_vids_enable(uint32_t list_size, uint16_t *vid_list);
-int gnma_stp_vids_enable_all(void);
+int gnma_stp_vids_set(uint32_t list_size, uint16_t *vid_list, bool enable);
+int gnma_stp_vids_set_all(bool enable);
 int gnma_stp_vid_set(uint16_t vid, struct gnma_stp_attr *attr);
 int gnma_stp_vid_bulk_get(struct gnma_stp_attr *list, ssize_t size);
 
 int gnma_ieee8021x_system_auth_control_set(bool is_enabled);
 int gnma_ieee8021x_system_auth_control_get(bool *is_enabled);
 int gnma_ieee8021x_system_auth_clients_get(char *buf, size_t buf_size);
+int gnma_ieee8021x_das_bounce_port_ignore_set(bool bounce_port_ignore);
+int gnma_ieee8021x_das_bounce_port_ignore_get(bool *bounce_port_ignore);
+int gnma_ieee8021x_das_disable_port_ignore_set(bool disable_port_ignore);
+int gnma_ieee8021x_das_disable_port_ignore_get(bool *disable_port_ignore);
+int gnma_ieee8021x_das_ignore_server_key_set(bool ignore_server_key);
+int gnma_ieee8021x_das_ignore_server_key_get(bool *ignore_server_key);
+int gnma_ieee8021x_das_ignore_session_key_set(bool ignore_session_key);
+int gnma_ieee8021x_das_ignore_session_key_get(bool *ignore_session_key);
+int gnma_ieee8021x_das_auth_type_key_set(gnma_das_auth_type_t auth_type);
+int gnma_ieee8021x_das_auth_type_key_get(gnma_das_auth_type_t *auth_type);
+int gnma_ieee8021x_das_dac_hosts_list_get(size_t *list_size,
+					  struct gnma_das_dac_host_key *das_dac_keys_arr);
+int gnma_ieee8021x_das_dac_host_add(struct gnma_das_dac_host_key *key,
+				    const char *passkey);
+int gnma_ieee8021x_das_dac_host_remove(struct gnma_das_dac_host_key *key);
+int
+gnma_iee8021x_das_dac_global_stats_get(uint32_t num_of_counters,
+				       gnma_ieee8021x_das_dac_stat_type_t *counter_ids,
+				       uint64_t *counters);
 
 int gnma_radius_hosts_list_get(size_t *list_size,
 			       struct gnma_radius_host_key *hosts_list);
@@ -419,6 +482,12 @@ int gnma_radius_host_add(struct gnma_radius_host_key *key, const char *passkey,
 int gnma_radius_host_remove(struct gnma_radius_host_key *key);
 int gnma_mac_address_list_get(size_t *list_size, struct gnma_fdb_entry *list);
 int gnma_system_password_set(char *password);
+int gnma_igmp_snooping_set(uint16_t vid, struct gnma_igmp_snoop_attr *attr);
+int gnma_igmp_static_groups_set(uint16_t vid, size_t num_groups,
+				struct gnma_igmp_static_group_attr *groups);
+
+int gnma_igmp_iface_groups_get(struct gnma_port_key *iface,
+			       char *buf, size_t *buf_size);
 
 struct gnma_change *gnma_change_create(void);
 void gnma_change_destory(struct gnma_change *);

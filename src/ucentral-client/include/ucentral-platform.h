@@ -41,6 +41,7 @@ extern "C" {
  */
 #define PID_TO_NAME(p, name) sprintf(name, "Ethernet%hu", p)
 #define NAME_TO_PID(p, name) sscanf((name), "Ethernet%hu", (p))
+#define VLAN_TO_NAME(v, name) sprintf((name), "Vlan%hu", (v))
 
 struct plat_vlan_memberlist;
 struct plat_port_vlan;
@@ -62,6 +63,18 @@ enum plat_ieee8021x_port_host_mode {
 	PLAT_802_1X_PORT_HOST_MODE_MULTI_DOMAIN,
 	PLAT_802_1X_PORT_HOST_MODE_MULTI_HOST,
 	PLAT_802_1X_PORT_HOST_MODE_SINGLE_HOST,
+};
+
+enum plat_ieee8021x_das_auth_type {
+	PLAT_802_1X_DAS_AUTH_TYPE_ANY,
+	PLAT_802_1X_DAS_AUTH_TYPE_ALL,
+	PLAT_802_1X_DAS_AUTH_TYPE_SESSION_KEY,
+};
+
+enum plat_igmp_version {
+	PLAT_IGMP_VERSION_1,
+	PLAT_IGMP_VERSION_2,
+	PLAT_IGMP_VERSION_3
 };
 
 #define UCENTRAL_PORT_LLDP_PEER_INFO_MAX_MGMT_IPS (2)
@@ -252,10 +265,27 @@ struct plat_port_l2 {
 	struct plat_ipv4 ipv4;
 };
 
+struct plat_igmp {
+	bool exist;
+	bool snooping_enabled;
+	bool querier_enabled;
+	bool fast_leave_enabled;
+	uint32_t query_interval;
+	uint32_t last_member_query_interval;
+	uint32_t max_response_time;
+	enum plat_igmp_version version;
+	size_t num_groups;
+	struct {
+		struct in_addr addr;
+		struct plat_ports_list *egress_ports_list;
+	} *groups;
+};
+
 struct plat_port_vlan {
 	struct plat_vlan_memberlist *members_list_head;
 	struct plat_ipv4 ipv4;
 	struct plat_dhcp dhcp;
+	struct plat_igmp igmp;
 	uint16_t id;
 	uint16_t mstp_instance;
 };
@@ -280,6 +310,18 @@ struct plat_syslog_cfg {
 	int32_t priority;
 	int is_tcp;
 	char host[SYSLOG_CFG_FIELD_STR_MAX_LEN];
+};
+
+struct plat_enabled_service_cfg {
+	struct {
+		bool enabled;
+	} ssh;
+	struct telnet {
+		bool enabled;
+	} telnet;
+	struct {
+		bool enabled;
+	} http;
 };
 
 struct plat_rtty_cfg {
@@ -376,6 +418,31 @@ struct plat_radius_hosts_list {
 	struct plat_radius_host host;
 };
 
+struct plat_ieee8021x_dac_host {
+	char hostname[RADIUS_CFG_HOSTNAME_STR_MAX_LEN];
+	char passkey[RADIUS_CFG_PASSKEY_STR_MAX_LEN];
+};
+
+struct plat_ieee8021x_dac_list {
+	struct plat_ieee8021x_dac_list *next;
+	struct plat_ieee8021x_dac_host host;
+};
+
+struct plat_port_isolation_session_ports {
+	struct plat_ports_list *ports_list;
+};
+
+struct plat_port_isolation_session {
+	uint64_t id;
+	struct plat_port_isolation_session_ports uplink;
+	struct plat_port_isolation_session_ports downlink;
+};
+
+struct plat_port_isolation_cfg {
+	struct plat_port_isolation_session *sessions;
+	size_t sessions_num;
+};
+
 struct plat_cfg {
 	struct plat_unit unit;
 	/* Alloc all ports, but access them only if bit is set. */
@@ -385,6 +452,7 @@ struct plat_cfg {
 	BITMAP_DECLARE(vlans_to_cfg, MAX_VLANS);
 	struct plat_metrics_cfg metrics;
 	struct plat_syslog_cfg *log_cfg;
+	struct plat_enabled_service_cfg enabled_services_cfg;
 	/* Port's interfaces (provide l2 iface w/o bridge caps) */
 	struct plat_port_l2 portsl2[MAX_NUM_OF_PORTS];
 	struct ucentral_router router;
@@ -393,7 +461,17 @@ struct plat_cfg {
 	/* Instance zero is for global instance (like common values in rstp) */
 	struct plat_stp_instance_cfg stp_instances[MAX_VLANS];
 	struct plat_radius_hosts_list *radius_hosts_list;
-	bool ieee8021x_is_auth_ctrl_enabled;
+	struct {
+		bool is_auth_ctrl_enabled;
+		bool bounce_port_ignore;
+		bool disable_port_ignore;
+		bool ignore_server_key;
+		bool ignore_session_key;
+		char server_key[RADIUS_CFG_PASSKEY_STR_MAX_LEN];
+		enum plat_ieee8021x_das_auth_type das_auth_type;
+		struct plat_ieee8021x_dac_list *das_dac_list;
+	} ieee8021x;
+	struct plat_port_isolation_cfg port_isolation_cfg;
 };
 
 struct plat_learned_mac_addr {
@@ -503,15 +581,57 @@ enum {
 	PLAT_REBOOT_CAUSE_UNAVAILABLE,
 };
 
+enum sfp_form_factor {
+	UCENTRAL_SFP_FORM_FACTOR_NA = 0,
+
+	UCENTRAL_SFP_FORM_FACTOR_SFP,
+	UCENTRAL_SFP_FORM_FACTOR_SFP_PLUS,
+	UCENTRAL_SFP_FORM_FACTOR_SFP_28,
+	UCENTRAL_SFP_FORM_FACTOR_SFP_DD,
+	UCENTRAL_SFP_FORM_FACTOR_QSFP,
+	UCENTRAL_SFP_FORM_FACTOR_QSFP_PLUS,
+	UCENTRAL_SFP_FORM_FACTOR_QSFP_28,
+	UCENTRAL_SFP_FORM_FACTOR_QSFP_DD
+};
+
+enum sfp_link_mode {
+	UCENTRAL_SFP_LINK_MODE_NA = 0,
+
+	UCENTRAL_SFP_LINK_MODE_1000_X,
+	UCENTRAL_SFP_LINK_MODE_2500_X,
+	UCENTRAL_SFP_LINK_MODE_4000_SR,
+	UCENTRAL_SFP_LINK_MODE_10G_SR,
+	UCENTRAL_SFP_LINK_MODE_25G_SR,
+	UCENTRAL_SFP_LINK_MODE_40G_SR,
+	UCENTRAL_SFP_LINK_MODE_50G_SR,
+	UCENTRAL_SFP_LINK_MODE_100G_SR,
+};
+
+struct plat_port_transceiver_info {
+	char vendor_name[64];
+	char part_number[64];
+	char serial_number[64];
+	char revision[64];
+	enum sfp_form_factor form_factor;
+	enum sfp_link_mode *supported_link_modes;
+	size_t num_supported_link_modes;
+	float temperature;
+	float tx_optical_power;
+	float rx_optical_power;
+	float max_module_power;
+};
+
 struct plat_port_info {
 	struct plat_port_counters stats;
 	struct plat_port_lldp_peer_info lldp_peer_info;
 	struct plat_ieee8021x_port_info ieee8021x_info;
+	struct plat_port_transceiver_info transceiver_info;
 	uint32_t uptime;
 	uint32_t speed;
 	uint8_t carrier_up;
 	uint8_t duplex;
 	uint8_t has_lldp_peer_info;
+	uint8_t has_transceiver_info;
 	char name[PORT_MAX_NAME_LEN];
 };
 
@@ -525,6 +645,17 @@ struct plat_system_info {
 	double load_average[3]; /* 1, 5, 15 minutes load average */
 };
 
+struct plat_iee8021x_coa_counters {
+	uint64_t coa_req_received;
+	uint64_t coa_ack_sent;
+	uint64_t coa_nak_sent;
+	uint64_t coa_ignored;
+	uint64_t coa_wrong_attr;
+	uint64_t coa_wrong_attr_value;
+	uint64_t coa_wrong_session_context;
+	uint64_t coa_administratively_prohibited_req;
+};
+
 struct plat_state_info {
 	struct plat_poe_state poe_state;
 	struct plat_poe_port_state poe_ports_state[MAX_NUM_OF_PORTS];
@@ -532,10 +663,13 @@ struct plat_state_info {
 
 	struct plat_port_info *port_info;
 	int port_info_count;
+	struct plat_port_vlan *vlan_info;
+	size_t vlan_info_count;
 	struct plat_learned_mac_addr *learned_mac_list;
 	size_t learned_mac_list_size;
 
 	struct plat_system_info system_info;
+	struct plat_iee8021x_coa_counters ieee8021x_global_coa_counters;
 };
 
 struct plat_upgrade_info {

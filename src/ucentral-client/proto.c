@@ -906,6 +906,171 @@ cfg_ethernet_ieee8021x_parse(cJSON *ieee8021x, struct plat_port *port)
 	return 0;
 }
 
+static int
+cfg_ethernet_port_isolation_interface_parse(cJSON *iface,
+					    struct plat_port_isolation_session_ports *ports) {
+	struct plat_ports_list *port_node = NULL;
+	cJSON *iface_list;
+	int i;
+
+	iface_list = cJSON_GetObjectItemCaseSensitive(iface, "interface-list");
+	if (!iface_list || !cJSON_IsArray(iface_list) ||
+	    cJSON_GetArraySize(iface_list) == 0) {
+		UC_LOG_ERR("Ethernet obj 'port_isolation:interface-list' is invalid, parse failed\n");
+		return -1;
+	}
+
+	for (i = 0; i < cJSON_GetArraySize(iface_list); ++i) {
+		if (!cJSON_GetStringValue(cJSON_GetArrayItem(iface_list, i))) {
+			UC_LOG_ERR("Ethernet obj 'port_isolation:interface-list:%d' has invalid port name, parse failed\n",
+				   i);
+			return -1;
+		}
+		port_node = calloc(1, sizeof(*port_node));
+		if (!port_node) {
+			UC_LOG_ERR("Failed alloc port list list\n");
+			return -1;
+		}
+		strcpy(port_node->name,
+		       cJSON_GetStringValue(cJSON_GetArrayItem(iface_list, i)));
+		UCENTRAL_LIST_PUSH_MEMBER(&ports->ports_list, port_node);
+	}
+
+	return 0;
+}
+
+static int
+cfg_ethernet_port_isolation_parse(cJSON *ethernet, struct plat_cfg *cfg) {
+	cJSON *eth = NULL, *port_isolation, *sessions, *session;
+	struct plat_port_isolation_session *session_arr;
+	struct plat_ports_list *port_node = NULL;
+	int i = 0, j = 0;
+
+	cJSON_ArrayForEach(eth, ethernet) {
+		port_isolation = cJSON_GetObjectItemCaseSensitive(eth, "port-isolation");
+		if (!port_isolation)
+			continue;
+
+		if (!cJSON_IsObject(port_isolation)) {
+			UC_LOG_ERR("Ethernet obj holds 'port_isolation' object of wrongful type, parse failed\n");
+			return -1;
+		}
+
+		sessions = cJSON_GetObjectItemCaseSensitive(port_isolation,
+							    "sessions");
+		if (!sessions || !cJSON_IsArray(sessions)) {
+			UC_LOG_ERR("Ethernet obj holds 'port_isolation:sessions' array of wrongful type (or empty), parse failed\n");
+			return -1;
+		}
+
+		cJSON_ArrayForEach(session, sessions) {
+			cfg->port_isolation_cfg.sessions_num++;
+		}
+	}
+
+	if (cfg->port_isolation_cfg.sessions_num == 0) {
+		return 0;
+	}
+
+	session_arr = calloc(cfg->port_isolation_cfg.sessions_num,
+			     sizeof(struct plat_port_isolation_session));
+	cfg->port_isolation_cfg.sessions = session_arr;
+
+	if (!session_arr) {
+		UC_LOG_ERR("Failed to alloc memory for port-isolation-cfg, parse failed\n");
+		return -1;
+	}
+
+	cJSON_ArrayForEach(eth, ethernet) {
+		port_isolation = cJSON_GetObjectItemCaseSensitive(eth, "port-isolation");
+		if (!port_isolation)
+			continue;
+
+		/*
+		 * Highly unlikeable that the object is missing / invalid,
+		 * as it was okay prior (parsing above).
+		 * But this is still a sanity-check, in case if JSON
+		 * got corrupted for some reason.
+		 */
+		if (!cJSON_IsObject(port_isolation)) {
+			UC_LOG_ERR("Ethernet obj holds 'port_isolation' object of wrongful type, parse failed\n");
+			return -1;
+		}
+
+		sessions = cJSON_GetObjectItemCaseSensitive(port_isolation,
+							    "sessions");
+		if (!sessions || !cJSON_IsArray(sessions)) {
+			UC_LOG_ERR("Ethernet obj holds 'port_isolation:sessions' array of wrongful type (or empty), parse failed\n");
+			return -1;
+		}
+
+		cJSON_ArrayForEach(session, sessions) {
+			cJSON *id, *uplink, *downlink;
+			double session_arrid;
+
+			id = cJSON_GetObjectItemCaseSensitive(session, "id");
+			if (!id || !cJSON_IsNumber(id)) {
+				UC_LOG_ERR("Ethernet obj 'port_isolation:id' is invalid, parse failed\n");
+				goto err;
+			}
+
+			session_arrid = cJSON_GetNumberValue(id);
+
+			if (i > 0) {
+				for (int j = i - 1; j >= 0; --j) {
+					if ((double) session_arr[j].id == session_arrid) {
+						UC_LOG_ERR("Expected unique 'port_isolation:id', duplicate (%lu) detected, parse failed\n",
+							   (uint64_t) session_arrid);
+						goto err;
+					}
+				}
+			}
+
+			session_arr[j].id = (uint64_t) session_arrid;
+
+			uplink = cJSON_GetObjectItemCaseSensitive(session,
+								  "uplink");
+			if (!uplink || !cJSON_IsObject(uplink)) {
+				UC_LOG_ERR("Ethernet obj 'port_isolation:uplink' is invalid, parse failed\n");
+				goto err;
+			}
+
+			downlink = cJSON_GetObjectItemCaseSensitive(session,
+								    "downlink");
+			if (!downlink || !cJSON_IsObject(downlink)) {
+				UC_LOG_ERR("Ethernet obj 'port_isolation:downlink' is invalid, parse failed\n");
+				goto err;
+			}
+
+			if (cfg_ethernet_port_isolation_interface_parse(uplink,
+									&session_arr[j].uplink)) {
+				UC_LOG_ERR("Ethernet obj 'port_isolation:uplink' parse failed\n");
+				goto err;
+			}
+
+			if (cfg_ethernet_port_isolation_interface_parse(downlink,
+									&session_arr[j].downlink)) {
+				UC_LOG_ERR("Ethernet obj 'port_isolation:downlink' parse failed\n");
+				goto err;
+			}
+
+			++i;
+		}
+	}
+
+	return 0;
+err:
+	for (int j = i; j >= 0; --j) {
+		UCENTRAL_LIST_DESTROY_SAFE(&session_arr[j].uplink.ports_list,
+					   port_node);
+		UCENTRAL_LIST_DESTROY_SAFE(&session_arr[j].downlink.ports_list,
+					   port_node);
+	}
+	cfg->port_isolation_cfg.sessions = 0;
+	free(cfg->port_isolation_cfg.sessions);
+	return -1;
+}
+
 static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 {
 	cJSON *eth = NULL;
@@ -986,6 +1151,11 @@ static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 		}
 	}
 
+	if (cfg_ethernet_port_isolation_parse(ethernet, cfg)) {
+		UC_LOG_ERR("port-isolation config parse faile\n");
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -1063,6 +1233,121 @@ static int cfg_port_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 	return 0;
 }
 
+static int __cfg_vlan_interface_parse_multicast(cJSON *multicast,
+						struct plat_cfg *cfg,
+						uint16_t vid)
+{
+	cJSON *igmp, *field, *group, *addr, *ports, *port;
+	struct plat_ports_list *e_port;
+	struct plat_igmp info = {  /* default values */
+		.snooping_enabled = true,
+		.querier_enabled = false,
+		.fast_leave_enabled = false,
+		.query_interval = 60,
+		.last_member_query_interval = 60,
+		.max_response_time = 10,
+		.version = PLAT_IGMP_VERSION_3,
+		.num_groups = 0,
+		.groups = NULL
+	};
+	size_t group_idx;
+
+	if (!(igmp = cJSON_GetObjectItemCaseSensitive(multicast, "igmp")))
+		return 0;
+
+	/* handle igmp snooping parameters */
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "version")) && cJSON_IsNumber(field)) {
+		switch ((uint32_t)cJSON_GetNumberValue(field)) {
+		case 1:
+			info.version = PLAT_IGMP_VERSION_1;
+			break;
+		case 2:
+			info.version = PLAT_IGMP_VERSION_2;
+			break;
+		case 3:
+			info.version = PLAT_IGMP_VERSION_3;
+			break;
+		default:
+			UC_LOG_ERR("Invalid IGMP version %f", cJSON_GetNumberValue(field));
+			return -1;
+		}
+	}
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "snooping-enable")) && cJSON_IsBool(field))
+		info.snooping_enabled = cJSON_IsTrue(field);
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "querier-enable")) && cJSON_IsBool(field))
+		info.querier_enabled = cJSON_IsTrue(field);
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "fast-leave-enable")) && cJSON_IsBool(field))
+		info.fast_leave_enabled = cJSON_IsTrue(field);
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "query-interval")) && cJSON_IsNumber(field))
+		info.query_interval = cJSON_GetNumberValue(field);
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "last-member-query-interval")) && cJSON_IsNumber(field))
+		info.last_member_query_interval = cJSON_GetNumberValue(field);
+	if ((field = cJSON_GetObjectItemCaseSensitive(igmp, "max-response-time")) && cJSON_IsNumber(field))
+		info.max_response_time = cJSON_GetNumberValue(field);
+
+	field = cJSON_GetObjectItemCaseSensitive(igmp, "static-mcast-groups");
+	if (!field || !cJSON_IsArray(field))
+		goto skip_groups;
+
+	info.num_groups = cJSON_GetArraySize(field);
+	info.groups = calloc(info.num_groups, sizeof(*info.groups));
+	if (!info.groups)
+		goto err;
+
+	/* handle static groups */
+	group_idx = 0;
+	cJSON_ArrayForEach(group, field) {
+		addr = cJSON_GetObjectItemCaseSensitive(group, "address");
+		ports = cJSON_GetObjectItemCaseSensitive(group, "egress-ports");
+		if (!addr || !cJSON_IsString(addr) || !ports || !cJSON_IsArray(ports)) {
+			/* FIXME: workaround for parser issue */
+			addr = cJSON_GetObjectItemCaseSensitive(group, "static-mcast-groups[].address");
+			ports = cJSON_GetObjectItemCaseSensitive(group, "static-mcast-groups[].egress-ports");
+			if (!addr || !cJSON_IsString(addr) || !ports || !cJSON_IsArray(ports)) {
+				UC_LOG_ERR("Missing static group info\n");
+				goto err;
+			}
+		}
+
+		if (inet_pton(AF_INET, addr->valuestring, &info.groups[group_idx].addr.s_addr) != 1) {
+			UC_LOG_ERR("Failed to parse ip addr %s\n", addr->valuestring);
+			goto err;
+		}
+
+		/* handle egress ports */
+		cJSON_ArrayForEach(port, ports) {
+			e_port = calloc(1, sizeof(*e_port));
+			if (!e_port) {
+				UC_LOG_ERR("Can't alloc port node\n");
+				goto err;
+			}
+
+			if (!cJSON_IsString(port)){
+				UC_LOG_ERR("Invalid port name\n");
+				goto err;
+			}
+
+			strncpy(e_port->name, port->valuestring, sizeof(e_port->name));
+			UCENTRAL_LIST_PUSH_MEMBER(&info.groups[group_idx].egress_ports_list, e_port);
+		}
+		group_idx++;
+	}
+skip_groups:
+	info.exist = info.snooping_enabled || info.querier_enabled;
+	cfg->vlans[vid].igmp = info;
+	return 0;
+err:
+	if (info.groups) {
+		for (group_idx = 0; group_idx < info.num_groups; group_idx++) {
+			UCENTRAL_LIST_DESTROY_SAFE(
+				&info.groups[group_idx].egress_ports_list,
+				e_port);
+		}
+	}
+	free(info.groups);
+	return -1;
+}
+
 static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 {
 	size_t i;
@@ -1076,6 +1361,7 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 	char *ipv4_subnet_str;
 	cJSON *select_ports;
 	cJSON *ipv4_subnet;
+	cJSON *multicast;
 	cJSON *vlan_tag;
 	cJSON *ethernet;
 	uint8_t tagged;
@@ -1141,6 +1427,7 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 	cfg->vlans[vid].dhcp.relay.enabled = false;
 	ipv4 = cJSON_GetObjectItemCaseSensitive(interface, "ipv4");
 	dhcp = cJSON_GetObjectItemCaseSensitive(ipv4, "dhcp");
+	multicast = cJSON_GetObjectItemCaseSensitive(ipv4, "multicast");
 	if (ipv4) {
 		/*  TODO addressing */
 		ipv4_subnet_str = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(ipv4, "subnet"));
@@ -1181,6 +1468,13 @@ skip_subnet_old:
 		}
 		cfg->vlans[vid].ipv4.exist = true;
 skip_subnet:
+		if (multicast) {
+			ret = __cfg_vlan_interface_parse_multicast(multicast, cfg, vid);
+			if (ret) {
+				UC_LOG_ERR("Failed parsing multicast config");
+				return ret;
+			}
+		}
 
 		if (!dhcp)
 			return 0;
@@ -1333,6 +1627,59 @@ static int cfg_services_parse(cJSON *services, struct plat_cfg *cfg)
 		}
 	}
 
+	/* Set default values in case if no cfg supplied */
+	cfg->enabled_services_cfg.ssh.enabled = false;
+	cfg->enabled_services_cfg.telnet.enabled = false;
+	cfg->enabled_services_cfg.http.enabled = false;
+
+	s = cJSON_GetObjectItemCaseSensitive(services, "ssh");
+	if (s) {
+		if (!cJSON_IsObject(s)) {
+			UC_LOG_ERR("Unexpected type of services:ssh: Object expected");
+			return -1;
+		}
+
+		cJSON *enable = cJSON_GetObjectItemCaseSensitive(s, "enable");
+		if (enable && !cJSON_IsBool(enable)) {
+			UC_LOG_ERR("Unexpected type of services:ssh:enable: Boolean expected");
+			return -1;
+		}
+
+		cfg->enabled_services_cfg.ssh.enabled = cJSON_IsTrue(enable);
+	}
+
+	s = cJSON_GetObjectItemCaseSensitive(services, "telnet");
+	if (s) {
+		if (!cJSON_IsObject(s)) {
+			UC_LOG_ERR("Unexpected type of services:telnet: Object expected");
+			return -1;
+		}
+
+		cJSON *enable = cJSON_GetObjectItemCaseSensitive(s, "enable");
+		if (enable && !cJSON_IsBool(enable)) {
+			UC_LOG_ERR("Unexpected type of services:telnet:enable: Boolean expected");
+			return -1;
+		}
+
+		cfg->enabled_services_cfg.telnet.enabled = cJSON_IsTrue(enable);
+	}
+
+	s = cJSON_GetObjectItemCaseSensitive(services, "http");
+	if (s) {
+		if (!cJSON_IsObject(s)) {
+			UC_LOG_ERR("Unexpected type of services:http: Object expected");
+			return -1;
+		}
+
+		cJSON *enable = cJSON_GetObjectItemCaseSensitive(s, "enable");
+		if (enable && !cJSON_IsBool(enable)) {
+			UC_LOG_ERR("Unexpected type of services:http:enable: Boolean expected");
+			return -1;
+		}
+
+		cfg->enabled_services_cfg.http.enabled = cJSON_IsTrue(enable);
+	}
+
 	return 0;
 }
 
@@ -1353,7 +1700,7 @@ static int cfg_switch_ieee8021x_parse(cJSON *sw, struct plat_cfg *cfg)
 	/* It's safe to check against NULL cJSON obj.
 	 * In case if option is missing - defaulting to 'false' is OK for us.
 	 */
-	cfg->ieee8021x_is_auth_ctrl_enabled = cJSON_IsTrue(auth_ctrl_enabled);
+	cfg->ieee8021x.is_auth_ctrl_enabled = cJSON_IsTrue(auth_ctrl_enabled);
 	radius = cJSON_GetObjectItemCaseSensitive(ieee8021x, "radius");
 
 	if (radius && !cJSON_IsArray(radius)) {
@@ -2511,15 +2858,16 @@ static void script_handle(cJSON **rpc)
 			UC_LOG_ERR("script message missing 'uri' parameter");
 			return;
 		}
+
+		script_reply(0, "pending", id);
+		UC_LOG_DBG("Script requested OK (pending. Waiting for plat to execute)\n");
+
 		memset(&file_path[0], 0, sizeof(file_path));
 		if (plat_diagnostic(&file_path[0])) {
 			UC_LOG_ERR("Script failed\n");
 			script_reply(1, "fail", id);
 			return;
 		}
-
-		script_reply(0, "pending", id);
-		UC_LOG_DBG("Script requested OK\n");
 
 		/* Poll upgrade state - start periodical. */
 		while (access(file_path, F_OK))
@@ -2766,14 +3114,135 @@ err:
 	return -1;
 }
 
+static int state_fill_transceiver_info(cJSON *root,
+				       struct plat_port_transceiver_info *info)
+{
+	char *form_factor[] = {
+		[UCENTRAL_SFP_FORM_FACTOR_NA] = "",
+		[UCENTRAL_SFP_FORM_FACTOR_SFP] = "SFP",
+		[UCENTRAL_SFP_FORM_FACTOR_SFP_PLUS] = "SFP+",
+		[UCENTRAL_SFP_FORM_FACTOR_SFP_28] = "SFP28",
+		[UCENTRAL_SFP_FORM_FACTOR_SFP_DD] = "SFP-DD",
+		[UCENTRAL_SFP_FORM_FACTOR_QSFP] = "QSFP",
+		[UCENTRAL_SFP_FORM_FACTOR_QSFP_PLUS] = "QSFP+",
+		[UCENTRAL_SFP_FORM_FACTOR_QSFP_28] = "QSFP28",
+		[UCENTRAL_SFP_FORM_FACTOR_QSFP_DD] = "QSFP-DD"
+	};
+	char *link_mode[] = {
+		[UCENTRAL_SFP_LINK_MODE_NA] = "",
+		[UCENTRAL_SFP_LINK_MODE_1000_X] = "1G",
+		[UCENTRAL_SFP_LINK_MODE_2500_X] = "2.5G",
+		[UCENTRAL_SFP_LINK_MODE_4000_SR] = "4G SR",
+		[UCENTRAL_SFP_LINK_MODE_10G_SR] = "10G SR",
+		[UCENTRAL_SFP_LINK_MODE_25G_SR] = "25G SR",
+		[UCENTRAL_SFP_LINK_MODE_40G_SR] = "40G SR",
+		[UCENTRAL_SFP_LINK_MODE_50G_SR] = "50G SR",
+		[UCENTRAL_SFP_LINK_MODE_100G_SR] = "100G SR"
+	};
+	cJSON *supp_modes, *mode;
+	size_t i;
+
+	if (!cJSON_AddStringToObject(root, "vendor-name",
+				     info->vendor_name))
+		goto err;
+	if (!cJSON_AddStringToObject(root, "part-number",
+				     info->part_number))
+		goto err;
+	if (!cJSON_AddStringToObject(root, "serial-number",
+				     info->serial_number))
+		goto err;
+	if (!cJSON_AddStringToObject(root, "revision",
+				     info->revision))
+		goto err;
+	if (!cJSON_AddNumberToObject(root, "temperature",
+				     info->temperature))
+		goto err;
+	if (!cJSON_AddNumberToObject(root, "tx-optical-power",
+				     info->tx_optical_power))
+		goto err;
+	if (!cJSON_AddNumberToObject(root, "rx-optical-power",
+				     info->rx_optical_power))
+		goto err;
+	if (!cJSON_AddNumberToObject(root, "max-module-power",
+				     info->max_module_power))
+		goto err;
+	if (!cJSON_AddStringToObject(root, "form-factor",
+				     form_factor[info->form_factor]))
+		goto err;
+	if (!(supp_modes = cJSON_AddArrayToObject(root, "supported-link-modes")))
+		goto err;
+	for (i = 0; i < info->num_supported_link_modes; i++) {
+		if (!(mode = cJSON_CreateString(link_mode[info->supported_link_modes[i]])))
+			goto err;
+		if (!cJSON_AddItemToArray(supp_modes, mode)) {
+			cJSON_Delete(mode);
+			goto err;
+		}
+	}
+	return 0;
+err:
+	return -1;
+}
+
+static int state_fill_interface_multicast(cJSON *root, struct plat_port_vlan *vlan)
+{
+	cJSON *igmp, *enabled_groups, *group, *outgoing_ports;
+	struct plat_ports_list *port_node = NULL;
+	char ip_addr[] = {"255.255.255.255"};
+	int ret = -1;
+	size_t idx;
+
+	if (!vlan->igmp.exist)
+		return 0;
+
+	igmp = cJSON_AddObjectToObject(root, "igmp");
+	enabled_groups = cJSON_AddArrayToObject(igmp, "enabled-groups");
+	if (!igmp || !enabled_groups)
+		goto err;
+
+	for (idx = 0; idx < vlan->igmp.num_groups; idx++) {
+		if (!(group = cJSON_CreateObject()))
+			goto err;
+
+		if (!inet_ntop(AF_INET, &vlan->igmp.groups[idx].addr,
+			       ip_addr, sizeof(ip_addr)))
+			goto err;
+
+		if (!(cJSON_AddStringToObject(group, "address", ip_addr)))
+			goto err;
+
+		if (!(outgoing_ports = cJSON_AddArrayToObject(group, "egress-ports")))
+			goto err;
+
+		UCENTRAL_LIST_FOR_EACH_MEMBER(
+				port_node,
+				&vlan->igmp.groups[idx].egress_ports_list) {
+			if (!cJSON_AddItemToArray(outgoing_ports, cJSON_CreateString(port_node->name)))
+				goto err;
+		}
+
+		if (!cJSON_AddItemToArray(enabled_groups, group))
+			goto err;
+	}
+
+	ret = 0;
+err:
+	return ret;
+}
+
 static int state_fill_interfaces_data(cJSON *interfaces,
 				      struct plat_state_info *state)
 {
+	char location[] = { "/interfaces/XXXX" };
+	char vlan_name[] = { "VlanXXXX" };
 	cJSON *dns_servers;
+	cJSON *transceiver;
 	cJSON *interface;
+	cJSON *multicast;
 	cJSON *counters;
 	cJSON *clients;
 	cJSON *ipv4;
+	uint16_t id;
 	int ret;
 	int i;
 
@@ -2807,6 +3276,16 @@ static int state_fill_interfaces_data(cJSON *interfaces,
 		if (!ipv4)
 			goto err;
 
+		if (state->port_info[i].has_transceiver_info) {
+			transceiver = cJSON_AddObjectToObject(interface, "transceiver-info");
+			if (!transceiver)
+				goto err;
+			ret = state_fill_transceiver_info(transceiver,
+							  &state->port_info[i].transceiver_info);
+			if (ret)
+				goto err;
+		}
+
 		ret = state_fill_interface_clients(clients,
 						   &state->port_info[i]);
 		if (ret)
@@ -2832,20 +3311,43 @@ static int state_fill_interfaces_data(cJSON *interfaces,
 		}
 
 		/* TBD: find out (?) proper <location> */
-		{
-			char location[] = { "/interfaces/XXXX" };
-			uint16_t pid;
+		NAME_TO_PID(&id, state->port_info[i].name);
+		sprintf(location, "/interfaces/%hu", id);
 
-			NAME_TO_PID(&pid, state->port_info[i].name);
-			sprintf(location, "/interfaces/%hu", pid);
-
-			if (!cJSON_AddStringToObject(interface, "location",
-						     location))
-				goto err;
-		}
+		if (!cJSON_AddStringToObject(interface, "location",
+					     location))
+			goto err;
 
 		if (!jobj_u64_set(interface, "uptime",
 				  state->system_info.uptime))
+			goto err;
+	}
+
+	for (i = 0; i < (int)state->vlan_info_count; i++) {
+		interface = cJSON_CreateObject();
+		if (!interface || !cJSON_AddItemToArray(interfaces, interface))
+			goto err;
+
+		clients = cJSON_AddArrayToObject(interface, "clients");
+		counters = cJSON_AddObjectToObject(interface, "counters");
+		dns_servers = cJSON_AddArrayToObject(interface, "dns_servers");
+		ipv4 = cJSON_AddObjectToObject(interface, "ipv4");
+		multicast = cJSON_AddObjectToObject(interface, "multicast");
+		if (!clients || !counters || !dns_servers || !ipv4 || !multicast)
+			goto err;
+
+		ret = state_fill_interface_multicast(multicast, &state->vlan_info[i]);
+		if (ret)
+			goto err;
+
+		sprintf(location, "/SVI/%u", state->vlan_info[i].id);
+		sprintf(vlan_name, "Vlan%u", state->vlan_info[i].id);
+
+		if (!cJSON_AddStringToObject(interface, "name", vlan_name))
+			goto err;
+		if (!cJSON_AddStringToObject(interface, "location", location))
+			goto err;
+		if (!jobj_u64_set(interface, "uptime", state->system_info.uptime))
 			goto err;
 	}
 
@@ -3157,16 +3659,16 @@ static int
 state_fill_unit_poe_data(cJSON *poe, struct plat_poe_state *poe_state_info)
 {
 
-	if (!cJSON_AddNumberToObject(poe, "max-power-budget",
-				     poe_state_info->max_power_budget))
+	if (!jobj_u64_set(poe, "max-power-budget",
+			  poe_state_info->max_power_budget))
 		goto err;
 
-	if (!cJSON_AddNumberToObject(poe, "power-consumed",
-				     poe_state_info->power_consumed))
+	if (!jobj_u64_set(poe, "power-consumed",
+			  poe_state_info->power_consumed))
 		goto err;
 
-	if (!cJSON_AddNumberToObject(poe, "power-threshold",
-				     poe_state_info->power_threshold))
+	if (!jobj_u64_set(poe, "power-threshold",
+			  poe_state_info->power_threshold))
 		goto err;
 
 	if (!cJSON_AddStringToObject(poe, "power-status",
@@ -3178,8 +3680,51 @@ err:
 	return -1;
 }
 
+static int
+state_fill_unit_ieee8021x_global_counters(cJSON *ieee8021x,
+					  struct plat_iee8021x_coa_counters *c)
+{
+	cJSON *das, *stats;
+
+	das = cJSON_AddObjectToObject(ieee8021x, "dynamic-authorization");
+	if (!das)
+		return -1;
+
+	stats = cJSON_AddObjectToObject(das, "stats");
+	if (!stats)
+		return -1;
+
+	if (!jobj_u64_set(stats, "coa_req_received",
+			  c->coa_req_received))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_ack_sent",
+			  c->coa_ack_sent))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_nak_sent",
+			  c->coa_nak_sent))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_ignored",
+			  c->coa_ignored))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_wrong_attr",
+			  c->coa_wrong_attr))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_wrong_attr_value",
+			  c->coa_wrong_attr_value))
+		return -1;
+	if (!jobj_u64_set(stats, "coa_wrong_session_context",
+			  c->coa_wrong_session_context))
+		return -1;
+	if (!jobj_u64_set(stats, "administratively_prohibited_req",
+			  c->coa_administratively_prohibited_req))
+		return -1;
+
+	return 0;
+}
+
 static int state_fill_unit_data(cJSON *unit, struct plat_state_info *state)
 {
+	cJSON *ieee8021x;
 	cJSON *loadArr;
 	cJSON *memory;
 	cJSON *poe;
@@ -3213,6 +3758,12 @@ static int state_fill_unit_data(cJSON *unit, struct plat_state_info *state)
 
 	poe = cJSON_AddObjectToObject(unit, "poe");
 	if (!poe || state_fill_unit_poe_data(poe, &state->poe_state))
+		goto err;
+
+	ieee8021x = cJSON_AddObjectToObject(unit, "ieee8021x");
+	if (!ieee8021x ||
+	    state_fill_unit_ieee8021x_global_counters(ieee8021x,
+						      &state->ieee8021x_global_coa_counters))
 		goto err;
 
 	return 0;
