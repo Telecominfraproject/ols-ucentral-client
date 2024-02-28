@@ -11,7 +11,7 @@ cfg2:
 cfg3:
   Bring ports 1 up, 2 up (Ethernet1, Ethernet2) (admin state);
   Destroy any VLAN that is not in the list (in this particular CFG - create VLAN 10,
-    destroye any other, except for MGMT VLAN 1 - it's not being altered by the
+    destroy any other, except for MGMT VLAN 1 - it's not being altered by the
     uCentral app itself);
   Create VLAN 10;
   Set VLAN 10 memberlist with the following ports: Ethernet1, Ethernet2;

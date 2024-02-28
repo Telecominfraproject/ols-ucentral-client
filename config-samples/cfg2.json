@@ -1,23 +1,23 @@
 {
-    "ethernet": [
-        {
-            "duplex": "full",
-            "enabled": true,
-            "speed": 1000,
-            "select-ports": [
-                "Ethernet1"
-            ]
-        },
-        {
-            "duplex": "full",
-            "enabled": false,
-            "select-ports": [
-                "Ethernet2"
-            ],
-            "speed": 1000
-        }
-    ],
-    "interfaces": [],
-    "services": {},
-    "uuid": 2
+  "ethernet": [
+    {
+      "duplex": "full",
+      "enabled": true,
+      "speed": 1000,
+      "select-ports": [
+        "Ethernet1"
+      ]
+    },
+    {
+      "duplex": "full",
+      "enabled": false,
+      "select-ports": [
+        "Ethernet2"
+      ],
+      "speed": 1000
+    }
+  ],
+  "interfaces": [],
+  "services": {},
+  "uuid": 2
 }
