@@ -1300,13 +1300,8 @@ static int __cfg_vlan_interface_parse_multicast(cJSON *multicast,
 		addr = cJSON_GetObjectItemCaseSensitive(group, "address");
 		ports = cJSON_GetObjectItemCaseSensitive(group, "egress-ports");
 		if (!addr || !cJSON_IsString(addr) || !ports || !cJSON_IsArray(ports)) {
-			/* FIXME: workaround for parser issue */
-			addr = cJSON_GetObjectItemCaseSensitive(group, "static-mcast-groups[].address");
-			ports = cJSON_GetObjectItemCaseSensitive(group, "static-mcast-groups[].egress-ports");
-			if (!addr || !cJSON_IsString(addr) || !ports || !cJSON_IsArray(ports)) {
-				UC_LOG_ERR("Missing static group info\n");
-				goto err;
-			}
+			UC_LOG_ERR("Missing static group info\n");
+			goto err;
 		}
 
 		if (inet_pton(AF_INET, addr->valuestring, &info.groups[group_idx].addr.s_addr) != 1) {
@@ -4136,18 +4131,22 @@ proto_handle_blob(struct blob *blob)
 	}
 }
 
-void proto_handle(cJSON *cmd)
+void proto_handle(char *cmd)
 {
 	struct blob blob = {0};
 
-	blob.obj = cmd;
-	blob.rendered_string = cJSON_PrintUnformatted(blob.obj);
+	blob.rendered_string = cmd;
+	blob.obj = cJSON_Parse(blob.rendered_string);
+	if (!blob.obj) {
+		UC_LOG_ERR("Failed to parse cmd\n");
+		return;
+	}
 	UC_LOG_DBG("Got cmd:\n'%s'\n", blob.rendered_string
 		? blob.rendered_string
 		: NULL);
 
 	proto_handle_blob(&blob);
-	free(blob.rendered_string);
+	cJSON_Delete(blob.obj);
 }
 
 static void alarm_plat_cb(struct plat_alarm *a)

@@ -22,7 +22,8 @@
 #include <cjson/cJSON.h>
 
 #include "ucentral.h"
-#include "ucentral-json-parser.h"
+/* WA for parser issue */
+/* #include "ucentral-json-parser.h" */
 
 #include <openssl/conf.h>
 #include <openssl/err.h>
@@ -47,7 +48,6 @@ time_t conn_time;
 static int conn_successfull;
 
 struct plat_metrics_cfg ucentral_metrics;
-static struct uc_json_parser parser;
 
 static int interrupted;
 static pthread_t sigthread;
@@ -339,6 +339,7 @@ sul_connect_attempt(struct lws_sorted_usec_list *sul)
 	UC_LOG_DBG("Connected\n");
 }
 
+/* WA for parser issue
 static void parse_cb(cJSON *j, void *data)
 {
 	(void)data;
@@ -350,6 +351,7 @@ static void parse_error_cb(void *data)
 	(void)data;
 	UC_LOG_ERR("JSON config parse failed");
 }
+*/
 
 static const char *redirector_host_get(void)
 {
@@ -424,12 +426,15 @@ callback_broker(struct lws *wsi, enum lws_callback_reasons reason,
 		websocket = wsi;
 		connect_send();
 		conn_successfull = 1;
-		uc_json_parser_init(&parser, parse_cb, parse_error_cb, 0);
+		/* WA for parser issue */
+		/* uc_json_parser_init(&parser, parse_cb, parse_error_cb, 0); */
 		lws_callback_on_writable(websocket);
 		break;
 
 	case LWS_CALLBACK_CLIENT_RECEIVE:
-		uc_json_parser_feed(&parser, in, len);
+		/* WA for parser issue */
+		/* uc_json_parser_feed(&parser, in, len); */
+		proto_handle((char *)in);
 		break;
 
 	case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
@@ -443,7 +448,8 @@ callback_broker(struct lws *wsi, enum lws_callback_reasons reason,
 	/* fall through */
 	case LWS_CALLBACK_CLIENT_CLOSED:
 		UC_LOG_INFO("connection closed\n");
-		uc_json_parser_uninit(&parser);
+		/* WA for parser issue */
+		/* uc_json_parser_uninit(&parser); */
 		websocket = NULL;
 		set_conn_time();
 		vhd->client_wsi = NULL;
