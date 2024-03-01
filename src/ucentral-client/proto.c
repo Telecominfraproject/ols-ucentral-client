@@ -1177,18 +1177,44 @@ static uint16_t cfg_interface2vid(cJSON *interface)
 		return (uint16_t)cJSON_GetNumberValue(vlan_id);
 }
 
+/* FIXME: we are only looking at the first addr in the list */
+static int __cfg_interface_parse_ipv4(cJSON *subnet_list, struct plat_ipv4 *ipv4)
+{
+	char *subnet_str;
+	cJSON *subnet;
+
+	subnet = cJSON_GetArrayItem(subnet_list, 0);
+	if (!subnet)
+		goto skip_subnet;
+
+	/* TODO: also handle vrf */
+	subnet_str = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(subnet, "prefix"));
+	if (!subnet_str)
+		goto skip_subnet;
+
+	memset(&ipv4->subnet, 0, sizeof(ipv4->subnet));
+	ipv4->subnet_len = inet_net_pton(AF_INET, subnet_str, &ipv4->subnet, sizeof(ipv4->subnet));
+	if (ipv4->subnet_len == -1) {
+		UC_LOG_ERR("Subnet parsing failed");
+		return -1;
+	}
+
+	ipv4->exist = true;
+skip_subnet:
+	return 0;
+}
+
 static int cfg_port_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 {
-	size_t i;
-	int ret;
-
 	BITMAP_DECLARE(tmp_port_bmap, MAX_NUM_OF_PORTS);
 	size_t ports_selected = 0;
-	char *ipv4_subnet_str;
 	cJSON *select_ports;
+	cJSON *subnet_list;
 	cJSON *ethernet;
 	cJSON *ipv4;
 	cJSON *eth;
+	size_t i;
+	int ret;
 
 	/* Ignore interface with l2 type: vlan */
 	if (cJSON_GetObjectItemCaseSensitive(interface, "vlan"))
@@ -1208,26 +1234,20 @@ static int cfg_port_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 		return -1;
 	}
 
-	i = BITMAP_FIND_FIRST_BIT_SET(tmp_port_bmap, MAX_NUM_OF_PORTS);
 	ipv4 = cJSON_GetObjectItemCaseSensitive(interface, "ipv4");
-	if (ipv4) {
-		/*  TODO addressing */
-		ipv4_subnet_str = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(ipv4, "subnet"));
-		if (!ipv4_subnet_str)
-			return 0; /* In case of old config */
+	if (!ipv4)
+		return 0;
 
-		memset(&cfg->portsl2[i].ipv4.subnet, 0,
-		       sizeof(cfg->portsl2[i].ipv4.subnet));
-		cfg->portsl2[i].ipv4.subnet_len =
-			inet_net_pton(AF_INET, ipv4_subnet_str,
-				      &cfg->portsl2[i].ipv4.subnet,
-				      sizeof(cfg->portsl2[i].ipv4.subnet));
-		if (cfg->portsl2[i].ipv4.subnet_len == -1) {
+	/* configure only the first port from the list */
+	i = BITMAP_FIND_FIRST_BIT_SET(tmp_port_bmap, MAX_NUM_OF_PORTS);
+
+	subnet_list = cJSON_GetObjectItemCaseSensitive(ipv4, "subnet");
+	if (subnet_list) {
+		ret = __cfg_interface_parse_ipv4(subnet_list, &cfg->portsl2[i].ipv4);
+		if (ret) {
 			UC_LOG_ERR("Subnet parsing failed");
 			return -1;
 		}
-
-		cfg->portsl2[i].ipv4.exist = true;
 	}
 
 	return 0;
@@ -1353,9 +1373,8 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 	char *dhcp_relay_circ_id_str;
 	size_t ports_selected = 0;
 	char *dhcp_relay_srv_str;
-	char *ipv4_subnet_str;
 	cJSON *select_ports;
-	cJSON *ipv4_subnet;
+	cJSON *subnet_list;
 	cJSON *multicast;
 	cJSON *vlan_tag;
 	cJSON *ethernet;
@@ -1421,79 +1440,50 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 	cfg->vlans[vid].ipv4.exist = false;
 	cfg->vlans[vid].dhcp.relay.enabled = false;
 	ipv4 = cJSON_GetObjectItemCaseSensitive(interface, "ipv4");
-	dhcp = cJSON_GetObjectItemCaseSensitive(ipv4, "dhcp");
-	multicast = cJSON_GetObjectItemCaseSensitive(ipv4, "multicast");
-	if (ipv4) {
-		/*  TODO addressing */
-		ipv4_subnet_str = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(ipv4, "subnet"));
-		if (!ipv4_subnet_str)
-			goto skip_subnet_old; /* In case of old config */
+	if (!ipv4)
+		return 0;
 
-		memset(&cfg->vlans[vid].ipv4.subnet, 0,
-		       sizeof(cfg->vlans[vid].ipv4.subnet));
-		cfg->vlans[vid].ipv4.subnet_len =
-			inet_net_pton(AF_INET, ipv4_subnet_str,
-				      &cfg->vlans[vid].ipv4.subnet,
-				      sizeof(cfg->vlans[vid].ipv4.subnet));
-		if (cfg->vlans[vid].ipv4.subnet_len == -1) {
+	subnet_list = cJSON_GetObjectItemCaseSensitive(ipv4, "subnet");
+	if (subnet_list) {
+		ret = __cfg_interface_parse_ipv4(subnet_list, &cfg->vlans[vid].ipv4);
+		if (ret) {
 			UC_LOG_ERR("Subnet parsing failed");
 			return -1;
 		}
-
-		cfg->vlans[vid].ipv4.exist = true;
-skip_subnet_old:
-
-		ipv4_subnet = cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(ipv4, "subnet"), 0);
-		if (!ipv4_subnet)
-			goto skip_subnet;
-
-		ipv4_subnet_str = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(ipv4_subnet, "prefix"));
-		if (!ipv4_subnet_str)
-			goto skip_subnet;
-
-		memset(&cfg->vlans[vid].ipv4.subnet, 0,
-		       sizeof(cfg->vlans[vid].ipv4.subnet));
-		cfg->vlans[vid].ipv4.subnet_len =
-			inet_net_pton(AF_INET, ipv4_subnet_str,
-				      &cfg->vlans[vid].ipv4.subnet,
-				      sizeof(cfg->vlans[vid].ipv4.subnet));
-		if (cfg->vlans[vid].ipv4.subnet_len == -1) {
-			UC_LOG_ERR("Subnet parsing failed");
-			return -1;
-		}
-		cfg->vlans[vid].ipv4.exist = true;
-skip_subnet:
-		if (multicast) {
-			ret = __cfg_vlan_interface_parse_multicast(multicast, cfg, vid);
-			if (ret) {
-				UC_LOG_ERR("Failed parsing multicast config");
-				return ret;
-			}
-		}
-
-		if (!dhcp)
-			return 0;
-
-		dhcp_relay_srv_str = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(dhcp, "relay-server"));
-		dhcp_relay_circ_id_str = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(dhcp, "circuit-id-format"));
-		if (!dhcp_relay_srv_str || !dhcp_relay_circ_id_str ||
-		    inet_net_pton(AF_INET, dhcp_relay_srv_str,
-				  &cfg->vlans[vid].dhcp.relay.server_address,
-				  4) <= 0) {
-			UC_LOG_ERR("DHCP-relay cfg is incomplete or missing: 'relay-server' and 'circuit-id-format' strings required");
-			UC_LOG_DBG("%s %s 0x%08X", dhcp_relay_srv_str, dhcp_relay_circ_id_str, cfg->vlans[vid].dhcp.relay.server_address.s_addr);
-			return -1;
-		}
-
-		if (!strcmp(dhcp_relay_circ_id_str, "{VLAN-ID}"))
-			strcpy(cfg->vlans[vid].dhcp.relay.circ_id, "%p");
-		else if (!strcmp(dhcp_relay_circ_id_str, "{Interface}"))
-			strcpy(cfg->vlans[vid].dhcp.relay.circ_id, "%i");
-		else
-			strcpy(cfg->vlans[vid].dhcp.relay.circ_id, "%h:%p");
-
-		cfg->vlans[vid].dhcp.relay.enabled = true;
 	}
+
+	multicast = cJSON_GetObjectItemCaseSensitive(ipv4, "multicast");
+	if (multicast) {
+		ret = __cfg_vlan_interface_parse_multicast(multicast, cfg, vid);
+		if (ret) {
+			UC_LOG_ERR("Failed parsing multicast config");
+			return ret;
+		}
+	}
+
+	dhcp = cJSON_GetObjectItemCaseSensitive(ipv4, "dhcp");
+	if (!dhcp)
+		return 0;
+
+	dhcp_relay_srv_str = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(dhcp, "relay-server"));
+	dhcp_relay_circ_id_str = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(dhcp, "circuit-id-format"));
+	if (!dhcp_relay_srv_str || !dhcp_relay_circ_id_str ||
+		inet_net_pton(AF_INET, dhcp_relay_srv_str,
+			      &cfg->vlans[vid].dhcp.relay.server_address,
+			      4) <= 0) {
+		UC_LOG_ERR("DHCP-relay cfg is incomplete or missing: 'relay-server' and 'circuit-id-format' strings required");
+		UC_LOG_DBG("%s %s 0x%08X", dhcp_relay_srv_str, dhcp_relay_circ_id_str, cfg->vlans[vid].dhcp.relay.server_address.s_addr);
+		return -1;
+	}
+
+	if (!strcmp(dhcp_relay_circ_id_str, "{VLAN-ID}"))
+		strcpy(cfg->vlans[vid].dhcp.relay.circ_id, "%p");
+	else if (!strcmp(dhcp_relay_circ_id_str, "{Interface}"))
+		strcpy(cfg->vlans[vid].dhcp.relay.circ_id, "%i");
+	else
+		strcpy(cfg->vlans[vid].dhcp.relay.circ_id, "%h:%p");
+
+	cfg->vlans[vid].dhcp.relay.enabled = true;
 
 	return 0;
 }
