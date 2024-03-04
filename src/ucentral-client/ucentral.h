@@ -60,7 +60,7 @@ extern time_t conn_time;
 extern struct plat_metrics_cfg ucentral_metrics;
 
 /* proto.c */
-void proto_handle(cJSON *cmd);
+void proto_handle(char *cmd);
 void proto_cb_register_uc_send_msg(uc_send_msg_cb cb);
 void proto_cb_register_uc_connect_msg_send(uc_send_connect_msg_cb cb);
 void connect_send(void);

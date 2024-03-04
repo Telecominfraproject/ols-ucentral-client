@@ -11,7 +11,7 @@ cfg2:
 cfg3:
   Bring ports 1 up, 2 up (Ethernet1, Ethernet2) (admin state);
   Destroy any VLAN that is not in the list (in this particular CFG - create VLAN 10,
-    destroye any other, except for MGMT VLAN 1 - it's not being altered by the
+    destroy any other, except for MGMT VLAN 1 - it's not being altered by the
     uCentral app itself);
   Create VLAN 10;
   Set VLAN 10 memberlist with the following ports: Ethernet1, Ethernet2;
@@ -39,6 +39,7 @@ cfg5_poe:
     - detection mode is 4pt-dot3af;
     - power limit is 99900mW (e.g. max per port);
     - priority is LOW;
+
 cfg7_ieee80211x.json:
   Following json file configures the given topology:
                                    +-----------------+
@@ -64,3 +65,33 @@ cfg7_ieee80211x.json:
   to be the same for the given (10.10.20.0/24) network.
   .1x client also must have a valid credentials data (both client and radius server
   must have same clients credentials configured).
+
+cfg_igmp.json:
+  Configure igmp snooping and querier on VLAN 1.
+  Configure igmp static groups:
+    - 230.1.1.1 with egress port Ethernet1
+    - 230.2.2.2 with egress ports Ethernet2 & Ethernet3
+
+cfg_rpvstp.json:
+  Configure VLAN 1;
+  Configure VLAN 2;
+  Configure rapid per-vlan STP on VLAN 1 with priority 32768;
+  Disable STP on VLAN 2.
+
+cfg_port_isolation.json:
+  Configure port isolation with Ethernet1 as uplink and
+  Ethernet2 & Ethernet3 as downlink
+
+cfg_services_log.json:
+  Enable syslog with these parameters:
+  - remote host addr
+  - remote host port
+  - log severity (priority):
+    * emerg: 0
+    * alert: 1
+    * crit: 2
+    * error: 3
+    * warning: 4
+    * notice: 5
+    * info: 6
+    * debug: 7

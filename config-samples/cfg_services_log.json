@@ -1,0 +1,45 @@
+{
+  "ethernet": [
+    {
+      "select-ports": [
+        "Ethernet*"
+      ],
+      "speed": 1000,
+      "duplex": "full",
+      "enabled": true,
+      "poe": {
+        "admin-mode": true
+      }
+    }
+  ],
+  "interfaces": [
+    {
+      "vlan": {
+        "id": 1,
+        "proto": "802.1q"
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet*"
+          ],
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "role": "upstream",
+      "name": "mgmt-vlan"
+    }
+  ],
+  "services": {
+    "log": [
+      {
+        "port": 2000,
+        "priority": 7,
+        "size": 1000,
+        "host": "192.168.1.10",
+        "proto": "udp"
+      }
+    ]
+  },
+  "uuid": 1
+}

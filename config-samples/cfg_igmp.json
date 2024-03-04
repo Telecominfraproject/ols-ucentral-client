@@ -1,0 +1,64 @@
+{
+  "ethernet": [
+    {
+      "select-ports": [
+        "Ethernet*"
+      ],
+      "speed": 1000,
+      "duplex": "full",
+      "enabled": true,
+      "poe": {
+        "admin-mode": true
+      }
+    }
+  ],
+  "interfaces": [
+    {
+      "vlan": {
+        "id": 1,
+        "proto": "802.1q"
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet*"
+          ],
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "ipv4": {
+        "multicast": {
+          "igmp": {
+            "querier-enable": true,
+            "query-interval": 60,
+            "snooping-enable": true,
+            "version": 3,
+            "static-mcast-groups": [
+              {
+                "address": "230.1.1.1",
+                "egress-ports": [
+                  "Ethernet1"
+                ]
+              },
+              {
+                "address": "230.2.2.2",
+                "egress-ports": [
+                  "Ethernet2",
+                  "Ethernet3"
+                ]
+              }
+            ]
+          }
+        },
+        "subnet": [
+          {
+            "prefix": "1.1.1.1/24"
+          }
+        ]
+      },
+      "role": "upstream",
+      "name": "mgmt-vlan"
+    }
+  ],
+  "uuid": 1
+}
