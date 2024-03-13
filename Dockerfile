@@ -15,6 +15,8 @@ RUN apt-get update -q -y  && apt-get -q -y --no-install-recommends install \
 	libcurl4-openssl-dev \
 	libev-dev \
 	libssl-dev \
+	libnl-route-3-dev \
+	libnl-3-dev \
 	apt-utils \
 	git \
 	wget \

@@ -313,6 +313,12 @@ struct gnma_igmp_static_group_attr {
 	struct gnma_port_key *egress_ports;
 };
 
+struct gnma_vlan_ip_t {
+	uint16_t vid;
+	uint16_t prefixlen;
+	struct in_addr address;
+};
+
 int gnma_switch_create(/* TODO id */ /* TODO: attr (adr, login, psw) */);
 int gnma_port_admin_state_set(struct gnma_port_key *port_key, bool up);
 int gnma_port_speed_set(struct gnma_port_key *port_key, const char *speed);
@@ -494,3 +500,4 @@ void gnma_change_destory(struct gnma_change *);
 int gnma_change_exec(struct gnma_change *);
 
 int gnma_techsupport_start(char *res_path);
+int gnma_ip_iface_addr_get(struct gnma_vlan_ip_t *address_list, size_t *list_size);

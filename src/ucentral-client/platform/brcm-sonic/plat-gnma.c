@@ -3318,10 +3318,13 @@ err:
 static int plat_vlan_info_get(struct plat_port_vlan **vlan_info, size_t *count)
 {
 	BITMAP_DECLARE(vlans_bmp, GNMA_MAX_VLANS);
-	struct plat_port_vlan *vinfo = 0;
+	struct gnma_vlan_ip_t *address_list = NULL;
+	struct plat_port_vlan *vinfo = NULL;
 	size_t num_vlans = 0;
+	size_t list_size = 0;
 	size_t idx = 0;
 	size_t vid;
+	size_t i;
 	int ret;
 
 	BITMAP_CLEAR(vlans_bmp, GNMA_MAX_VLANS);
@@ -3343,14 +3346,38 @@ static int plat_vlan_info_get(struct plat_port_vlan **vlan_info, size_t *count)
 		UC_LOG_ERR("ENOMEM");
 		return -1;
 	}
-	memset(vinfo, 0, num_vlans * sizeof(*vinfo));
+
+	ret = gnma_ip_iface_addr_get(NULL, &list_size);
+	if (ret && ret != GNMA_ERR_OVERFLOW)
+		goto err;
+
+	if (list_size) {
+		address_list = calloc(list_size, sizeof(*address_list));
+		if (!address_list) {
+			UC_LOG_ERR("ENOMEM");
+			return -1;
+		}
+
+		ret = gnma_ip_iface_addr_get(address_list, &list_size);
+		if (ret)
+			goto err;
+	}
 
 	BITMAP_FOR_EACH_BIT_SET(vid, vlans_bmp, GNMA_MAX_VLANS) {
 		vinfo[idx].id = vid;
 
 		if (plat_vlan_igmp_info_get(vid, &vinfo[idx].igmp)) {
 			UC_LOG_DBG("plat_vlan_igmp_info_get failed");
-			return -1;
+			goto err;
+		}
+
+		/* TODO: add support for multiple ip addrs */
+		for (i = 0; i < list_size; i++) {
+			if (address_list[i].vid != vid)
+				continue;
+			vinfo[idx].ipv4.subnet = address_list[i].address;
+			vinfo[idx].ipv4.subnet_len = address_list[i].prefixlen;
+			vinfo[idx].ipv4.exist = true;
 		}
 
 		idx++;
@@ -3360,7 +3387,12 @@ static int plat_vlan_info_get(struct plat_port_vlan **vlan_info, size_t *count)
 
 	*count = idx;
 	*vlan_info = vinfo;
+	free(address_list);
 	return 0;
+err:
+	free(address_list);
+	free(vinfo);
+	return -1;
 }
 
 static int get_meminfo_cached_kib(uint64_t *cached)

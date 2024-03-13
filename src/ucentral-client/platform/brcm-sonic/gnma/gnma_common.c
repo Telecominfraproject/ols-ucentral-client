@@ -3,6 +3,7 @@
 #include <inttypes.h>
 
 #include <gnma_common.h>
+#include <netlink_common.h>
 #include <gnmi/gnmi_c_connector.h>
 
 #include <stdlib.h>
@@ -15,6 +16,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 #define DEFAULT_TIMEOUT_US 90 * 1000000
 
@@ -5829,5 +5831,46 @@ err_gnmi_no_entries:
 err_buf_print:
 err_gnmi_get_obj:
 	cJSON_Delete(root);  /* only need to free root */
+	return ret;
+}
+
+int gnma_ip_iface_addr_get(struct gnma_vlan_ip_t *address_list, size_t *list_size)
+{
+	struct nl_vid_addr *list;
+	size_t len = 0, i;
+	int ret;
+
+	ret = nl_get_ip_list(NULL, &len);
+	if (ret && ret != -EOVERFLOW)
+		return GNMA_ERR_COMMON;
+
+	if (!address_list || len > *list_size) {
+		*list_size = len;
+		return GNMA_ERR_OVERFLOW;
+	}
+	if (len == 0) {
+		*list_size = 0;
+		return GNMA_OK;
+	}
+
+	list = calloc(len, sizeof(*list));
+	if (!list)
+		return GNMA_ERR_COMMON;
+
+	ret = nl_get_ip_list(list, &len);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto out;
+	}
+
+	for (i = 0; i < len; i++) {
+		address_list[i].vid = list[i].vid;
+		address_list[i].prefixlen = list[i].prefixlen;
+		address_list[i].address.s_addr = list[i].address;
+	}
+	ret = GNMA_OK;
+out:
+	free(list);
+	*list_size = len;
 	return ret;
 }

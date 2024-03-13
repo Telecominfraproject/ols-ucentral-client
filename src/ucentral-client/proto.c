@@ -3033,6 +3033,40 @@ static int state_fill_interface_ipv4(cJSON *ipv4, struct plat_port_info *info)
 	return 0;
 }
 
+static int state_fill_vlan_ipv4(cJSON *root, struct plat_port_vlan *vlan)
+{
+	char addr_str[] = {"255.255.255.255"};
+	cJSON *address_list, *address;
+
+	address_list = cJSON_CreateArray();
+	if (!address_list)
+		goto err;
+
+	if (!cJSON_AddItemToObject(root, "addresses", address_list)) {
+		cJSON_Delete(address_list);
+		goto err;
+	}
+
+	if (!vlan->ipv4.exist)
+		return 0;
+
+	if (!inet_ntop(AF_INET, &vlan->ipv4.subnet.s_addr, addr_str, sizeof(addr_str)))
+		goto err;
+
+	address = cJSON_CreateString(addr_str);
+	if (!address)
+		goto err;
+
+	if (!cJSON_AddItemToArray(address_list, address)) {
+		cJSON_Delete(address);
+		goto err;
+	}
+
+	return 0;
+err:
+	return -1;
+}
+
 static int state_fill_interface_dns_servers(cJSON *dns_servers,
 					    struct plat_port_info *port_info)
 {
@@ -3319,6 +3353,10 @@ static int state_fill_interfaces_data(cJSON *interfaces,
 		ipv4 = cJSON_AddObjectToObject(interface, "ipv4");
 		multicast = cJSON_AddObjectToObject(interface, "multicast");
 		if (!clients || !counters || !dns_servers || !ipv4 || !multicast)
+			goto err;
+
+		ret = state_fill_vlan_ipv4(ipv4, &state->vlan_info[i]);
+		if (ret)
 			goto err;
 
 		ret = state_fill_interface_multicast(multicast, &state->vlan_info[i]);

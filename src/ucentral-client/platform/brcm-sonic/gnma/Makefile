@@ -1,7 +1,7 @@
 all: gnma.a
 
 %.o: %.c
-	gcc -c -o $@ ${CFLAGS} -I ./ -I../../../include $<
+	gcc -c -o $@ ${CFLAGS} -I ./ -I../../../include -I../netlink $<
 
 gnma.a: gnma_common.o
 	ar crs $@ $^
