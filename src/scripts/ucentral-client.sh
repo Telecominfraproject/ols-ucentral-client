@@ -45,6 +45,8 @@ wait() {
 	    echo -n "$conf_upgrade_md5sum" >/var/lib/ucentral/upgrade-override.md5sum
     fi
 
+    sudo touch /etc/default/in-band-dhcp
+
     # Temporary NTP fixup / WA: configure a list of default NTP servers.
     # Should mature into a default-config option to make sure board has right
     # time upon any boot (especially first time).
@@ -58,6 +60,8 @@ wait() {
     # we need to explicity ifup it to notify networking.
     # NOTE: alternatively we could use ifplugd. This also handle del/add scenario
     ifup Vlan1 || true
+
+    config vlan dhcp 1 enable
 
     # There's an issue with containers starting before DNS server is configured:
     # resolf.conf file get copied from host to container upon container start.
