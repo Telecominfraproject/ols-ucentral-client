@@ -940,134 +940,94 @@ cfg_ethernet_port_isolation_interface_parse(cJSON *iface,
 }
 
 static int
-cfg_ethernet_port_isolation_parse(cJSON *ethernet, struct plat_cfg *cfg) {
-	cJSON *eth = NULL, *port_isolation, *sessions, *session;
+cfg_switch_port_isolation_parse(cJSON *port_isolation, struct plat_port_isolation_cfg *cfg) {
+	cJSON *sessions, *session, *id, *uplink, *downlink;
 	struct plat_port_isolation_session *session_arr;
 	struct plat_ports_list *port_node = NULL;
+	uint64_t session_arrid;
 	int i = 0, j = 0;
 
-	cJSON_ArrayForEach(eth, ethernet) {
-		port_isolation = cJSON_GetObjectItemCaseSensitive(eth, "port-isolation");
-		if (!port_isolation)
-			continue;
-
-		if (!cJSON_IsObject(port_isolation)) {
-			UC_LOG_ERR("Ethernet obj holds 'port_isolation' object of wrongful type, parse failed\n");
-			return -1;
-		}
-
-		sessions = cJSON_GetObjectItemCaseSensitive(port_isolation,
-							    "sessions");
-		if (!sessions || !cJSON_IsArray(sessions)) {
-			UC_LOG_ERR("Ethernet obj holds 'port_isolation:sessions' array of wrongful type (or empty), parse failed\n");
-			return -1;
-		}
-
-		cJSON_ArrayForEach(session, sessions) {
-			cfg->port_isolation_cfg.sessions_num++;
-		}
+	if (!cJSON_IsObject(port_isolation)) {
+		UC_LOG_ERR("Switch obj holds 'port_isolation' object of wrongful type, parse failed\n");
+		return -1;
 	}
 
-	if (cfg->port_isolation_cfg.sessions_num == 0) {
+	sessions = cJSON_GetObjectItemCaseSensitive(port_isolation, "sessions");
+	if (!sessions || !cJSON_IsArray(sessions)) {
+		UC_LOG_ERR("Switch obj holds 'port_isolation:sessions' array of wrongful type (or empty), parse failed\n");
+		return -1;
+	}
+
+	cJSON_ArrayForEach(session, sessions) {
+		cfg->sessions_num++;
+	}
+
+	if (cfg->sessions_num == 0)
 		return 0;
-	}
 
-	session_arr = calloc(cfg->port_isolation_cfg.sessions_num,
+	session_arr = calloc(cfg->sessions_num,
 			     sizeof(struct plat_port_isolation_session));
-	cfg->port_isolation_cfg.sessions = session_arr;
-
+	cfg->sessions = session_arr;
 	if (!session_arr) {
 		UC_LOG_ERR("Failed to alloc memory for port-isolation-cfg, parse failed\n");
 		return -1;
 	}
 
-	cJSON_ArrayForEach(eth, ethernet) {
-		port_isolation = cJSON_GetObjectItemCaseSensitive(eth, "port-isolation");
-		if (!port_isolation)
-			continue;
-
-		/*
-		 * Highly unlikeable that the object is missing / invalid,
-		 * as it was okay prior (parsing above).
-		 * But this is still a sanity-check, in case if JSON
-		 * got corrupted for some reason.
-		 */
-		if (!cJSON_IsObject(port_isolation)) {
-			UC_LOG_ERR("Ethernet obj holds 'port_isolation' object of wrongful type, parse failed\n");
-			return -1;
+	cJSON_ArrayForEach(session, sessions) {
+		id = cJSON_GetObjectItemCaseSensitive(session, "id");
+		if (!id || !cJSON_IsNumber(id)) {
+			UC_LOG_ERR("Switch obj 'port_isolation:id' is invalid, parse failed\n");
+			goto err;
 		}
 
-		sessions = cJSON_GetObjectItemCaseSensitive(port_isolation,
-							    "sessions");
-		if (!sessions || !cJSON_IsArray(sessions)) {
-			UC_LOG_ERR("Ethernet obj holds 'port_isolation:sessions' array of wrongful type (or empty), parse failed\n");
-			return -1;
-		}
+		session_arrid = (uint64_t)cJSON_GetNumberValue(id);
 
-		cJSON_ArrayForEach(session, sessions) {
-			cJSON *id, *uplink, *downlink;
-			double session_arrid;
-
-			id = cJSON_GetObjectItemCaseSensitive(session, "id");
-			if (!id || !cJSON_IsNumber(id)) {
-				UC_LOG_ERR("Ethernet obj 'port_isolation:id' is invalid, parse failed\n");
-				goto err;
-			}
-
-			session_arrid = cJSON_GetNumberValue(id);
-
-			if (i > 0) {
-				for (int j = i - 1; j >= 0; --j) {
-					if ((double) session_arr[j].id == session_arrid) {
-						UC_LOG_ERR("Expected unique 'port_isolation:id', duplicate (%lu) detected, parse failed\n",
-							   (uint64_t) session_arrid);
-						goto err;
-					}
+		if (i > 0) {
+			for (j = i - 1; j >= 0; --j) {
+				if (session_arr[j].id == session_arrid) {
+					UC_LOG_ERR("Expected unique 'port_isolation:id', duplicate (%lu) detected, parse failed\n",
+						   session_arrid);
+					goto err;
 				}
 			}
-
-			session_arr[j].id = (uint64_t) session_arrid;
-
-			uplink = cJSON_GetObjectItemCaseSensitive(session,
-								  "uplink");
-			if (!uplink || !cJSON_IsObject(uplink)) {
-				UC_LOG_ERR("Ethernet obj 'port_isolation:uplink' is invalid, parse failed\n");
-				goto err;
-			}
-
-			downlink = cJSON_GetObjectItemCaseSensitive(session,
-								    "downlink");
-			if (!downlink || !cJSON_IsObject(downlink)) {
-				UC_LOG_ERR("Ethernet obj 'port_isolation:downlink' is invalid, parse failed\n");
-				goto err;
-			}
-
-			if (cfg_ethernet_port_isolation_interface_parse(uplink,
-									&session_arr[j].uplink)) {
-				UC_LOG_ERR("Ethernet obj 'port_isolation:uplink' parse failed\n");
-				goto err;
-			}
-
-			if (cfg_ethernet_port_isolation_interface_parse(downlink,
-									&session_arr[j].downlink)) {
-				UC_LOG_ERR("Ethernet obj 'port_isolation:downlink' parse failed\n");
-				goto err;
-			}
-
-			++i;
 		}
+
+		session_arr[i].id = session_arrid;
+
+		uplink = cJSON_GetObjectItemCaseSensitive(session, "uplink");
+		if (!uplink || !cJSON_IsObject(uplink)) {
+			UC_LOG_ERR("Switch obj 'port_isolation:uplink' is invalid, parse failed\n");
+			goto err;
+		}
+
+		downlink = cJSON_GetObjectItemCaseSensitive(session, "downlink");
+		if (!downlink || !cJSON_IsObject(downlink)) {
+			UC_LOG_ERR("Switch obj 'port_isolation:downlink' is invalid, parse failed\n");
+			goto err;
+		}
+
+		if (cfg_ethernet_port_isolation_interface_parse(uplink, &session_arr[i].uplink)) {
+			UC_LOG_ERR("Switch obj 'port_isolation:uplink' parse failed\n");
+			goto err;
+		}
+
+		if (cfg_ethernet_port_isolation_interface_parse(downlink, &session_arr[i].downlink)) {
+			UC_LOG_ERR("Switch obj 'port_isolation:downlink' parse failed\n");
+			goto err;
+		}
+
+		i++;
 	}
 
 	return 0;
 err:
-	for (int j = i; j >= 0; --j) {
+	for (j = i; j >= 0; --j) {
 		UCENTRAL_LIST_DESTROY_SAFE(&session_arr[j].uplink.ports_list,
 					   port_node);
 		UCENTRAL_LIST_DESTROY_SAFE(&session_arr[j].downlink.ports_list,
 					   port_node);
 	}
-	cfg->port_isolation_cfg.sessions = 0;
-	free(cfg->port_isolation_cfg.sessions);
+	free(cfg->sessions);
 	return -1;
 }
 
@@ -1091,12 +1051,9 @@ static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 		BITMAP_CLEAR(tmp_port_bmap, MAX_NUM_OF_PORTS);
 
 		select_ports = cJSON_GetObjectItemCaseSensitive(eth, "select-ports");
-		enabled =
-			cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(eth, "enabled"));
-		duplex =
-			cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(eth, "duplex"));
-		speed =
-			cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(eth, "speed"));
+		enabled = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(eth, "enabled"));
+		duplex = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(eth, "duplex"));
+		speed = cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(eth, "speed"));
 
 		if (!duplex || !speed || !select_ports) {
 			UC_LOG_ERR("Ethernet obj doesn't hold duplex, speed or select-ports fields, parse failed\n");
@@ -1149,11 +1106,6 @@ static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 			memcpy(&cfg->ports[i], &tmp_port, sizeof(tmp_port));
 			BITMAP_SET_BIT(cfg->ports_to_cfg, i);
 		}
-	}
-
-	if (cfg_ethernet_port_isolation_parse(ethernet, cfg)) {
-		UC_LOG_ERR("port-isolation config parse faile\n");
-		return -1;
 	}
 
 	return 0;
@@ -1756,9 +1708,9 @@ static int cfg_switch_ieee8021x_parse(cJSON *sw, struct plat_cfg *cfg)
 
 static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 {
+	cJSON *sw, *obj, *iter, *arr, *port_isolation;
 	BITMAP_DECLARE(instances_parsed, MAX_VLANS);
 	int id, prio, fwd, hello, age;
-	cJSON *sw, *obj, *iter, *arr;
 	bool enabled;
 	int ret;
 
@@ -1822,6 +1774,12 @@ static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 		cfg->stp_instances[id].hello_time = hello;
 		cfg->stp_instances[id].max_age = age;
 		cfg->stp_instances[id].priority = prio;
+	}
+
+	port_isolation = cJSON_GetObjectItemCaseSensitive(sw, "port-isolation");
+	if (port_isolation && cfg_switch_port_isolation_parse(port_isolation, &cfg->port_isolation_cfg)) {
+		UC_LOG_ERR("port-isolation config parse failed\n");
+		return -1;
 	}
 
 	return 0;
