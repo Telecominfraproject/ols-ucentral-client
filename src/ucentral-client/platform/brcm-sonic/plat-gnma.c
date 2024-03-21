@@ -3223,6 +3223,7 @@ static void plat_state_deinit(struct plat_state_info *state)
 		}
 	}
 
+	free(state->gw_addr_list);
 	free(state->learned_mac_list);
 	free(state->port_info);
 	free(state->vlan_info);
@@ -3544,6 +3545,91 @@ plat_state_ieee8021x_coa_global_counters_get(struct plat_iee8021x_coa_counters *
 	return 0;
 }
 
+static int plat_state_gw_ip_get(struct plat_state_info *state)
+{
+	size_t list_size = 0, num_addrs, idx, mac_idx;
+	struct gnma_route_attrs *attr_list = NULL;
+	struct gnma_ip_prefix *prefix_list = NULL;
+	struct plat_gw_address *addr_list = NULL;
+	char mac[PLATFORM_MAC_STR_SIZE], *port;
+	uint16_t vid;
+	int ret;
+
+	ret = gnma_dyn_route_list_get(&list_size, NULL, NULL);
+	if (ret && ret != GNMA_ERR_OVERFLOW)
+		return -1;
+	if (!list_size)
+		return 0;
+
+	prefix_list = calloc(list_size, sizeof(*prefix_list));
+	attr_list = calloc(list_size, sizeof(*attr_list));
+	if (!prefix_list || !attr_list) {
+		UC_LOG_ERR("ENOMEM");
+		ret = -1;
+		goto err;
+	}
+
+	ret = gnma_dyn_route_list_get(&list_size, prefix_list, attr_list);
+	if (ret) {
+		ret = -1;
+		goto err;
+	}
+
+	for (idx = 0, num_addrs = 0; idx < list_size; idx++) {
+		if (prefix_list[idx].ip.u.v4.s_addr || prefix_list[idx].prefix_len)  /* non-default route */
+			continue;
+		num_addrs++;
+	}
+
+	addr_list = calloc(num_addrs, sizeof(*addr_list));
+	if (!addr_list) {
+		UC_LOG_ERR("ENOMEM");
+		ret = -1;
+		goto err;
+	}
+
+	for (idx = 0, num_addrs = 0; idx < list_size; idx++) {
+		if (prefix_list[idx].ip.u.v4.s_addr || prefix_list[idx].prefix_len)
+			continue;
+		ret = gnma_nei_addr_get(&attr_list[idx].nexthop.egress_port,
+					&attr_list[idx].nexthop.gw,
+					mac, sizeof(mac));
+		if (ret) {
+			ret = -1;
+			goto err;
+		}
+
+		/* get egress port name instead of VlanXXXX */
+		port = attr_list[idx].nexthop.egress_port.name;
+		if (NAME_TO_VLAN(&vid, attr_list[idx].nexthop.egress_port.name) == 1) {
+			for (mac_idx = 0; mac_idx < state->learned_mac_list_size; mac_idx++) {
+				if ((uint16_t)state->learned_mac_list[mac_idx].vid != vid ||
+				    strncmp(state->learned_mac_list[mac_idx].mac, mac, sizeof(mac)))
+					continue;
+				port = state->learned_mac_list[mac_idx].port;
+				break;
+			}
+			/* if we didn't find a corresponding fdb entry then leave the Vlan as the egress port */
+		}
+		addr_list[num_addrs].ip = attr_list[idx].nexthop.gw;
+		addr_list[num_addrs].metric = attr_list[idx].nexthop.metric;
+		strncpy(addr_list[num_addrs].mac, mac, sizeof(addr_list[num_addrs].mac));
+		strncpy(addr_list[num_addrs].port, port, sizeof(addr_list[num_addrs].port));
+		num_addrs++;
+	}
+	state->gw_addr_list = addr_list;
+	state->gw_addr_list_size = num_addrs;
+err:
+	if (ret) {
+		free(addr_list);
+		state->gw_addr_list = NULL;
+		state->gw_addr_list_size = 0;
+	}
+	free(prefix_list);
+	free(attr_list);
+	return ret;
+}
+
 static int plat_state_get(struct plat_state_info *state)
 {
 	size_t i;
@@ -3570,6 +3656,9 @@ static int plat_state_get(struct plat_state_info *state)
 		return -1;
 
 	if (plat_state_ieee8021x_coa_global_counters_get(&state->ieee8021x_global_coa_counters))
+		return -1;
+
+	if (plat_state_gw_ip_get(state))
 		return -1;
 
 	return 0;

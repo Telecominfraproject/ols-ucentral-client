@@ -3753,6 +3753,35 @@ err:
 	return -1;
 }
 
+static int state_fill_default_gateway(cJSON *default_gateway,
+				      struct plat_gw_address *gw_addr,
+				      size_t gw_addr_count)
+{
+	char ip_addr[] = {"255.255.255.255"};
+	size_t idx;
+	cJSON *obj;
+
+	for (idx = 0; idx < gw_addr_count; idx++) {
+		obj = cJSON_CreateObject();
+		if (!obj)
+			return -1;
+		if (!cJSON_AddItemToArray(default_gateway, obj)) {
+			cJSON_Delete(obj);
+			return -1;
+		}
+		if (!inet_ntop(AF_INET, &gw_addr[idx].ip.s_addr,
+			       ip_addr, sizeof(ip_addr)))
+			return -1;
+		if (!cJSON_AddNumberToObject(obj, "metric", gw_addr[idx].metric) ||
+		    !cJSON_AddStringToObject(obj, "gw-mac", gw_addr[idx].mac) ||
+		    !cJSON_AddStringToObject(obj, "out-port", gw_addr[idx].port) ||
+		    !cJSON_AddStringToObject(obj, "gw-ip", ip_addr)) {
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static size_t
 state_fill_pub_ip_curl_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
@@ -3849,6 +3878,7 @@ err:
 static int state_fill(cJSON *state, struct plat_state_info *plat_state_info)
 {
 	cJSON *mac_forwarding_table;
+	cJSON *default_gateway;
 	cJSON *link_state;
 	cJSON *lldp_peers;
 	cJSON *interfaces;
@@ -3900,6 +3930,14 @@ static int state_fill(cJSON *state, struct plat_state_info *plat_state_info)
 	unit = cJSON_AddObjectToObject(state, "unit");
 	if (!unit || state_fill_unit_data(unit, plat_state_info)) {
 		UC_LOG_ERR("!unit(%p) || state_fill_unit_data", (void *)unit);
+		goto err;
+	}
+	default_gateway = cJSON_AddArrayToObject(state, "default-gateway");
+	if (!default_gateway ||
+	    state_fill_default_gateway(default_gateway, plat_state_info->gw_addr_list,
+				       plat_state_info->gw_addr_list_size))
+	{
+		UC_LOG_ERR("!default_gateway(%p) || state_fill_default_gateway", (void *)default_gateway);
 		goto err;
 	}
 	if (state_fill_public_ip(state)) {

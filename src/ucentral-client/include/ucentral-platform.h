@@ -42,6 +42,7 @@ extern "C" {
 #define PID_TO_NAME(p, name) sprintf(name, "Ethernet%hu", p)
 #define NAME_TO_PID(p, name) sscanf((name), "Ethernet%hu", (p))
 #define VLAN_TO_NAME(v, name) sprintf((name), "Vlan%hu", (v))
+#define NAME_TO_VLAN(v, name) sscanf((name), "Vlan%hu", (v))
 
 struct plat_vlan_memberlist;
 struct plat_port_vlan;
@@ -656,6 +657,13 @@ struct plat_iee8021x_coa_counters {
 	uint64_t coa_administratively_prohibited_req;
 };
 
+struct plat_gw_address {
+	struct in_addr ip;
+	uint32_t metric;
+	char port[PORT_MAX_NAME_LEN];
+	char mac[PLATFORM_MAC_STR_SIZE];
+};
+
 struct plat_state_info {
 	struct plat_poe_state poe_state;
 	struct plat_poe_port_state poe_ports_state[MAX_NUM_OF_PORTS];
@@ -667,6 +675,8 @@ struct plat_state_info {
 	size_t vlan_info_count;
 	struct plat_learned_mac_addr *learned_mac_list;
 	size_t learned_mac_list_size;
+	struct plat_gw_address *gw_addr_list;
+	size_t gw_addr_list_size;
 
 	struct plat_system_info system_info;
 	struct plat_iee8021x_coa_counters ieee8021x_global_coa_counters;

@@ -151,7 +151,9 @@ struct gnma_route_attrs {
 		} connected;
 		struct {
 			uint16_t vid;
+			uint32_t metric;
 			struct in_addr gw;
+			struct gnma_port_key egress_port;
 		} nexthop;
 	};
 };
@@ -443,6 +445,9 @@ int gnma_route_remove(uint16_t vr_id /* 0 - default */,
 int gnma_route_list_get(uint16_t vr_id, uint32_t *list_size,
 			struct gnma_ip_prefix *prefix_list,
 			struct gnma_route_attrs *attr_list);
+int gnma_dyn_route_list_get(size_t *list_size,
+			    struct gnma_ip_prefix *prefix_list,
+			    struct gnma_route_attrs *attr_list);
 
 int gnma_stp_mode_set(gnma_stp_mode_t mode, struct gnma_stp_attr *attr);
 int gnma_stp_mode_get(gnma_stp_mode_t *mode, struct gnma_stp_attr *attr);
@@ -491,6 +496,8 @@ int gnma_system_password_set(char *password);
 int gnma_igmp_snooping_set(uint16_t vid, struct gnma_igmp_snoop_attr *attr);
 int gnma_igmp_static_groups_set(uint16_t vid, size_t num_groups,
 				struct gnma_igmp_static_group_attr *groups);
+int gnma_nei_addr_get(struct gnma_port_key *iface, struct in_addr *ip,
+		      char *mac, size_t buf_size);
 
 int gnma_igmp_iface_groups_get(struct gnma_port_key *iface,
 			       char *buf, size_t *buf_size);
