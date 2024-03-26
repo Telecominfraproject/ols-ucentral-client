@@ -4734,14 +4734,6 @@ int plat_metrics_restore(struct plat_metrics_cfg *cfg)
 	return 0;
 }
 
-int plat_diagnostic(char *res_path)
-{
-	if (gnma_techsupport_start(res_path))
-		return -1;
-
-	return 0;
-}
-
 static size_t simple_wordexp(const char **s, char *out, size_t outsz,
 			     size_t *toklen, int *delim)
 {
@@ -4834,8 +4826,7 @@ static void *script_runner(void *p)
 		int argc;
 		int ignore = 0, delim = 0;
 
-		for (argc = 0; argc < SCRIPT_ARGMAX && *script && delim != '\n';
-		     ++argc) {
+		for (argc = 0; argc < SCRIPT_ARGMAX && *script && delim != '\n'; ++argc) {
 			sz = simple_wordexp(&script, token[argc], SCRIPT_TOKLEN,
 					    0, &delim);
 			if (ignore) /* continue to parse */
@@ -4854,7 +4845,7 @@ static void *script_runner(void *p)
 
 		arg[argc] = 0;
 		if (strcmp(arg[0], "ping") &&
-            strcmp(arg[0], "nslookup") &&
+		    strcmp(arg[0], "nslookup") &&
 		    strcmp(arg[0], "traceroute")) {
 			continue;
 		}
@@ -4885,8 +4876,7 @@ static void *script_runner(void *p)
 				goto child_finish;
 			}
 			timeout = (ctx->t - run.tv_sec);
-			timeout = timeout < 0 ? 0 :
-						      (timeout * 1000 + run.tv_nsec / 1000000L);
+			timeout = timeout < 0 ? 0 : (timeout * 1000 + run.tv_nsec / 1000000L);
 
 			n = poll(&pfd, 1, timeout);
 			if (n < 0) {
@@ -4904,7 +4894,7 @@ static void *script_runner(void *p)
 			if (pfd.revents & POLLIN) {
 				while (1) {
 					ri = read(pfd.fd, &script_ctx.outbuf[bi],
-                              SCRIPT_OUTLEN - bi - 1);
+						  SCRIPT_OUTLEN - bi - 1);
 
 					if (ri < 0) {
 						if (errno == EINTR)
@@ -4961,6 +4951,7 @@ exit:
 	res.exit_status = exit_status;
 	res.stdout_string = script_ctx.outbuf;
 	res.stdout_string_len = bi;
+	res.type = PLAT_SCRIPT_TYPE_SHELL;
 
 	if (ctx->cb)
 		ctx->cb(rc, &res, ctx->ctx);
@@ -4971,25 +4962,50 @@ exit:
 	return 0;
 }
 
+static void *diagnostic_runner(void *p)
+{
+	struct plat_run_script_result res = {0};
+	char file_path[PATH_MAX + 1];
+	struct script_ctx *ctx = p;
+	int rc = 1;
+
+	memset(file_path, 0, sizeof(file_path));
+
+	if (gnma_techsupport_start(file_path)) {
+		UC_LOG_ERR("techsupport failed\n");
+		goto exit;
+	}
+
+	while (1) {  /* FIXME: add timeout or other exit condition */
+		if (!access(file_path, F_OK)) {
+			rc = 0;
+			break;
+		}
+		sleep(1);
+	}
+exit:
+	res.stdout_string = file_path;
+	res.stdout_string_len = strlen(file_path);
+	res.type = PLAT_SCRIPT_TYPE_DIAGNOSTICS;
+	res.exit_status = rc;
+	ctx->cb(0, &res, ctx->ctx);
+	script_lock_release();
+	return 0;
+}
+
 int plat_run_script(struct plat_run_script *p)
 {
+	void* (*runner)(void*);
 	size_t len;
-
-	if (strcmp(p->type, "shell")) {
-		UC_LOG_ERR("only type 'shell' script is supported");
-		return -1;
-	}
 
 	if (p->timeout > INT_MAX) {
 		UC_LOG_ERR("invalid timeout");
 		return -1;
 	}
-
 	if (script_lock_aquire()) {
 		UC_LOG_ERR("max 1 script at a time");
 		return -1;
 	}
-
 	if (script_ctx.is_tid_valid) {
 		if (pthread_join(script_ctx.tid, 0)) {
 			UC_LOG_CRIT("pthread_join: %s", strerror(errno));
@@ -4998,25 +5014,41 @@ int plat_run_script(struct plat_run_script *p)
 	script_ctx = (struct script_ctx){
 		.cb = p->cb,
 		.ctx = p->ctx,
+		.t = p->timeout,
 	};
-	script_ctx.t = p->timeout;
 
-	len = strlen(p->script_base64);
-	if (!(script_ctx.script_buf =
-		      calloc(1, BASE64_DECODE_OUT_SIZE(len) + 1))) {
+	switch(p->type) {
+	case PLAT_SCRIPT_TYPE_SHELL:
+		len = strlen(p->script_base64);
+		script_ctx.script_buf = calloc(1, BASE64_DECODE_OUT_SIZE(len) + 1);
+		if (!script_ctx.script_buf) {
+			UC_LOG_ERR("ENOMEM");
+			goto exit;
+		}
+
+		script_ctx.script_bufsz = base64_decode(p->script_base64, len,
+							(void *)script_ctx.script_buf);
+		if (!script_ctx.script_bufsz) {
+			UC_LOG_ERR("failed to decode base64 script text");
+			goto exit;
+		}
+
+		script_ctx.outbuf = malloc(SCRIPT_OUTLEN);
+		if (!script_ctx.outbuf) {
+			UC_LOG_ERR("ENOMEM");
+			goto exit;
+		}
+		runner = script_runner;
+		break;
+	case PLAT_SCRIPT_TYPE_DIAGNOSTICS:
+		runner = diagnostic_runner;
+		break;
+	default:
+		UC_LOG_ERR("only 'shell' and 'diagnostic' script types are supported");
 		goto exit;
 	}
-	script_ctx.script_bufsz = base64_decode(p->script_base64, len,
-						(void *)script_ctx.script_buf);
-	if (!script_ctx.script_bufsz) {
-		UC_LOG_ERR("failed to decode base64 script text");
-		goto exit;
-	}
 
-	if (!(script_ctx.outbuf = malloc(SCRIPT_OUTLEN)))
-		goto exit;
-
-	if (pthread_create(&script_ctx.tid, 0, script_runner, &script_ctx)) {
+	if (pthread_create(&script_ctx.tid, 0, runner, &script_ctx)) {
 		UC_LOG_ERR("pthread_create: %s", strerror(errno));
 		goto exit;
 	}

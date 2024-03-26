@@ -705,7 +705,14 @@ struct plat_event_callbacks {
 	plat_poe_link_faultcode_cb poe_link_faultcode_cb;
 };
 
+enum plat_script_type {
+	PLAT_SCRIPT_TYPE_NA = 0,
+	PLAT_SCRIPT_TYPE_SHELL = 1,
+	PLAT_SCRIPT_TYPE_DIAGNOSTICS = 2,
+};
+
 struct plat_run_script_result {
+	enum plat_script_type type;
 	const char *stdout_string;
 	size_t stdout_string_len;
 	int exit_status;
@@ -713,7 +720,7 @@ struct plat_run_script_result {
 };
 
 struct plat_run_script {
-	const char *type;
+	enum plat_script_type type;
 	const char *script_base64;
 	plat_run_script_cb cb;
 	void *ctx;
@@ -766,8 +773,6 @@ int plat_running_img_name_get(char *str, size_t str_max_len);
 int plat_revision_get(char *str, size_t str_max_len);
 int
 plat_reboot_cause_get(struct plat_reboot_cause *cause);
-
-int plat_diagnostic(char *res_path);
 
 #ifdef __cplusplus
 }

@@ -2626,13 +2626,17 @@ telemetry_handle(cJSON **rpc)
 
 static int curl_upload_diagnostic_form(const char *url, const char *file_path)
 {
-    struct curl_httppost *post = NULL, *last = NULL;
-    CURLcode res;
-    int ret = 0;
-    CURL *curl;
+	struct curl_httppost *post = NULL, *last = NULL;
+	CURLcode res;
+	int ret = 0;
+	CURL *curl;
 
-    curl = curl_easy_init();
-    if(curl) {
+	curl = curl_easy_init();
+	if (!curl) {
+		UC_LOG_ERR("Failed to init curl\n");
+		return -1;
+	}
+
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_formadd(&post,
 		     &last,
@@ -2645,19 +2649,18 @@ static int curl_upload_diagnostic_form(const char *url, const char *file_path)
 		     CURLFORM_FILE, file_path,
 		     CURLFORM_END);
 	curl_easy_setopt(curl, CURLOPT_HTTPPOST, post);
-	res = curl_easy_perform(curl);
 
+	res = curl_easy_perform(curl);
 	if(res != CURLE_OK) {
 		ret = -1;
-		UC_LOG_ERR("Uploading diagnostic failed. URL=%s FILE=%s res=%d \n",
+		UC_LOG_ERR("Uploading diagnostics failed. URL=%s FILE=%s res=%d \n",
 			   url, file_path, res);
 	}
 
 	curl_easy_cleanup(curl);
 	curl_formfree(post);
-    }
 
-    return ret;
+	return ret;
 }
 
 static int curl_upload_form(char *url, const void *buf)
@@ -2709,9 +2712,9 @@ exit:
 static void script_result_cb(int err, struct plat_run_script_result *sres,
 			     void *ctx)
 {
-	uint32_t e;
-	const char *result;
 	struct proto_script_ctx *c = ctx;
+	const char *result;
+	uint32_t e;
 
 	if (err) {
 		action_reply(1, "failed to execute script", 1, c->id);
@@ -2729,12 +2732,20 @@ static void script_result_cb(int err, struct plat_run_script_result *sres,
 			result = "done";
 	}
 
-	if (c->uri && curl_upload_form(c->uri, sres->stdout_string)) {
-		UC_LOG_ERR("upload failed");
+	switch (sres->type) {
+	case PLAT_SCRIPT_TYPE_SHELL:
+		if (c->uri && curl_upload_form(c->uri, sres->stdout_string))
+			UC_LOG_ERR("Upload failed\n");
+		break;
+	case PLAT_SCRIPT_TYPE_DIAGNOSTICS:
+		if (c->uri && curl_upload_diagnostic_form(c->uri, sres->stdout_string))
+			UC_LOG_ERR("Upload failed\n");
+		break;
+	default:
+		UC_LOG_ERR("Invalid script type %u\n", sres->type);
 	}
 
 	script_reply(e, result, (int32_t)c->id);
-
 exit:
 	free(c->uri);
 	free(c);
@@ -2746,18 +2757,27 @@ static void script_plat_handle(const char *script, const char *type,
 {
 	struct plat_run_script p = { 0 };
 	struct proto_script_ctx *c = 0;
+
+	if (!strcmp("diagnostic", type)) {
+		p.type = PLAT_SCRIPT_TYPE_DIAGNOSTICS;
+	} else if (script && !strcmp("shell", type)) {
+		p.type = PLAT_SCRIPT_TYPE_SHELL;
+	} else {
+		return action_reply(1, "invalid parameters", 1, id);
+	}
+
 	if (!(c = malloc(sizeof(struct proto_script_ctx))))
 		return;
 
-	*c = (struct proto_script_ctx){ .id = id };
-	if (uri)
-		c->uri = strdup(uri);
+	*c = (struct proto_script_ctx){
+		.id = id,
+		.uri = uri ? strdup(uri) : NULL
+	};
 
 	p.ctx = c;
-	p.cb = script_result_cb;
 	p.timeout = timeout ? *timeout : (int64_t)30;
-	p.type = type;
 	p.script_base64 = script;
+	p.cb = script_result_cb;
 
 	if (plat_run_script(&p)) {
 		free(c->uri);
@@ -2773,10 +2793,10 @@ static void script_plat_handle(const char *script, const char *type,
 
 static void script_handle(cJSON **rpc)
 {
-	int64_t t;
 	const char *script, *serial, *type, *uri_str;
 	cJSON *timeout, *uri;
 	double id = 0;
+	int64_t t;
 
 	serial = jobj_str_get(rpc[JSONRPC_PARAMS], "serial");
 	script = jobj_str_get(rpc[JSONRPC_PARAMS], "script");
@@ -2793,44 +2813,9 @@ static void script_handle(cJSON **rpc)
 		return;
 	}
 	uri_str = cJSON_GetStringValue(uri);
-	t = cJSON_GetNumberValue(timeout);
+	t = timeout ? cJSON_GetNumberValue(timeout) : 0;
 
-	if (!strcmp("diagnostic", type)) {
-		char file_path[PATH_MAX + 1];
-		if (!uri_str) {
-			UC_LOG_ERR("script message missing 'uri' parameter");
-			return;
-		}
-
-		script_reply(0, "pending", id);
-		UC_LOG_DBG("Script requested OK (pending. Waiting for plat to execute)\n");
-
-		memset(&file_path[0], 0, sizeof(file_path));
-		if (plat_diagnostic(&file_path[0])) {
-			UC_LOG_ERR("Script failed\n");
-			script_reply(1, "fail", id);
-			return;
-		}
-
-		/* Poll upgrade state - start periodical. */
-		while (access(file_path, F_OK))
-			sleep(1);
-
-		/* Send file to server */
-		if (curl_upload_diagnostic_form(uri_str, file_path)) {
-			UC_LOG_ERR("Upload failed\n");
-			script_reply(1, "fail", id);
-			return;
-		}
-		script_reply(0, "done", id);
-		return;
-	}
-
-	if (!script) {
-		action_reply(1, "invalid parameters", 1, id);
-		return;
-	}
-	script_plat_handle(script, type, uri_str, timeout ? &t : 0, id);
+	script_plat_handle(script, type, uri_str, &t, id);
 }
 
 static void
