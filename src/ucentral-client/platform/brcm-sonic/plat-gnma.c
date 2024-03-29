@@ -4398,6 +4398,11 @@ static int config_unit_apply(struct plat_cfg *cfg)
 	gnma_poe_power_mgmt_mode_t mgmt_mode;
 	int ret;
 
+	if (cfg->unit.mc_flood_control || cfg->unit.querier_enable) {
+		UC_LOG_ERR("'unknown-multicast-flood-control' and 'querier-enable' global configs are not supported\n");
+		return -1;
+	}
+
 	__poe_power_mgmt_str2num(cfg->unit.poe.power_mgmt, &mgmt_mode);
 
 	if (cfg->unit.poe.is_power_mgmt_set &&
