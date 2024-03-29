@@ -42,6 +42,7 @@ extern "C" {
 #define PID_TO_NAME(p, name) sprintf(name, "Ethernet%hu", p)
 #define NAME_TO_PID(p, name) sscanf((name), "Ethernet%hu", (p))
 #define VLAN_TO_NAME(v, name) sprintf((name), "Vlan%hu", (v))
+#define NAME_TO_VLAN(v, name) sscanf((name), "Vlan%hu", (v))
 
 struct plat_vlan_memberlist;
 struct plat_port_vlan;
@@ -656,6 +657,13 @@ struct plat_iee8021x_coa_counters {
 	uint64_t coa_administratively_prohibited_req;
 };
 
+struct plat_gw_address {
+	struct in_addr ip;
+	uint32_t metric;
+	char port[PORT_MAX_NAME_LEN];
+	char mac[PLATFORM_MAC_STR_SIZE];
+};
+
 struct plat_state_info {
 	struct plat_poe_state poe_state;
 	struct plat_poe_port_state poe_ports_state[MAX_NUM_OF_PORTS];
@@ -667,6 +675,8 @@ struct plat_state_info {
 	size_t vlan_info_count;
 	struct plat_learned_mac_addr *learned_mac_list;
 	size_t learned_mac_list_size;
+	struct plat_gw_address *gw_addr_list;
+	size_t gw_addr_list_size;
 
 	struct plat_system_info system_info;
 	struct plat_iee8021x_coa_counters ieee8021x_global_coa_counters;
@@ -695,7 +705,14 @@ struct plat_event_callbacks {
 	plat_poe_link_faultcode_cb poe_link_faultcode_cb;
 };
 
+enum plat_script_type {
+	PLAT_SCRIPT_TYPE_NA = 0,
+	PLAT_SCRIPT_TYPE_SHELL = 1,
+	PLAT_SCRIPT_TYPE_DIAGNOSTICS = 2,
+};
+
 struct plat_run_script_result {
+	enum plat_script_type type;
 	const char *stdout_string;
 	size_t stdout_string_len;
 	int exit_status;
@@ -703,7 +720,7 @@ struct plat_run_script_result {
 };
 
 struct plat_run_script {
-	const char *type;
+	enum plat_script_type type;
 	const char *script_base64;
 	plat_run_script_cb cb;
 	void *ctx;
@@ -756,8 +773,6 @@ int plat_running_img_name_get(char *str, size_t str_max_len);
 int plat_revision_get(char *str, size_t str_max_len);
 int
 plat_reboot_cause_get(struct plat_reboot_cause *cause);
-
-int plat_diagnostic(char *res_path);
 
 #ifdef __cplusplus
 }

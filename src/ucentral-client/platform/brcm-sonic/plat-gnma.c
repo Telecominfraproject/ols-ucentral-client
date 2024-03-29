@@ -3223,6 +3223,7 @@ static void plat_state_deinit(struct plat_state_info *state)
 		}
 	}
 
+	free(state->gw_addr_list);
 	free(state->learned_mac_list);
 	free(state->port_info);
 	free(state->vlan_info);
@@ -3318,10 +3319,13 @@ err:
 static int plat_vlan_info_get(struct plat_port_vlan **vlan_info, size_t *count)
 {
 	BITMAP_DECLARE(vlans_bmp, GNMA_MAX_VLANS);
-	struct plat_port_vlan *vinfo = 0;
+	struct gnma_vlan_ip_t *address_list = NULL;
+	struct plat_port_vlan *vinfo = NULL;
 	size_t num_vlans = 0;
+	size_t list_size = 0;
 	size_t idx = 0;
 	size_t vid;
+	size_t i;
 	int ret;
 
 	BITMAP_CLEAR(vlans_bmp, GNMA_MAX_VLANS);
@@ -3343,14 +3347,38 @@ static int plat_vlan_info_get(struct plat_port_vlan **vlan_info, size_t *count)
 		UC_LOG_ERR("ENOMEM");
 		return -1;
 	}
-	memset(vinfo, 0, num_vlans * sizeof(*vinfo));
+
+	ret = gnma_ip_iface_addr_get(NULL, &list_size);
+	if (ret && ret != GNMA_ERR_OVERFLOW)
+		goto err;
+
+	if (list_size) {
+		address_list = calloc(list_size, sizeof(*address_list));
+		if (!address_list) {
+			UC_LOG_ERR("ENOMEM");
+			return -1;
+		}
+
+		ret = gnma_ip_iface_addr_get(address_list, &list_size);
+		if (ret)
+			goto err;
+	}
 
 	BITMAP_FOR_EACH_BIT_SET(vid, vlans_bmp, GNMA_MAX_VLANS) {
 		vinfo[idx].id = vid;
 
 		if (plat_vlan_igmp_info_get(vid, &vinfo[idx].igmp)) {
 			UC_LOG_DBG("plat_vlan_igmp_info_get failed");
-			return -1;
+			goto err;
+		}
+
+		/* TODO: add support for multiple ip addrs */
+		for (i = 0; i < list_size; i++) {
+			if (address_list[i].vid != vid)
+				continue;
+			vinfo[idx].ipv4.subnet = address_list[i].address;
+			vinfo[idx].ipv4.subnet_len = address_list[i].prefixlen;
+			vinfo[idx].ipv4.exist = true;
 		}
 
 		idx++;
@@ -3360,7 +3388,12 @@ static int plat_vlan_info_get(struct plat_port_vlan **vlan_info, size_t *count)
 
 	*count = idx;
 	*vlan_info = vinfo;
+	free(address_list);
 	return 0;
+err:
+	free(address_list);
+	free(vinfo);
+	return -1;
 }
 
 static int get_meminfo_cached_kib(uint64_t *cached)
@@ -3512,6 +3545,91 @@ plat_state_ieee8021x_coa_global_counters_get(struct plat_iee8021x_coa_counters *
 	return 0;
 }
 
+static int plat_state_gw_ip_get(struct plat_state_info *state)
+{
+	size_t list_size = 0, num_addrs, idx, mac_idx;
+	struct gnma_route_attrs *attr_list = NULL;
+	struct gnma_ip_prefix *prefix_list = NULL;
+	struct plat_gw_address *addr_list = NULL;
+	char mac[PLATFORM_MAC_STR_SIZE], *port;
+	uint16_t vid;
+	int ret;
+
+	ret = gnma_dyn_route_list_get(&list_size, NULL, NULL);
+	if (ret && ret != GNMA_ERR_OVERFLOW)
+		return -1;
+	if (!list_size)
+		return 0;
+
+	prefix_list = calloc(list_size, sizeof(*prefix_list));
+	attr_list = calloc(list_size, sizeof(*attr_list));
+	if (!prefix_list || !attr_list) {
+		UC_LOG_ERR("ENOMEM");
+		ret = -1;
+		goto err;
+	}
+
+	ret = gnma_dyn_route_list_get(&list_size, prefix_list, attr_list);
+	if (ret) {
+		ret = -1;
+		goto err;
+	}
+
+	for (idx = 0, num_addrs = 0; idx < list_size; idx++) {
+		if (prefix_list[idx].ip.u.v4.s_addr || prefix_list[idx].prefix_len)  /* non-default route */
+			continue;
+		num_addrs++;
+	}
+
+	addr_list = calloc(num_addrs, sizeof(*addr_list));
+	if (!addr_list) {
+		UC_LOG_ERR("ENOMEM");
+		ret = -1;
+		goto err;
+	}
+
+	for (idx = 0, num_addrs = 0; idx < list_size; idx++) {
+		if (prefix_list[idx].ip.u.v4.s_addr || prefix_list[idx].prefix_len)
+			continue;
+		ret = gnma_nei_addr_get(&attr_list[idx].nexthop.egress_port,
+					&attr_list[idx].nexthop.gw,
+					mac, sizeof(mac));
+		if (ret) {
+			ret = -1;
+			goto err;
+		}
+
+		/* get egress port name instead of VlanXXXX */
+		port = attr_list[idx].nexthop.egress_port.name;
+		if (NAME_TO_VLAN(&vid, attr_list[idx].nexthop.egress_port.name) == 1) {
+			for (mac_idx = 0; mac_idx < state->learned_mac_list_size; mac_idx++) {
+				if ((uint16_t)state->learned_mac_list[mac_idx].vid != vid ||
+				    strncmp(state->learned_mac_list[mac_idx].mac, mac, sizeof(mac)))
+					continue;
+				port = state->learned_mac_list[mac_idx].port;
+				break;
+			}
+			/* if we didn't find a corresponding fdb entry then leave the Vlan as the egress port */
+		}
+		addr_list[num_addrs].ip = attr_list[idx].nexthop.gw;
+		addr_list[num_addrs].metric = attr_list[idx].nexthop.metric;
+		strncpy(addr_list[num_addrs].mac, mac, sizeof(addr_list[num_addrs].mac));
+		strncpy(addr_list[num_addrs].port, port, sizeof(addr_list[num_addrs].port));
+		num_addrs++;
+	}
+	state->gw_addr_list = addr_list;
+	state->gw_addr_list_size = num_addrs;
+err:
+	if (ret) {
+		free(addr_list);
+		state->gw_addr_list = NULL;
+		state->gw_addr_list_size = 0;
+	}
+	free(prefix_list);
+	free(attr_list);
+	return ret;
+}
+
 static int plat_state_get(struct plat_state_info *state)
 {
 	size_t i;
@@ -3538,6 +3656,9 @@ static int plat_state_get(struct plat_state_info *state)
 		return -1;
 
 	if (plat_state_ieee8021x_coa_global_counters_get(&state->ieee8021x_global_coa_counters))
+		return -1;
+
+	if (plat_state_gw_ip_get(state))
 		return -1;
 
 	return 0;
@@ -4613,14 +4734,6 @@ int plat_metrics_restore(struct plat_metrics_cfg *cfg)
 	return 0;
 }
 
-int plat_diagnostic(char *res_path)
-{
-	if (gnma_techsupport_start(res_path))
-		return -1;
-
-	return 0;
-}
-
 static size_t simple_wordexp(const char **s, char *out, size_t outsz,
 			     size_t *toklen, int *delim)
 {
@@ -4713,8 +4826,7 @@ static void *script_runner(void *p)
 		int argc;
 		int ignore = 0, delim = 0;
 
-		for (argc = 0; argc < SCRIPT_ARGMAX && *script && delim != '\n';
-		     ++argc) {
+		for (argc = 0; argc < SCRIPT_ARGMAX && *script && delim != '\n'; ++argc) {
 			sz = simple_wordexp(&script, token[argc], SCRIPT_TOKLEN,
 					    0, &delim);
 			if (ignore) /* continue to parse */
@@ -4733,7 +4845,7 @@ static void *script_runner(void *p)
 
 		arg[argc] = 0;
 		if (strcmp(arg[0], "ping") &&
-            strcmp(arg[0], "nslookup") &&
+		    strcmp(arg[0], "nslookup") &&
 		    strcmp(arg[0], "traceroute")) {
 			continue;
 		}
@@ -4764,8 +4876,7 @@ static void *script_runner(void *p)
 				goto child_finish;
 			}
 			timeout = (ctx->t - run.tv_sec);
-			timeout = timeout < 0 ? 0 :
-						      (timeout * 1000 + run.tv_nsec / 1000000L);
+			timeout = timeout < 0 ? 0 : (timeout * 1000 + run.tv_nsec / 1000000L);
 
 			n = poll(&pfd, 1, timeout);
 			if (n < 0) {
@@ -4783,7 +4894,7 @@ static void *script_runner(void *p)
 			if (pfd.revents & POLLIN) {
 				while (1) {
 					ri = read(pfd.fd, &script_ctx.outbuf[bi],
-                              SCRIPT_OUTLEN - bi - 1);
+						  SCRIPT_OUTLEN - bi - 1);
 
 					if (ri < 0) {
 						if (errno == EINTR)
@@ -4840,6 +4951,7 @@ exit:
 	res.exit_status = exit_status;
 	res.stdout_string = script_ctx.outbuf;
 	res.stdout_string_len = bi;
+	res.type = PLAT_SCRIPT_TYPE_SHELL;
 
 	if (ctx->cb)
 		ctx->cb(rc, &res, ctx->ctx);
@@ -4850,25 +4962,50 @@ exit:
 	return 0;
 }
 
+static void *diagnostic_runner(void *p)
+{
+	struct plat_run_script_result res = {0};
+	char file_path[PATH_MAX + 1];
+	struct script_ctx *ctx = p;
+	int rc = 1;
+
+	memset(file_path, 0, sizeof(file_path));
+
+	if (gnma_techsupport_start(file_path)) {
+		UC_LOG_ERR("techsupport failed\n");
+		goto exit;
+	}
+
+	while (1) {  /* FIXME: add timeout or other exit condition */
+		if (!access(file_path, F_OK)) {
+			rc = 0;
+			break;
+		}
+		sleep(1);
+	}
+exit:
+	res.stdout_string = file_path;
+	res.stdout_string_len = strlen(file_path);
+	res.type = PLAT_SCRIPT_TYPE_DIAGNOSTICS;
+	res.exit_status = rc;
+	ctx->cb(0, &res, ctx->ctx);
+	script_lock_release();
+	return 0;
+}
+
 int plat_run_script(struct plat_run_script *p)
 {
+	void* (*runner)(void*);
 	size_t len;
-
-	if (strcmp(p->type, "shell")) {
-		UC_LOG_ERR("only type 'shell' script is supported");
-		return -1;
-	}
 
 	if (p->timeout > INT_MAX) {
 		UC_LOG_ERR("invalid timeout");
 		return -1;
 	}
-
 	if (script_lock_aquire()) {
 		UC_LOG_ERR("max 1 script at a time");
 		return -1;
 	}
-
 	if (script_ctx.is_tid_valid) {
 		if (pthread_join(script_ctx.tid, 0)) {
 			UC_LOG_CRIT("pthread_join: %s", strerror(errno));
@@ -4877,25 +5014,41 @@ int plat_run_script(struct plat_run_script *p)
 	script_ctx = (struct script_ctx){
 		.cb = p->cb,
 		.ctx = p->ctx,
+		.t = p->timeout,
 	};
-	script_ctx.t = p->timeout;
 
-	len = strlen(p->script_base64);
-	if (!(script_ctx.script_buf =
-		      calloc(1, BASE64_DECODE_OUT_SIZE(len) + 1))) {
+	switch(p->type) {
+	case PLAT_SCRIPT_TYPE_SHELL:
+		len = strlen(p->script_base64);
+		script_ctx.script_buf = calloc(1, BASE64_DECODE_OUT_SIZE(len) + 1);
+		if (!script_ctx.script_buf) {
+			UC_LOG_ERR("ENOMEM");
+			goto exit;
+		}
+
+		script_ctx.script_bufsz = base64_decode(p->script_base64, len,
+							(void *)script_ctx.script_buf);
+		if (!script_ctx.script_bufsz) {
+			UC_LOG_ERR("failed to decode base64 script text");
+			goto exit;
+		}
+
+		script_ctx.outbuf = malloc(SCRIPT_OUTLEN);
+		if (!script_ctx.outbuf) {
+			UC_LOG_ERR("ENOMEM");
+			goto exit;
+		}
+		runner = script_runner;
+		break;
+	case PLAT_SCRIPT_TYPE_DIAGNOSTICS:
+		runner = diagnostic_runner;
+		break;
+	default:
+		UC_LOG_ERR("only 'shell' and 'diagnostic' script types are supported");
 		goto exit;
 	}
-	script_ctx.script_bufsz = base64_decode(p->script_base64, len,
-						(void *)script_ctx.script_buf);
-	if (!script_ctx.script_bufsz) {
-		UC_LOG_ERR("failed to decode base64 script text");
-		goto exit;
-	}
 
-	if (!(script_ctx.outbuf = malloc(SCRIPT_OUTLEN)))
-		goto exit;
-
-	if (pthread_create(&script_ctx.tid, 0, script_runner, &script_ctx)) {
+	if (pthread_create(&script_ctx.tid, 0, runner, &script_ctx)) {
 		UC_LOG_ERR("pthread_create: %s", strerror(errno));
 		goto exit;
 	}

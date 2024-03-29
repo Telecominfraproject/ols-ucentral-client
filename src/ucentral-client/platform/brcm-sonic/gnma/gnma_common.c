@@ -3,6 +3,7 @@
 #include <inttypes.h>
 
 #include <gnma_common.h>
+#include <netlink_common.h>
 #include <gnmi/gnmi_c_connector.h>
 
 #include <stdlib.h>
@@ -15,6 +16,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 #define DEFAULT_TIMEOUT_US 90 * 1000000
 
@@ -4082,6 +4084,99 @@ out:
 	return ret;
 }
 
+int gnma_dyn_route_list_get(size_t *list_size,
+			    struct gnma_ip_prefix *prefix_list,
+			    struct gnma_route_attrs *attr_list)
+{
+	char gpath[] = "/openconfig-network-instance:network-instances/network-instance[name=default]/afts/ipv4-unicast/ipv4-entry";
+	cJSON *root = NULL, *obj, *nh, *route_list, *route;
+	struct gnma_route_attrs attrs;
+	struct gnma_ip_prefix prefix;
+	int ret = GNMA_ERR_COMMON;
+	size_t num_routes = 0;
+	char *buf = NULL;
+
+	if (gnmi_jsoni_get_alloc(main_switch, gpath, &buf, 0, DEFAULT_TIMEOUT_US))
+		goto out;
+
+	root = cJSON_Parse(buf);
+	ZFREE(buf);
+	route_list = cJSON_GetObjectItemCaseSensitive(root, "openconfig-network-instance:ipv4-entry");
+	if (!cJSON_IsArray(route_list))
+		goto out;
+
+	cJSON_ArrayForEach(route, route_list) {
+		/* prefix */
+		obj = cJSON_GetObjectItemCaseSensitive(route, "prefix");
+		buf = cJSON_GetStringValue(obj);
+		if (!buf)
+			continue;
+
+		prefix.ip.v = AF_INET;
+		prefix.prefix_len = inet_net_pton(AF_INET, buf, &prefix.ip.u.v4,
+						  sizeof(prefix.ip.u.v4));
+		if (prefix.prefix_len == -1)
+			continue;
+
+		/* route types */
+		nh = cJSON_GetObjectItemCaseSensitive(route, "openconfig-aft-deviation:next-hops");
+		nh = cJSON_GetObjectItemCaseSensitive(nh, "next-hop");
+		nh = cJSON_GetArrayItem(nh, 0);
+		obj = cJSON_GetObjectItemCaseSensitive(nh, "state");
+		if (!obj)
+			continue;
+
+		/* connected routes */
+		if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(obj, "directly-connected")))
+			continue;  /* skip */
+
+		/* nexthop routes */
+		attrs.type = GNMA_ROUTE_TYPE_NEXTHOP;
+
+		/* gw ip */
+		buf = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(obj, "ip-address"));
+		if (!buf)
+			continue;
+
+		if (inet_net_pton(AF_INET, buf, &attrs.nexthop.gw.s_addr, sizeof(attrs.nexthop.gw.s_addr)) == -1)
+			continue;
+
+		/* egress port */
+		obj = cJSON_GetObjectItemCaseSensitive(nh, "interface-ref");
+		obj = cJSON_GetObjectItemCaseSensitive(obj, "state");
+		obj = cJSON_GetObjectItemCaseSensitive(obj, "interface");
+		buf = cJSON_GetStringValue(obj);
+		if (!buf)
+			continue;
+		strncpy(attrs.nexthop.egress_port.name, buf, sizeof(attrs.nexthop.egress_port.name));
+
+		/* metric */
+		obj = cJSON_GetObjectItemCaseSensitive(route, "state");
+		obj = cJSON_GetObjectItemCaseSensitive(obj, "metric");
+		if (!obj)
+			continue;
+
+		attrs.nexthop.metric = (uint32_t)cJSON_GetNumberValue(obj);
+
+		/* Fill list */
+		if (num_routes >= *list_size)
+			goto next;
+
+		if (prefix_list)
+			prefix_list[num_routes] = prefix;
+		if (attr_list)
+			attr_list[num_routes] = attrs;
+next:
+		num_routes++;
+	}
+
+	ret = num_routes > *list_size ? GNMA_ERR_OVERFLOW : 0;
+	*list_size = num_routes;
+out:
+	cJSON_Delete(root);
+	return ret;
+}
+
 /* This config related to control plane. So, have no analog in SAI */
 /* Data plane STP config is only perport state. */
 int gnma_stp_mode_set(gnma_stp_mode_t mode, struct gnma_stp_attr *attr)
@@ -5829,5 +5924,98 @@ err_gnmi_no_entries:
 err_buf_print:
 err_gnmi_get_obj:
 	cJSON_Delete(root);  /* only need to free root */
+	return ret;
+}
+
+int gnma_ip_iface_addr_get(struct gnma_vlan_ip_t *address_list, size_t *list_size)
+{
+	struct nl_vid_addr *list;
+	size_t len = 0, i;
+	int ret;
+
+	ret = nl_get_ip_list(NULL, &len);
+	if (ret && ret != -EOVERFLOW)
+		return GNMA_ERR_COMMON;
+
+	if (!address_list || len > *list_size) {
+		*list_size = len;
+		return GNMA_ERR_OVERFLOW;
+	}
+	if (len == 0) {
+		*list_size = 0;
+		return GNMA_OK;
+	}
+
+	list = calloc(len, sizeof(*list));
+	if (!list)
+		return GNMA_ERR_COMMON;
+
+	ret = nl_get_ip_list(list, &len);
+	if (ret) {
+		ret = GNMA_ERR_COMMON;
+		goto out;
+	}
+
+	for (i = 0; i < len; i++) {
+		address_list[i].vid = list[i].vid;
+		address_list[i].prefixlen = list[i].prefixlen;
+		address_list[i].address.s_addr = list[i].address;
+	}
+	ret = GNMA_OK;
+out:
+	free(list);
+	*list_size = len;
+	return ret;
+}
+
+int gnma_nei_addr_get(struct gnma_port_key *iface, struct in_addr *ip,
+		      char *mac, size_t buf_size)
+{
+	char addr_str[] = {"255.255.255.255"};
+	char *gpath, *buf = NULL;
+	cJSON *root, *address;
+	char *mac_str;
+	int ret;
+
+	if (!mac)
+		return GNMA_ERR_COMMON;
+	if (!inet_ntop(AF_INET, &ip->s_addr, addr_str, sizeof(addr_str)))
+		return GNMA_ERR_COMMON;
+
+	if (iface->name[0] == 'V') {  /* VlanXXXX */
+		ret = asprintf(&gpath,
+			       "/openconfig-interfaces:interfaces/interface[name=%s]/openconfig-vlan:routed-vlan/openconfig-if-ip:ipv4/neighbors/neighbor[ip=%s]/state/link-layer-address",
+			       iface->name,
+			       addr_str);
+	} else {
+		ret = asprintf(&gpath,
+			       "/openconfig-interfaces:interfaces/interface[name=%s]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/neighbors/neighbor[ip=%s]/state/link-layer-address",
+			       iface->name,
+			       addr_str);
+	}
+	if (ret == -1)
+		return GNMA_ERR_COMMON;
+
+	ret = gnmi_jsoni_get_alloc(main_switch, gpath, &buf, 0, DEFAULT_TIMEOUT_US);
+	ZFREE(gpath);
+	if (ret)
+		return GNMA_ERR_COMMON;
+
+	root = cJSON_Parse(buf);
+	ZFREE(buf);
+	if (!root)
+		return GNMA_ERR_COMMON;
+
+	address = cJSON_GetObjectItemCaseSensitive(root, "openconfig-if-ip:link-layer-address");
+	mac_str = cJSON_GetStringValue(address);
+	if (!mac_str || !mac_str[0]) {
+		ret = GNMA_ERR_COMMON;
+		goto err;
+	}
+	strncpy(mac, mac_str, buf_size);
+
+	ret = GNMA_OK;
+err:
+	cJSON_Delete(root);
 	return ret;
 }

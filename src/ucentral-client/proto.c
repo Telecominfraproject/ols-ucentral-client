@@ -940,134 +940,94 @@ cfg_ethernet_port_isolation_interface_parse(cJSON *iface,
 }
 
 static int
-cfg_ethernet_port_isolation_parse(cJSON *ethernet, struct plat_cfg *cfg) {
-	cJSON *eth = NULL, *port_isolation, *sessions, *session;
+cfg_switch_port_isolation_parse(cJSON *port_isolation, struct plat_port_isolation_cfg *cfg) {
+	cJSON *sessions, *session, *id, *uplink, *downlink;
 	struct plat_port_isolation_session *session_arr;
 	struct plat_ports_list *port_node = NULL;
+	uint64_t session_arrid;
 	int i = 0, j = 0;
 
-	cJSON_ArrayForEach(eth, ethernet) {
-		port_isolation = cJSON_GetObjectItemCaseSensitive(eth, "port-isolation");
-		if (!port_isolation)
-			continue;
-
-		if (!cJSON_IsObject(port_isolation)) {
-			UC_LOG_ERR("Ethernet obj holds 'port_isolation' object of wrongful type, parse failed\n");
-			return -1;
-		}
-
-		sessions = cJSON_GetObjectItemCaseSensitive(port_isolation,
-							    "sessions");
-		if (!sessions || !cJSON_IsArray(sessions)) {
-			UC_LOG_ERR("Ethernet obj holds 'port_isolation:sessions' array of wrongful type (or empty), parse failed\n");
-			return -1;
-		}
-
-		cJSON_ArrayForEach(session, sessions) {
-			cfg->port_isolation_cfg.sessions_num++;
-		}
+	if (!cJSON_IsObject(port_isolation)) {
+		UC_LOG_ERR("Switch obj holds 'port_isolation' object of wrongful type, parse failed\n");
+		return -1;
 	}
 
-	if (cfg->port_isolation_cfg.sessions_num == 0) {
+	sessions = cJSON_GetObjectItemCaseSensitive(port_isolation, "sessions");
+	if (!sessions || !cJSON_IsArray(sessions)) {
+		UC_LOG_ERR("Switch obj holds 'port_isolation:sessions' array of wrongful type (or empty), parse failed\n");
+		return -1;
+	}
+
+	cJSON_ArrayForEach(session, sessions) {
+		cfg->sessions_num++;
+	}
+
+	if (cfg->sessions_num == 0)
 		return 0;
-	}
 
-	session_arr = calloc(cfg->port_isolation_cfg.sessions_num,
+	session_arr = calloc(cfg->sessions_num,
 			     sizeof(struct plat_port_isolation_session));
-	cfg->port_isolation_cfg.sessions = session_arr;
-
+	cfg->sessions = session_arr;
 	if (!session_arr) {
 		UC_LOG_ERR("Failed to alloc memory for port-isolation-cfg, parse failed\n");
 		return -1;
 	}
 
-	cJSON_ArrayForEach(eth, ethernet) {
-		port_isolation = cJSON_GetObjectItemCaseSensitive(eth, "port-isolation");
-		if (!port_isolation)
-			continue;
-
-		/*
-		 * Highly unlikeable that the object is missing / invalid,
-		 * as it was okay prior (parsing above).
-		 * But this is still a sanity-check, in case if JSON
-		 * got corrupted for some reason.
-		 */
-		if (!cJSON_IsObject(port_isolation)) {
-			UC_LOG_ERR("Ethernet obj holds 'port_isolation' object of wrongful type, parse failed\n");
-			return -1;
+	cJSON_ArrayForEach(session, sessions) {
+		id = cJSON_GetObjectItemCaseSensitive(session, "id");
+		if (!id || !cJSON_IsNumber(id)) {
+			UC_LOG_ERR("Switch obj 'port_isolation:id' is invalid, parse failed\n");
+			goto err;
 		}
 
-		sessions = cJSON_GetObjectItemCaseSensitive(port_isolation,
-							    "sessions");
-		if (!sessions || !cJSON_IsArray(sessions)) {
-			UC_LOG_ERR("Ethernet obj holds 'port_isolation:sessions' array of wrongful type (or empty), parse failed\n");
-			return -1;
-		}
+		session_arrid = (uint64_t)cJSON_GetNumberValue(id);
 
-		cJSON_ArrayForEach(session, sessions) {
-			cJSON *id, *uplink, *downlink;
-			double session_arrid;
-
-			id = cJSON_GetObjectItemCaseSensitive(session, "id");
-			if (!id || !cJSON_IsNumber(id)) {
-				UC_LOG_ERR("Ethernet obj 'port_isolation:id' is invalid, parse failed\n");
-				goto err;
-			}
-
-			session_arrid = cJSON_GetNumberValue(id);
-
-			if (i > 0) {
-				for (int j = i - 1; j >= 0; --j) {
-					if ((double) session_arr[j].id == session_arrid) {
-						UC_LOG_ERR("Expected unique 'port_isolation:id', duplicate (%lu) detected, parse failed\n",
-							   (uint64_t) session_arrid);
-						goto err;
-					}
+		if (i > 0) {
+			for (j = i - 1; j >= 0; --j) {
+				if (session_arr[j].id == session_arrid) {
+					UC_LOG_ERR("Expected unique 'port_isolation:id', duplicate (%lu) detected, parse failed\n",
+						   session_arrid);
+					goto err;
 				}
 			}
-
-			session_arr[j].id = (uint64_t) session_arrid;
-
-			uplink = cJSON_GetObjectItemCaseSensitive(session,
-								  "uplink");
-			if (!uplink || !cJSON_IsObject(uplink)) {
-				UC_LOG_ERR("Ethernet obj 'port_isolation:uplink' is invalid, parse failed\n");
-				goto err;
-			}
-
-			downlink = cJSON_GetObjectItemCaseSensitive(session,
-								    "downlink");
-			if (!downlink || !cJSON_IsObject(downlink)) {
-				UC_LOG_ERR("Ethernet obj 'port_isolation:downlink' is invalid, parse failed\n");
-				goto err;
-			}
-
-			if (cfg_ethernet_port_isolation_interface_parse(uplink,
-									&session_arr[j].uplink)) {
-				UC_LOG_ERR("Ethernet obj 'port_isolation:uplink' parse failed\n");
-				goto err;
-			}
-
-			if (cfg_ethernet_port_isolation_interface_parse(downlink,
-									&session_arr[j].downlink)) {
-				UC_LOG_ERR("Ethernet obj 'port_isolation:downlink' parse failed\n");
-				goto err;
-			}
-
-			++i;
 		}
+
+		session_arr[i].id = session_arrid;
+
+		uplink = cJSON_GetObjectItemCaseSensitive(session, "uplink");
+		if (!uplink || !cJSON_IsObject(uplink)) {
+			UC_LOG_ERR("Switch obj 'port_isolation:uplink' is invalid, parse failed\n");
+			goto err;
+		}
+
+		downlink = cJSON_GetObjectItemCaseSensitive(session, "downlink");
+		if (!downlink || !cJSON_IsObject(downlink)) {
+			UC_LOG_ERR("Switch obj 'port_isolation:downlink' is invalid, parse failed\n");
+			goto err;
+		}
+
+		if (cfg_ethernet_port_isolation_interface_parse(uplink, &session_arr[i].uplink)) {
+			UC_LOG_ERR("Switch obj 'port_isolation:uplink' parse failed\n");
+			goto err;
+		}
+
+		if (cfg_ethernet_port_isolation_interface_parse(downlink, &session_arr[i].downlink)) {
+			UC_LOG_ERR("Switch obj 'port_isolation:downlink' parse failed\n");
+			goto err;
+		}
+
+		i++;
 	}
 
 	return 0;
 err:
-	for (int j = i; j >= 0; --j) {
+	for (j = i; j >= 0; --j) {
 		UCENTRAL_LIST_DESTROY_SAFE(&session_arr[j].uplink.ports_list,
 					   port_node);
 		UCENTRAL_LIST_DESTROY_SAFE(&session_arr[j].downlink.ports_list,
 					   port_node);
 	}
-	cfg->port_isolation_cfg.sessions = 0;
-	free(cfg->port_isolation_cfg.sessions);
+	free(cfg->sessions);
 	return -1;
 }
 
@@ -1091,12 +1051,9 @@ static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 		BITMAP_CLEAR(tmp_port_bmap, MAX_NUM_OF_PORTS);
 
 		select_ports = cJSON_GetObjectItemCaseSensitive(eth, "select-ports");
-		enabled =
-			cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(eth, "enabled"));
-		duplex =
-			cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(eth, "duplex"));
-		speed =
-			cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(eth, "speed"));
+		enabled = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(eth, "enabled"));
+		duplex = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(eth, "duplex"));
+		speed = cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(eth, "speed"));
 
 		if (!duplex || !speed || !select_ports) {
 			UC_LOG_ERR("Ethernet obj doesn't hold duplex, speed or select-ports fields, parse failed\n");
@@ -1149,11 +1106,6 @@ static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 			memcpy(&cfg->ports[i], &tmp_port, sizeof(tmp_port));
 			BITMAP_SET_BIT(cfg->ports_to_cfg, i);
 		}
-	}
-
-	if (cfg_ethernet_port_isolation_parse(ethernet, cfg)) {
-		UC_LOG_ERR("port-isolation config parse faile\n");
-		return -1;
 	}
 
 	return 0;
@@ -1756,9 +1708,9 @@ static int cfg_switch_ieee8021x_parse(cJSON *sw, struct plat_cfg *cfg)
 
 static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 {
+	cJSON *sw, *obj, *iter, *arr, *port_isolation;
 	BITMAP_DECLARE(instances_parsed, MAX_VLANS);
 	int id, prio, fwd, hello, age;
-	cJSON *sw, *obj, *iter, *arr;
 	bool enabled;
 	int ret;
 
@@ -1822,6 +1774,12 @@ static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 		cfg->stp_instances[id].hello_time = hello;
 		cfg->stp_instances[id].max_age = age;
 		cfg->stp_instances[id].priority = prio;
+	}
+
+	port_isolation = cJSON_GetObjectItemCaseSensitive(sw, "port-isolation");
+	if (port_isolation && cfg_switch_port_isolation_parse(port_isolation, &cfg->port_isolation_cfg)) {
+		UC_LOG_ERR("port-isolation config parse failed\n");
+		return -1;
 	}
 
 	return 0;
@@ -2668,13 +2626,17 @@ telemetry_handle(cJSON **rpc)
 
 static int curl_upload_diagnostic_form(const char *url, const char *file_path)
 {
-    struct curl_httppost *post = NULL, *last = NULL;
-    CURLcode res;
-    int ret = 0;
-    CURL *curl;
+	struct curl_httppost *post = NULL, *last = NULL;
+	CURLcode res;
+	int ret = 0;
+	CURL *curl;
 
-    curl = curl_easy_init();
-    if(curl) {
+	curl = curl_easy_init();
+	if (!curl) {
+		UC_LOG_ERR("Failed to init curl\n");
+		return -1;
+	}
+
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_formadd(&post,
 		     &last,
@@ -2687,19 +2649,18 @@ static int curl_upload_diagnostic_form(const char *url, const char *file_path)
 		     CURLFORM_FILE, file_path,
 		     CURLFORM_END);
 	curl_easy_setopt(curl, CURLOPT_HTTPPOST, post);
-	res = curl_easy_perform(curl);
 
+	res = curl_easy_perform(curl);
 	if(res != CURLE_OK) {
 		ret = -1;
-		UC_LOG_ERR("Uploading diagnostic failed. URL=%s FILE=%s res=%d \n",
+		UC_LOG_ERR("Uploading diagnostics failed. URL=%s FILE=%s res=%d \n",
 			   url, file_path, res);
 	}
 
 	curl_easy_cleanup(curl);
 	curl_formfree(post);
-    }
 
-    return ret;
+	return ret;
 }
 
 static int curl_upload_form(char *url, const void *buf)
@@ -2751,9 +2712,9 @@ exit:
 static void script_result_cb(int err, struct plat_run_script_result *sres,
 			     void *ctx)
 {
-	uint32_t e;
-	const char *result;
 	struct proto_script_ctx *c = ctx;
+	const char *result;
+	uint32_t e;
 
 	if (err) {
 		action_reply(1, "failed to execute script", 1, c->id);
@@ -2771,12 +2732,20 @@ static void script_result_cb(int err, struct plat_run_script_result *sres,
 			result = "done";
 	}
 
-	if (c->uri && curl_upload_form(c->uri, sres->stdout_string)) {
-		UC_LOG_ERR("upload failed");
+	switch (sres->type) {
+	case PLAT_SCRIPT_TYPE_SHELL:
+		if (c->uri && curl_upload_form(c->uri, sres->stdout_string))
+			UC_LOG_ERR("Upload failed\n");
+		break;
+	case PLAT_SCRIPT_TYPE_DIAGNOSTICS:
+		if (c->uri && curl_upload_diagnostic_form(c->uri, sres->stdout_string))
+			UC_LOG_ERR("Upload failed\n");
+		break;
+	default:
+		UC_LOG_ERR("Invalid script type %u\n", sres->type);
 	}
 
 	script_reply(e, result, (int32_t)c->id);
-
 exit:
 	free(c->uri);
 	free(c);
@@ -2788,18 +2757,27 @@ static void script_plat_handle(const char *script, const char *type,
 {
 	struct plat_run_script p = { 0 };
 	struct proto_script_ctx *c = 0;
+
+	if (!strcmp("diagnostic", type)) {
+		p.type = PLAT_SCRIPT_TYPE_DIAGNOSTICS;
+	} else if (script && !strcmp("shell", type)) {
+		p.type = PLAT_SCRIPT_TYPE_SHELL;
+	} else {
+		return action_reply(1, "invalid parameters", 1, id);
+	}
+
 	if (!(c = malloc(sizeof(struct proto_script_ctx))))
 		return;
 
-	*c = (struct proto_script_ctx){ .id = id };
-	if (uri)
-		c->uri = strdup(uri);
+	*c = (struct proto_script_ctx){
+		.id = id,
+		.uri = uri ? strdup(uri) : NULL
+	};
 
 	p.ctx = c;
-	p.cb = script_result_cb;
 	p.timeout = timeout ? *timeout : (int64_t)30;
-	p.type = type;
 	p.script_base64 = script;
+	p.cb = script_result_cb;
 
 	if (plat_run_script(&p)) {
 		free(c->uri);
@@ -2815,10 +2793,10 @@ static void script_plat_handle(const char *script, const char *type,
 
 static void script_handle(cJSON **rpc)
 {
-	int64_t t;
 	const char *script, *serial, *type, *uri_str;
 	cJSON *timeout, *uri;
 	double id = 0;
+	int64_t t;
 
 	serial = jobj_str_get(rpc[JSONRPC_PARAMS], "serial");
 	script = jobj_str_get(rpc[JSONRPC_PARAMS], "script");
@@ -2835,44 +2813,9 @@ static void script_handle(cJSON **rpc)
 		return;
 	}
 	uri_str = cJSON_GetStringValue(uri);
-	t = cJSON_GetNumberValue(timeout);
+	t = timeout ? cJSON_GetNumberValue(timeout) : 0;
 
-	if (!strcmp("diagnostic", type)) {
-		char file_path[PATH_MAX + 1];
-		if (!uri_str) {
-			UC_LOG_ERR("script message missing 'uri' parameter");
-			return;
-		}
-
-		script_reply(0, "pending", id);
-		UC_LOG_DBG("Script requested OK (pending. Waiting for plat to execute)\n");
-
-		memset(&file_path[0], 0, sizeof(file_path));
-		if (plat_diagnostic(&file_path[0])) {
-			UC_LOG_ERR("Script failed\n");
-			script_reply(1, "fail", id);
-			return;
-		}
-
-		/* Poll upgrade state - start periodical. */
-		while (access(file_path, F_OK))
-			sleep(1);
-
-		/* Send file to server */
-		if (curl_upload_diagnostic_form(uri_str, file_path)) {
-			UC_LOG_ERR("Upload failed\n");
-			script_reply(1, "fail", id);
-			return;
-		}
-		script_reply(0, "done", id);
-		return;
-	}
-
-	if (!script) {
-		action_reply(1, "invalid parameters", 1, id);
-		return;
-	}
-	script_plat_handle(script, type, uri_str, timeout ? &t : 0, id);
+	script_plat_handle(script, type, uri_str, &t, id);
 }
 
 static void
@@ -3031,6 +2974,40 @@ static int state_fill_interface_ipv4(cJSON *ipv4, struct plat_port_info *info)
 		goto err;
 #endif
 	return 0;
+}
+
+static int state_fill_vlan_ipv4(cJSON *root, struct plat_port_vlan *vlan)
+{
+	char addr_str[] = {"255.255.255.255"};
+	cJSON *address_list, *address;
+
+	address_list = cJSON_CreateArray();
+	if (!address_list)
+		goto err;
+
+	if (!cJSON_AddItemToObject(root, "addresses", address_list)) {
+		cJSON_Delete(address_list);
+		goto err;
+	}
+
+	if (!vlan->ipv4.exist)
+		return 0;
+
+	if (!inet_ntop(AF_INET, &vlan->ipv4.subnet.s_addr, addr_str, sizeof(addr_str)))
+		goto err;
+
+	address = cJSON_CreateString(addr_str);
+	if (!address)
+		goto err;
+
+	if (!cJSON_AddItemToArray(address_list, address)) {
+		cJSON_Delete(address);
+		goto err;
+	}
+
+	return 0;
+err:
+	return -1;
 }
 
 static int state_fill_interface_dns_servers(cJSON *dns_servers,
@@ -3319,6 +3296,10 @@ static int state_fill_interfaces_data(cJSON *interfaces,
 		ipv4 = cJSON_AddObjectToObject(interface, "ipv4");
 		multicast = cJSON_AddObjectToObject(interface, "multicast");
 		if (!clients || !counters || !dns_servers || !ipv4 || !multicast)
+			goto err;
+
+		ret = state_fill_vlan_ipv4(ipv4, &state->vlan_info[i]);
+		if (ret)
 			goto err;
 
 		ret = state_fill_interface_multicast(multicast, &state->vlan_info[i]);
@@ -3757,6 +3738,35 @@ err:
 	return -1;
 }
 
+static int state_fill_default_gateway(cJSON *default_gateway,
+				      struct plat_gw_address *gw_addr,
+				      size_t gw_addr_count)
+{
+	char ip_addr[] = {"255.255.255.255"};
+	size_t idx;
+	cJSON *obj;
+
+	for (idx = 0; idx < gw_addr_count; idx++) {
+		obj = cJSON_CreateObject();
+		if (!obj)
+			return -1;
+		if (!cJSON_AddItemToArray(default_gateway, obj)) {
+			cJSON_Delete(obj);
+			return -1;
+		}
+		if (!inet_ntop(AF_INET, &gw_addr[idx].ip.s_addr,
+			       ip_addr, sizeof(ip_addr)))
+			return -1;
+		if (!cJSON_AddNumberToObject(obj, "metric", gw_addr[idx].metric) ||
+		    !cJSON_AddStringToObject(obj, "gw-mac", gw_addr[idx].mac) ||
+		    !cJSON_AddStringToObject(obj, "out-port", gw_addr[idx].port) ||
+		    !cJSON_AddStringToObject(obj, "gw-ip", ip_addr)) {
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static size_t
 state_fill_pub_ip_curl_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
@@ -3853,6 +3863,7 @@ err:
 static int state_fill(cJSON *state, struct plat_state_info *plat_state_info)
 {
 	cJSON *mac_forwarding_table;
+	cJSON *default_gateway;
 	cJSON *link_state;
 	cJSON *lldp_peers;
 	cJSON *interfaces;
@@ -3904,6 +3915,14 @@ static int state_fill(cJSON *state, struct plat_state_info *plat_state_info)
 	unit = cJSON_AddObjectToObject(state, "unit");
 	if (!unit || state_fill_unit_data(unit, plat_state_info)) {
 		UC_LOG_ERR("!unit(%p) || state_fill_unit_data", (void *)unit);
+		goto err;
+	}
+	default_gateway = cJSON_AddArrayToObject(state, "default-gateway");
+	if (!default_gateway ||
+	    state_fill_default_gateway(default_gateway, plat_state_info->gw_addr_list,
+				       plat_state_info->gw_addr_list_size))
+	{
+		UC_LOG_ERR("!default_gateway(%p) || state_fill_default_gateway", (void *)default_gateway);
 		goto err;
 	}
 	if (state_fill_public_ip(state)) {
