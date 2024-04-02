@@ -1979,8 +1979,10 @@ skip_health_parse:
 static int cfg_unit_parse(cJSON *unit, struct plat_cfg *cfg)
 {
 	cJSON *usage_threshold;
+	cJSON *flood_control;
 	cJSON *power_mgmt;
 	cJSON *password;
+	cJSON *querier;
 	cJSON *poe;
 
 	if ((poe = cJSON_GetObjectItemCaseSensitive(unit, "poe"))) {
@@ -2004,6 +2006,12 @@ static int cfg_unit_parse(cJSON *unit, struct plat_cfg *cfg)
 			sizeof(cfg->unit.system.password));
 		cfg->unit.system.password_changed = true;
 	}
+
+	if ((flood_control = cJSON_GetObjectItemCaseSensitive(unit, "unknown-multicast-flood-control")))
+		cfg->unit.mc_flood_control = cJSON_IsTrue(flood_control);
+
+	if ((querier = cJSON_GetObjectItemCaseSensitive(unit, "querier-enable")))
+		cfg->unit.querier_enable = cJSON_IsTrue(querier);
 
 	return 0;
 }

@@ -388,6 +388,8 @@ struct plat_unit_system_cfg {
 struct plat_unit {
 	struct plat_unit_poe_cfg poe;
 	struct plat_unit_system_cfg system;
+	bool mc_flood_control;
+	bool querier_enable;
 };
 
 enum plat_stp_mode {
