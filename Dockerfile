@@ -1,4 +1,4 @@
-FROM debian:buster
+FROM arm64v8/debian:buster
 LABEL Description="Ucentral client (Build) environment"
 
 ARG HOME /root

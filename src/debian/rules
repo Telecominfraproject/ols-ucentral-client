@@ -8,7 +8,7 @@ export DH_VERBOSE = 1
 export DH_BUILD_DDEBS=1
 export DEB_BUILD_OPTIONS=autodbgsym
 
-CONFIGURED_ARCH ?= amd64
+CONFIGURED_ARCH ?= arm64
 UCENTRAL_CLIENT_VERSION ?= 1.0
 DPKG_EXPORT_BUILDFLAGS = 1
 INSTALL ?= debian/ucentral-client/

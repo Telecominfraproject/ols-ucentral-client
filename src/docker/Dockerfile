@@ -1,4 +1,4 @@
-FROM debian:buster
+FROM arm64v8/debian:buster
 
 RUN echo "uCentral client support"
 RUN apt-get update && apt-get install --no-install-recommends -y \

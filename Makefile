@@ -73,7 +73,7 @@ build-final-deb: build-ucentral-docker-img
 	mv -f docker/deliverables/* docker/
 
 	# Build the final deb file
-	dpkg-buildpackage -rfakeroot -b -us -uc -j
+	dpkg-buildpackage -rfakeroot -b -us -uc -j --target-arch arm64
 
 	popd
 	mv ucentral-client*deb ./output/
@@ -96,4 +96,4 @@ clean:
 	rm -rf src/debian/.debhelper src/debian/ucentral-client 2>/dev/null || true;
 	rm -rf src/debian/shasta-ucentral-client* 2>/dev/null || true;
 	rm -rf src/debian/debhelper-build-stamp* 2>/dev/null || true;
-	rm -rf src/debian/files shasta_1.0_amd64.changes shasta_1.0_amd64.buildinfo 2>/dev/null || true;
+	rm -rf src/debian/files shasta_1.0_arm64.changes shasta_1.0_arm64.buildinfo 2>/dev/null || true;
