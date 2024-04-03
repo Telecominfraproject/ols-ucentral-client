@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   curl \
   libjsoncpp-dev \
   busybox \
+  gdb \
   && rm -rf /var/lib/apt/lists/*
 
 RUN ln -s /bin/busybox /usr/local/bin/nslookup

@@ -15,7 +15,7 @@ platform/plat.a:
 	cp platform/${PLATFORM}/plat.a platform/
 
 %.o: %.c
-	gcc -c -o $@ ${CFLAGS} -I ./ -I ./include $^
+	gcc -c -g -o $@ ${CFLAGS} -I ./ -I ./include $^
 
 ucentral-client: ucentral-client.o proto.o platform/plat.a \
 				 ucentral-json-parser.o ucentral-log.o router-utils.o base64.o
