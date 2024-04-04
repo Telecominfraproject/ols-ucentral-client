@@ -1,24 +1,6 @@
 {
   "ethernet": [
     {
-      "port-isolation": {
-        "sessions": [
-          {
-            "id": 1,
-            "uplink": {
-              "interface-list": [
-                "Ethernet1"
-              ]
-            },
-            "downlink": {
-              "interface-list": [
-                "Ethernet2",
-                "Ethernet3"
-              ]
-            }
-          }
-        ]
-      },
       "select-ports": [
         "Ethernet*"
       ],
@@ -48,5 +30,25 @@
       "name": "mgmt-vlan"
     }
   ],
+  "switch": {
+    "port-isolation": {
+      "sessions": [
+        {
+          "id": 1,
+          "uplink": {
+            "interface-list": [
+              "Ethernet1"
+            ]
+          },
+          "downlink": {
+            "interface-list": [
+              "Ethernet2",
+              "Ethernet3"
+            ]
+          }
+        }
+      ]
+    }
+  },
   "uuid": 1
 }
