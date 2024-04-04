@@ -1737,7 +1737,7 @@ static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 		cfg->stp_instances[id].forward_delay = 15;
 		cfg->stp_instances[id].hello_time = 2;
 		cfg->stp_instances[id].max_age = 20;
-		cfg->stp_instances[id].priority = 20;
+		cfg->stp_instances[id].priority = 32768;
 	}
 
 	arr = cJSON_GetObjectItemCaseSensitive(obj, "instances");
