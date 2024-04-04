@@ -73,7 +73,7 @@ build-final-deb: build-ucentral-docker-img
 	mv -f docker/deliverables/* docker/
 
 	# Build the final deb file
-	dpkg-buildpackage -rfakeroot -b -us -uc -j --target-arch arm64
+	dpkg-buildpackage -rfakeroot -b -us -uc -j
 
 	popd
 	mv ucentral-client*deb ./output/

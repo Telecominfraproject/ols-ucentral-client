@@ -7,7 +7,7 @@ Standards-Version: 1.0
 
 
 Package: ucentral-client
-Architecture: arm64
+Architecture: any
 Depends: 
 Description: This package contains uCentral client container for SONiC project.
 Replaces: sonic-device-data
