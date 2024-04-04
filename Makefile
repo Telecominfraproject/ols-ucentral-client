@@ -7,6 +7,9 @@ IMG_ID := "ucentral-client-build-env"
 IMG_TAG := $(shell cat Dockerfile | sha1sum | awk '{print substr($$1,0,11);}')
 CONTAINER_NAME := "ucentral_client_build_env"
 
+DPKG_IMAGE := "dpkg-builder:latest"
+DPKG_CONTAINER_NAME := "dpkg_build_env"
+
 .PHONY: all clean build-host-env build-final-deb build-ucentral-docker-img run-host-env run-ucentral-docker-img
 
 all: build-host-env build-ucentral-app build-ucentral-docker-img build-final-deb
@@ -81,11 +84,39 @@ build-final-deb: build-ucentral-docker-img
 	@echo
 	@echo "ucentral client deb pkg is available under ./output/ dir"
 
+build-arm64-deb: build-ucentral-docker-img
+	docker inspect --type=image ${DPKG_IMAGE} >/dev/null 2>&1 || \
+		docker build --file dpkg-builder.Dockerfile --tag ${DPKG_IMAGE} .
+
+	docker container stop ${DPKG_CONTAINER_NAME} > /dev/null 2>&1 || true;
+	docker container rm ${DPKG_CONTAINER_NAME} > /dev/null 2>&1 || true;
+
+	docker container run -d -t \
+		--name ${DPKG_CONTAINER_NAME} \
+		--platform linux/arm64 \
+		-v $(realpath ./):$(realpath ./) \
+		-w $(realpath ./src/) \
+		--user $(shell id -u):$(shell id -g) \
+		--tmpfs /tmp \
+		${DPKG_IMAGE} \
+		bash
+
+	docker exec -t ${DPKG_CONTAINER_NAME} dpkg-buildpackage -rfakeroot -b -us -uc -j
+
+	mv ucentral-client*deb ./output/
+	mv src/docker-ucentral-client.gz ./output/
+
+	docker container stop ${DPKG_CONTAINER_NAME} > /dev/null 2>&1 || true;
+	docker container rm ${DPKG_CONTAINER_NAME} > /dev/null 2>&1 || true;
+
 clean:
 	docker container stop ${CONTAINER_NAME} > /dev/null 2>&1 || true;
 	docker container rm ${CONTAINER_NAME} > /dev/null 2>&1 || true;
+	docker container stop ${DPKG_CONTAINER_NAME} > /dev/null 2>&1 || true;
+	docker container rm ${DPKG_CONTAINER_NAME} > /dev/null 2>&1 || true;
 	docker rmi ucentral-client 2>/dev/null || true;
 	docker rmi ${IMG_ID}:${IMG_TAG} 2>/dev/null || true;
+	docker rmi ${DPKG_IMAGE} 2>/dev/null || true;
 	rm -rf output 2>/dev/null || true;
 	rm -rf docker 2>/dev/null || true;
 	rm -rf src/docker/deliverables || true;
