@@ -2215,6 +2215,10 @@ int plat_vlan_list_set(BITMAP_DECLARE(vlans_to_cfg, GNMA_MAX_VLANS))
 		vid = (uint16_t)i;
 		if (BITMAP_TEST_BIT(vlans_to_cfg, vid))
 			continue;
+		if (vid == FIRST_VLAN) {
+			UC_LOG_DBG("Skipping configuration for default vlan\n");
+			continue;
+		}
 		UC_LOG_DBG("Removing vid <%" PRIu16
 			   "> (not in cfg, present on system)\n",
 			   vid);
@@ -3670,7 +3674,12 @@ static int config_vlan_ipv4_apply(struct plat_cfg *cfg)
 	int ret;
 
 	BITMAP_FOR_EACH_BIT_SET(i, cfg->vlans_to_cfg, MAX_VLANS) {
+		if (i == FIRST_VLAN) {
+			UC_LOG_DBG("Skipping L3 configuration for default vlan\n");
+			continue;
+		}
 		UC_LOG_DBG("Configuring vlan ip <%u>\n", (uint16_t)i);
+
 		ret = plat_vlan_rif_set(cfg->vlans[i].id, &cfg->vlans[i].ipv4);
 		if (ret) {
 			UC_LOG_DBG("Failed to set VLAN rif.\n");
@@ -3720,6 +3729,10 @@ static int config_vlan_dhcp_relay_apply(struct plat_cfg *cfg)
 		/* Iterate only over configured vlans. */
 		if (!plat_state.vlans[i].dhcp_relay.enabled)
 			continue;
+		if (i == FIRST_VLAN) {
+			UC_LOG_DBG("Skipping DHCP configuration for default vlan");
+			continue;
+		}
 
 		/* If relay was enabled prior, and new cfg wants to disabled it -
 		 * remove relay address from this iface.
@@ -3756,6 +3769,10 @@ static int config_vlan_dhcp_relay_apply(struct plat_cfg *cfg)
 		/* Iterate only over vlans to-be-configured. */
 		if (!cfg->vlans[i].dhcp.relay.enabled)
 			continue;
+		if (i == FIRST_VLAN) {
+			UC_LOG_DBG("Skipping DHCP configuration for default vlan");
+			continue;
+		}
 
 		UC_LOG_DBG("Configuring vlan dhcp-relay <%u>\n", (uint16_t)i);
 		UC_LOG_DBG("adding dhcp-relay helper addr <%s>\n",
