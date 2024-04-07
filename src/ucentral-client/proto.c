@@ -1524,44 +1524,25 @@ err:
 
 static int cfg_services_parse(cJSON *services, struct plat_cfg *cfg)
 {
-	cJSON *s, *item;
+	cJSON *s;
 
 	/* TODO(vb) clarify multiple log servers */
 	s = cJSON_GetObjectItemCaseSensitive(services, "log");
 	if (s) {
-		if (cJSON_IsObject(s)) {
-			cfg->log_cfg = malloc(sizeof *cfg->log_cfg);
-			if (!cfg->log_cfg) {
-				UC_LOG_ERR("malloc failed");
-				return -1;
-			}
-			*cfg->log_cfg = (struct plat_syslog_cfg){ 0 };
-			if (cfg_service_log_parse(s, cfg->log_cfg))
-				return -1;
-			cfg->log_cfg_cnt = 1;
-		} else if (cJSON_IsArray(s)) {
-			if (cJSON_GetArraySize(s)) {
-				cfg->log_cfg = malloc(cJSON_GetArraySize(s) *
-						      sizeof *cfg->log_cfg);
-				if (!cfg->log_cfg) {
-					UC_LOG_ERR("malloc failed");
-					return -1;
-				}
-			}
-			cJSON_ArrayForEach(item, s)
-			{
-				struct plat_syslog_cfg *l =
-					&cfg->log_cfg[cfg->log_cfg_cnt];
-				*l = (struct plat_syslog_cfg){ 0 };
-				if (cfg_service_log_parse(item, l)) {
-					return -1;
-				}
-				++cfg->log_cfg_cnt;
-			}
-		} else {
+		if (!cJSON_IsObject(s)) {
 			UC_LOG_ERR("services.log must be an object");
 			return -1;
 		}
+
+		cfg->log_cfg = malloc(sizeof *cfg->log_cfg);
+		if (!cfg->log_cfg) {
+			UC_LOG_ERR("malloc failed");
+			return -1;
+		}
+		*cfg->log_cfg = (struct plat_syslog_cfg){ 0 };
+		if (cfg_service_log_parse(s, cfg->log_cfg))
+			return -1;
+		cfg->log_cfg_cnt = 1;
 	}
 
 	/* Set default values in case if no cfg supplied */
@@ -1737,7 +1718,7 @@ static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 		cfg->stp_instances[id].forward_delay = 15;
 		cfg->stp_instances[id].hello_time = 2;
 		cfg->stp_instances[id].max_age = 20;
-		cfg->stp_instances[id].priority = 20;
+		cfg->stp_instances[id].priority = 32768;
 	}
 
 	arr = cJSON_GetObjectItemCaseSensitive(obj, "instances");

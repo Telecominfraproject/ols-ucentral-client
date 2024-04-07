@@ -784,7 +784,7 @@ int main(void)
 	plat_revision_get(client.firmware, sizeof(client.firmware));
 
 	if ((gw_host = getenv("UC_GATEWAY_ADDRESS"))) {
-		gw_host = strdup(gw_host);
+		client.server = strdup(gw_host);
 	} else {
 		while (1) {
 			if (uc_loop_interrupted_get())

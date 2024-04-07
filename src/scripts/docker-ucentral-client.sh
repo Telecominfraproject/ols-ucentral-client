@@ -65,6 +65,7 @@ start() {
 			$(sonic-dockerlimits -sys ucentral_client) \
 			--net=$NET \
 			-e RUNTIME_OWNER=local \
+			-e UC_GATEWAY_ADDRESS=gw.dev01.apps.shastacloud.com \
 			--uts=host \
 			-v /etc/localtime:/etc/localtime:ro \
 			--tmpfs /tmp \
