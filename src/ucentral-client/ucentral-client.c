@@ -839,8 +839,10 @@ int main(void)
 		lws_service_tsi(context, 0, 0);
 
 		if (conn_successfull) {
-			if (password_len)
+			if (password_len) {
 				deviceupdate_send(password);
+				password_len = 0;
+			}
 			if (!reboot_reason_sent) {
 				device_rebootcause_send();
 				reboot_reason_sent = true;
