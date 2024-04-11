@@ -22,6 +22,10 @@ COPY /ucentral-client /usr/local/bin/ucentral-client
 COPY /rtty /usr/local/bin/
 COPY /lib* /usr/local/lib/
 
+# Install root CA certificate for development purposes
+COPY /ca-cert.pem /usr/local/share/ca-certificates/ca-cert.crt
+RUN update-ca-certificates
+
 RUN ldconfig
 RUN ls -l /usr/local/bin/ucentral-client
 
