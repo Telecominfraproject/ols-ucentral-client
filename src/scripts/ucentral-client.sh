@@ -78,6 +78,17 @@ wait() {
     # This also means, that we won't start up untill this URI is accessible.
     while ! curl clientauth.one.digicert.com &>/dev/null; do sleep 1; done
 
+    # Enable DHCP trusting for uplink (Vlan1) iface
+    # It's needed to forward DHCP Discover (and replies) from/to DHCP server
+    # of (untrusted) port clients (EthernetX) of the same Vlan (Vlan1).
+    # Without this fix underlying Vlan members wouldn't be able to receive
+    # DHCP-lease IP
+    trusted_dhcp_if=`sudo -u admin -- bash "sonic-cli" "-c" "show ip arp" | grep -Eo "Ethernet[0-9]+"`
+    sudo -u admin -- "echo" "configure terminal" > /home/admin/fixup_scr.script
+    sudo -u admin -- "echo" "interface $trusted_dhcp_if" >> /home/admin/fixup_scr.script
+    sudo -u admin -- "echo" "ip dhcp snooping trust" >> /home/admin/fixup_scr.script
+    sudo -u admin -- bash "sonic-cli" "/home/admin/fixup_scr.script"
+
     # change admin password
     # NOTE: This could lead to access escalation, if you got image from running device
     if ! test -f /var/lib/ucentral/admin-cred.changed; then

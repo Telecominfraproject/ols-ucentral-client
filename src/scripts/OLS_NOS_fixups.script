@@ -7,3 +7,5 @@ ntp authenticate
 ip dhcp snooping
 ip dhcp snooping Vlan1
 ntp source-interface Vlan 1
+interface range Ethernet 0-100
+no ip dhcp snooping trust
