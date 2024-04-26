@@ -46,16 +46,16 @@ struct ucentral_router {
 
 struct ucentral_router_fib_db_apply_args {
 	/* plat whould check info to determine if node channged */
-	int (*upd_cb)(const struct ucentral_router_fib_node *old,
+	int (*upd_cb)(const struct ucentral_router_fib_node *old_node,
 		      int olen,
-		      const struct ucentral_router_fib_node *new,
+		      const struct ucentral_router_fib_node *new_node,
 		      int nlen,
 		      void *arg);
 	/* prefix = new, info = new */
-	int (*add_cb)(const struct ucentral_router_fib_node *new,
+	int (*add_cb)(const struct ucentral_router_fib_node *new_node,
 		      int len, void *arg);
 	/* prefix = none */
-	int (*del_cb)(const struct ucentral_router_fib_node *old,
+	int (*del_cb)(const struct ucentral_router_fib_node *old_node,
 		      int len, void *arg);
 	void *arg;
 };
