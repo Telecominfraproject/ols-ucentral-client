@@ -1,9 +1,34 @@
-#include <cstdio>
+#include <libs/httplib.h>
+#include <libs/json.hpp>
+
+#include <string>
+#include <cstring>
 
 #include <ucentral-platform.h>
 #include <ucentral-log.h>
 
 #define UNUSED_PARAM(param) (void)((param))
+
+using nlohmann::json;
+
+namespace {
+const std::string api_address = "http://10.0.2.128:8090";
+
+bool verify_response(const httplib::Result &result, bool expect_ok = true)
+{
+	if (!result)
+		return false;
+
+	if (expect_ok && result->status != 200)
+		return false;
+
+	// Check if content type header starts with the specified type
+	if (result->get_header_value("Content-Type").rfind("application/json", 0) != 0)
+		return false;
+
+	return true;
+}
+}
 
 int plat_init(void)
 {
@@ -12,7 +37,31 @@ int plat_init(void)
 
 int plat_info_get(struct plat_platform_info *info)
 {
-	UNUSED_PARAM(info);
+	httplib::Client client{api_address};
+
+	auto result = client.Get("/v1/config/devicemetadata");
+
+	if (!verify_response(result))
+		return -1;
+
+	const json response = json::parse(result->body, nullptr, false);
+
+	if (response.is_discarded())
+		return -1;
+
+	*info = {};
+
+	auto copy_from_json = [](const json &obj, char *dest, std::size_t dest_size) {
+		std::strncpy(
+			dest,
+			obj.template get<std::string>().c_str(),
+			dest_size > 0 ? dest_size - 1 : 0);
+	};
+
+	copy_from_json(response["platform"], info->platform, std::size(info->platform));
+	copy_from_json(response["hwsku"], info->hwsku, std::size(info->hwsku));
+	copy_from_json(response["mac_address"], info->mac, std::size(info->mac));
+
 	return 0;
 }
 
