@@ -27,3 +27,5 @@ set_target_properties(larch-sonic PROPERTIES
     OUTPUT_NAME "plat"
     ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}
 )
+
+add_custom_target(plat.a DEPENDS larch-sonic)
