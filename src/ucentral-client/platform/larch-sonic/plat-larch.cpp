@@ -14,6 +14,7 @@
 #include <ucentral-platform.h>
 
 #include <cstring>
+#include <functional> // std::function
 #include <memory>
 #include <string>
 #include <utility> // std::move
@@ -37,8 +38,10 @@ int plat_init(void)
 {
 	state = std::make_unique<platform_state>();
 
+	auto verifier = grpc::experimental::ExternalCertificateVerifier::Create<certificate_verifier>();
 	grpc::experimental::TlsChannelCredentialsOptions options;
 	options.set_verify_server_certs(false);
+	options.set_certificate_verifier(verifier);
 	options.set_check_call_host(false);
 	auto credentials = grpc::experimental::TlsCredentials(options);
 
