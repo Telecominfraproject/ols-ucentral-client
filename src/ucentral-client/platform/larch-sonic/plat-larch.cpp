@@ -54,6 +54,11 @@ const std::string api_address = "http://127.0.0.1:8090";
 
 thread_local std::unique_ptr<platform_state> state;
 
+/**
+ * Get value by specified path.
+ *
+ * @return Optional containing the response if operation was successful, nullopt otherwise
+ */
 std::optional<std::string> gnmi_get(const std::string &yang_path)
 {
 	gnmi::GetRequest greq;
@@ -100,6 +105,33 @@ std::optional<std::string> gnmi_get(const std::string &yang_path)
 	}
 
 	return value.json_ietf_val();
+}
+
+/**
+ * Set the value by specified path.
+ *
+ * @return True if operation is successful, false otherwise
+ */
+bool gnmi_set(const std::string &yang_path, const std::string &json_data)
+{
+	gnmi::SetRequest greq;
+	gnmi::SetResponse gres;
+
+	gnmi::Update *update = greq.add_update();
+	convert_yang_path_to_proto(yang_path, update->mutable_path());
+	update->mutable_val()->set_json_ietf_val(json_data);
+
+	grpc::ClientContext context;
+	const grpc::Status status = state->gnmi_stub->Set(&context, greq, &gres);
+
+	if (!status.ok())
+	{
+		std::cerr << "Set operation wasn't successful: " << status.error_message()
+				  << "; error code " << status.error_code() << std::endl;
+		return false;
+	}
+
+	return true;
 }
 }
 
