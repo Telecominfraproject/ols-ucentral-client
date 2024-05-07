@@ -1,37 +1,49 @@
+#include <utils.hpp>
+
+#include <gnmi.grpc.pb.h>
+#include <gnmi.pb.h>
+
+#include <grpc++/alarm.h>
+#include <grpc++/create_channel.h>
+#include <grpc++/security/credentials.h>
+#include <grpc/grpc.h>
 #include <libs/httplib.h>
 #include <libs/json.hpp>
 
-#include <string>
-#include <cstring>
-
-#include <ucentral-platform.h>
 #include <ucentral-log.h>
+#include <ucentral-platform.h>
+
+#include <cstring>
+#include <memory>
+#include <string>
 
 #define UNUSED_PARAM(param) (void)((param))
 
 using nlohmann::json;
 
+struct platform_state {
+	std::shared_ptr<grpc::ChannelInterface> channel;
+	std::unique_ptr<gnmi::gNMI::Stub> gnmi_stub;
+};
+
 namespace {
 const std::string api_address = "http://10.0.2.128:8090";
 
-bool verify_response(const httplib::Result &result, bool expect_ok = true)
-{
-	if (!result)
-		return false;
-
-	if (expect_ok && result->status != 200)
-		return false;
-
-	// Check if content type header starts with the specified type
-	if (result->get_header_value("Content-Type").rfind("application/json", 0) != 0)
-		return false;
-
-	return true;
-}
+thread_local std::unique_ptr<platform_state> state;
 }
 
 int plat_init(void)
 {
+	state = std::make_unique<platform_state>();
+
+	grpc::experimental::TlsChannelCredentialsOptions options;
+	options.set_verify_server_certs(false);
+	options.set_check_call_host(false);
+	auto credentials = grpc::experimental::TlsCredentials(options);
+
+	state->channel = grpc::CreateChannel("127.0.0.1:8080", credentials);
+	state->gnmi_stub = gnmi::gNMI::NewStub(state->channel);
+
 	return 0;
 }
 

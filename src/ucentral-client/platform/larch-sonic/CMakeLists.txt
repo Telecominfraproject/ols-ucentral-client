@@ -10,6 +10,7 @@ add_subdirectory(protos)
 add_library(larch-sonic
     STATIC
         "plat-larch.cpp"
+        "utils.cpp"
 )
 
 target_compile_features(larch-sonic PRIVATE cxx_std_17)
