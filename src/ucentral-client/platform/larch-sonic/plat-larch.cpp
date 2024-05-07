@@ -15,9 +15,11 @@
 
 #include <cstring>
 #include <functional> // std::function
+#include <iostream>
 #include <memory>
 #include <string>
 #include <utility> // std::move
+#include <optional>
 
 #define UNUSED_PARAM(param) (void)((param))
 
@@ -28,10 +30,77 @@ struct platform_state {
 	std::unique_ptr<gnmi::gNMI::Stub> gnmi_stub;
 };
 
+/**
+ * Verifier that marks all the certificates as valid.
+*/
+class certificate_verifier
+    : public grpc::experimental::ExternalCertificateVerifier {
+ public:
+  bool Verify(grpc::experimental::TlsCustomVerificationCheckRequest* request,
+              std::function<void(grpc::Status)> callback,
+              grpc::Status* sync_status) override {
+	  (void)request;
+	  (void)callback;
+	  *sync_status = grpc::Status(grpc::StatusCode::OK, "");
+	  return true;
+  }
+
+  void Cancel(grpc::experimental::TlsCustomVerificationCheckRequest*) override {
+  }
+};
+
 namespace {
 const std::string api_address = "http://127.0.0.1:8090";
 
 thread_local std::unique_ptr<platform_state> state;
+
+std::optional<std::string> gnmi_get(const std::string &yang_path)
+{
+	gnmi::GetRequest greq;
+	greq.set_encoding(gnmi::JSON_IETF);
+
+	convert_yang_path_to_proto(yang_path, greq.add_path());
+
+	grpc::ClientContext context;
+	gnmi::GetResponse gres;
+	const grpc::Status status = state->gnmi_stub->Get(&context, greq, &gres);
+
+	if (!status.ok())
+	{
+		std::cerr << "Get operation wasn't successful: " << status.error_message()
+				  << "; error code " << status.error_code() << std::endl;
+		return {};
+	}
+
+	if (gres.notification_size() != 1)
+	{
+		std::cerr << "Unsupported notification size" << std::endl;
+		return {};
+	}
+
+	gnmi::Notification notification = gres.notification(0);
+	if (notification.update_size() != 1)
+	{
+		std::cerr << "Unsupported update size" << std::endl;
+		return {};
+	}
+
+	gnmi::Update update = notification.update(0);
+	if (!update.has_val())
+	{
+		std::cerr << "Empty value" << std::endl;
+		return {};
+	}
+
+	gnmi::TypedValue value = update.val();
+	if (!value.has_json_ietf_val())
+	{
+		std::cerr << "Empty JSON value" << std::endl;
+		return {};
+	}
+
+	return value.json_ietf_val();
+}
 }
 
 int plat_init(void)
