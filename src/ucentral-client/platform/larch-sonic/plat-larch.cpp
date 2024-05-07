@@ -27,7 +27,7 @@ struct platform_state {
 };
 
 namespace {
-const std::string api_address = "http://10.0.2.128:8090";
+const std::string api_address = "http://127.0.0.1:8090";
 
 thread_local std::unique_ptr<platform_state> state;
 }
