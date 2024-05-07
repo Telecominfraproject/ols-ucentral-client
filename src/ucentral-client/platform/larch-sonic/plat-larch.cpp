@@ -16,6 +16,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility> // std::move
 
 #define UNUSED_PARAM(param) (void)((param))
 
@@ -41,7 +42,7 @@ int plat_init(void)
 	options.set_check_call_host(false);
 	auto credentials = grpc::experimental::TlsCredentials(options);
 
-	state->channel = grpc::CreateChannel("127.0.0.1:8080", credentials);
+	state->channel = grpc::CreateChannel("127.0.0.1:8080", std::move(credentials));
 	state->gnmi_stub = gnmi::gNMI::NewStub(state->channel);
 
 	return 0;
