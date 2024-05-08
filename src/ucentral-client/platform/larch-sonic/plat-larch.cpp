@@ -7,8 +7,8 @@
 #include <grpc++/create_channel.h>
 #include <grpc++/security/credentials.h>
 #include <grpc/grpc.h>
-#include <libs/httplib.h>
-#include <libs/json.hpp>
+#include <httplib.h>
+#include <nlohmann/json.hpp>
 
 #include <ucentral-log.h>
 #include <ucentral-platform.h>

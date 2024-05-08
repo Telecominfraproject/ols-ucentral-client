@@ -5,6 +5,13 @@ project(larch-sonic VERSION 0.1.0 LANGUAGES C CXX)
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 include(grpc)
 
+include(FetchContent)
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
+FetchContent_MakeAvailable(json)
+
+FetchContent_Declare(httplib URL https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.15.3.zip)
+FetchContent_MakeAvailable(httplib)
+
 add_subdirectory(protos)
 
 add_library(larch-sonic
@@ -15,7 +22,12 @@ add_library(larch-sonic
 
 target_compile_features(larch-sonic PRIVATE cxx_std_17)
 
-target_link_libraries(larch-sonic PRIVATE proto-objects)
+target_link_libraries(larch-sonic
+    PRIVATE
+        proto-objects
+        nlohmann_json::nlohmann_json
+        httplib::httplib
+)
 
 target_include_directories(larch-sonic
     PRIVATE

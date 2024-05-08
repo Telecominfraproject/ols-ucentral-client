@@ -1,7 +1,7 @@
 #ifndef LARCH_PLATFORM_UTILS_HPP_
 #define LARCH_PLATFORM_UTILS_HPP_
 
-#include <libs/httplib.h>
+#include <httplib.h>
 
 #include <gnmi.pb.h>
 
