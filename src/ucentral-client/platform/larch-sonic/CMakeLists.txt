@@ -18,6 +18,7 @@ add_library(larch-sonic
     STATIC
         "plat-larch.cpp"
         "utils.cpp"
+        "vlan.cpp"
 )
 
 target_compile_features(larch-sonic PRIVATE cxx_std_17)

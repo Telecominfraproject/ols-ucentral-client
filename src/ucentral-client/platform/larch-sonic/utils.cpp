@@ -1,8 +1,16 @@
+#include <state.hpp>
 #include <utils.hpp>
+
+#include <gnmi.grpc.pb.h>
+#include <gnmi.pb.h>
+
+#include <grpcpp/grpcpp.h>
 
 #include <string>
 #include <vector>
 #include <utility> // std::move
+
+namespace larch {
 
 bool verify_response(const httplib::Result &result, bool expect_ok)
 {
@@ -51,4 +59,76 @@ void convert_yang_path_to_proto(std::string yang_path, gnmi::Path *proto_path)
 		gnmi::PathElem *path_elem = proto_path->add_elem();
 		path_elem->set_name(elem);
 	}
+}
+
+std::optional<std::string> gnmi_get(const std::string &yang_path)
+{
+	gnmi::GetRequest greq;
+	greq.set_encoding(gnmi::JSON_IETF);
+
+	convert_yang_path_to_proto(yang_path, greq.add_path());
+
+	grpc::ClientContext context;
+	gnmi::GetResponse gres;
+	const grpc::Status status = state->gnmi_stub->Get(&context, greq, &gres);
+
+	if (!status.ok())
+	{
+		std::cerr << "Get operation wasn't successful: " << status.error_message()
+				  << "; error code " << status.error_code() << std::endl;
+		return {};
+	}
+
+	if (gres.notification_size() != 1)
+	{
+		std::cerr << "Unsupported notification size" << std::endl;
+		return {};
+	}
+
+	gnmi::Notification notification = gres.notification(0);
+	if (notification.update_size() != 1)
+	{
+		std::cerr << "Unsupported update size" << std::endl;
+		return {};
+	}
+
+	gnmi::Update update = notification.update(0);
+	if (!update.has_val())
+	{
+		std::cerr << "Empty value" << std::endl;
+		return {};
+	}
+
+	gnmi::TypedValue value = update.val();
+	if (!value.has_json_ietf_val())
+	{
+		std::cerr << "Empty JSON value" << std::endl;
+		return {};
+	}
+
+	return value.json_ietf_val();
+}
+
+bool gnmi_set(const std::string &yang_path, const std::string &json_data)
+{
+	gnmi::SetRequest greq;
+	gnmi::SetResponse gres;
+
+	gnmi::Update *update = greq.add_update();
+	convert_yang_path_to_proto(yang_path, update->mutable_path());
+	update->mutable_val()->set_json_ietf_val(json_data);
+
+	grpc::ClientContext context;
+	const grpc::Status status = state->gnmi_stub->Set(&context, greq, &gres);
+
+	if (!status.ok())
+	{
+		std::cerr << "Set operation wasn't successful: " << status.error_message()
+				  << "; error code " << status.error_code() << std::endl;
+		return false;
+	}
+
+	return true;
+}
+
 }
