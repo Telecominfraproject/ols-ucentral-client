@@ -12,6 +12,9 @@ FetchContent_MakeAvailable(json)
 FetchContent_Declare(httplib URL https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.15.3.zip)
 FetchContent_MakeAvailable(httplib)
 
+FetchContent_Declare(GSL GIT_REPOSITORY https://github.com/microsoft/GSL GIT_TAG "v4.0.0" GIT_SHALLOW ON)
+FetchContent_MakeAvailable(GSL)
+
 add_subdirectory(protos)
 
 add_library(larch-sonic
@@ -28,6 +31,7 @@ target_link_libraries(larch-sonic
         proto-objects
         nlohmann_json::nlohmann_json
         httplib::httplib
+        Microsoft.GSL::GSL
 )
 
 target_include_directories(larch-sonic
