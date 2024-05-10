@@ -1,3 +1,6 @@
+#ifndef UCENTRAL_PLATFORM_H
+#define UCENTRAL_PLATFORM_H
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -778,4 +781,6 @@ plat_reboot_cause_get(struct plat_reboot_cause *cause);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

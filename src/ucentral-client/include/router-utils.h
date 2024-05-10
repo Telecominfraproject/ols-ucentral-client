@@ -1,3 +1,6 @@
+#ifndef ROUTER_UTILS_H
+#define ROUTER_UTILS_H
+
 /* Defines router types and utils for them (lookup/etc) */
 
 #include <netinet/in.h>
@@ -92,3 +95,5 @@ int ucentral_router_fib_info_cmp(const struct ucentral_router_fib_info *a,
 	     (DIFF) > 0 ? ++(IOLD) : 0, \
 	     (DIFF) < 0 ? ++(INEW) : 0 \
 	)
+
+#endif
