@@ -6,10 +6,9 @@
 
 #include <grpcpp/grpcpp.h>
 
-#include <array>
 #include <string>
 #include <vector>
-#include <utility> // std::move, std::pair
+#include <utility> // std::move
 
 namespace larch {
 
@@ -110,34 +109,42 @@ std::optional<std::string> gnmi_get(const std::string &yang_path)
 	return value.json_ietf_val();
 }
 
-bool gnmi_set(gsl::span<const std::pair<std::string, std::string>> entries)
+bool gnmi_set(std::string yang_path, std::string json_data)
 {
-	gnmi::SetRequest greq;
-	gnmi::SetResponse gres;
+	gnmi_operation op;
+	op.add_update(yang_path, json_data);
+	return op.execute();
+}
 
-	for (const auto &[yang_path, json_data] : entries)
-	{
-		gnmi::Update *update = greq.add_update();
-		convert_yang_path_to_proto(yang_path, update->mutable_path());
-		update->mutable_val()->set_json_ietf_val(json_data);
-	}
+void gnmi_operation::add_update(const std::string &yang_path, const std::string &json_data)
+{
+	gnmi::Update *update = set_request_.add_update();
+	convert_yang_path_to_proto(yang_path, update->mutable_path());
+	update->mutable_val()->set_json_ietf_val(json_data);
+}
 
+void gnmi_operation::add_delete(const std::string &yang_path)
+{
+	convert_yang_path_to_proto(yang_path, set_request_.add_delete_());
+}
+
+bool gnmi_operation::execute()
+{
 	grpc::ClientContext context;
-	const grpc::Status status = state->gnmi_stub->Set(&context, greq, &gres);
+	gnmi::SetResponse response;
+
+	const grpc::Status status = state->gnmi_stub->Set(&context, set_request_, &response);
+
+	set_request_.Clear();
 
 	if (!status.ok())
 	{
 		std::cerr << "Set operation wasn't successful: " << status.error_message()
-				  << "; error code " << status.error_code() << std::endl;
+			  << "; error code " << status.error_code() << std::endl;
 		return false;
 	}
 
 	return true;
-}
-
-bool gnmi_set(std::string yang_path, std::string json_data)
-{
-	return gnmi_set(std::array{std::pair{std::move(yang_path), std::move(json_data)}});
 }
 
 }
