@@ -135,7 +135,7 @@ bool apply_vlan_config(plat_cfg *cfg)
             {
                 op.add_delete(
                     "/sonic-vlan:sonic-vlan/VLAN_MEMBER/VLAN_MEMBER_LIST[name=Vlan"
-                    + std::to_string(i) + "][ifname=Ethernet" + std::to_string(port_id) + "]");
+                    + std::to_string(i) + "][port=Ethernet" + std::to_string(port_id) + "]");
             }
         }
 
@@ -153,7 +153,7 @@ bool apply_vlan_config(plat_cfg *cfg)
 
             json vlan_member_json;
             vlan_member_json["name"] = "Vlan" + std::to_string(vlan->id);
-            vlan_member_json["ifname"] = "Ethernet" + std::to_string(port_id);
+            vlan_member_json["port"] = "Ethernet" + std::to_string(port_id);
             vlan_member_json["tagging_mode"] = tagged ? "tagged" : "untagged";
 
             json add_vlan_member_json;
