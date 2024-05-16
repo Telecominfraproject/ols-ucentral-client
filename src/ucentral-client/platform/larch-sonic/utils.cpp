@@ -6,9 +6,10 @@
 
 #include <grpcpp/grpcpp.h>
 
+#include <stdexcept>
 #include <string>
-#include <vector>
 #include <utility> // std::move
+#include <vector>
 
 namespace larch {
 
@@ -61,7 +62,7 @@ void convert_yang_path_to_proto(std::string yang_path, gnmi::Path *proto_path)
 	}
 }
 
-std::optional<std::string> gnmi_get(const std::string &yang_path)
+std::string gnmi_get(const std::string &yang_path)
 {
 	gnmi::GetRequest greq;
 	greq.set_encoding(gnmi::JSON_IETF);
@@ -74,46 +75,43 @@ std::optional<std::string> gnmi_get(const std::string &yang_path)
 
 	if (!status.ok())
 	{
-		std::cerr << "Get operation wasn't successful: " << status.error_message()
-				  << "; error code " << status.error_code() << std::endl;
-		return {};
+		throw std::runtime_error{
+		    "gNMI get operation wasn't successful: "
+		    + status.error_message() + "; error code "
+		    + std::to_string(status.error_code())};
 	}
 
 	if (gres.notification_size() != 1)
 	{
-		std::cerr << "Unsupported notification size" << std::endl;
-		return {};
+		throw std::runtime_error{"Unsupported notification size"};
 	}
 
 	gnmi::Notification notification = gres.notification(0);
 	if (notification.update_size() != 1)
 	{
-		std::cerr << "Unsupported update size" << std::endl;
-		return {};
+		throw std::runtime_error{"Unsupported update size"};
 	}
 
 	gnmi::Update update = notification.update(0);
 	if (!update.has_val())
 	{
-		std::cerr << "Empty value" << std::endl;
-		return {};
+		throw std::runtime_error{"Empty value"};
 	}
 
 	gnmi::TypedValue value = update.val();
 	if (!value.has_json_ietf_val())
 	{
-		std::cerr << "Empty JSON value" << std::endl;
-		return {};
+		throw std::runtime_error{"Empty JSON value"};
 	}
 
 	return value.json_ietf_val();
 }
 
-bool gnmi_set(std::string yang_path, std::string json_data)
+void gnmi_set(std::string yang_path, std::string json_data)
 {
 	gnmi_operation op;
 	op.add_update(yang_path, json_data);
-	return op.execute();
+	op.execute();
 }
 
 void gnmi_operation::add_update(const std::string &yang_path, const std::string &json_data)
@@ -128,7 +126,7 @@ void gnmi_operation::add_delete(const std::string &yang_path)
 	convert_yang_path_to_proto(yang_path, set_request_.add_delete_());
 }
 
-bool gnmi_operation::execute()
+void gnmi_operation::execute()
 {
 	grpc::ClientContext context;
 	gnmi::SetResponse response;
@@ -139,12 +137,10 @@ bool gnmi_operation::execute()
 
 	if (!status.ok())
 	{
-		std::cerr << "Set operation wasn't successful: " << status.error_message()
-			  << "; error code " << status.error_code() << std::endl;
-		return false;
+		throw std::runtime_error{
+		    "Set operation wasn't successful: " + status.error_message()
+		    + "; error code " + std::to_string(status.error_code())};
 	}
-
-	return true;
 }
 
 }

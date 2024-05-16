@@ -8,7 +8,6 @@
 #include <bitset>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -19,15 +18,12 @@ using nlohmann::json;
 
 namespace larch {
 
-void delete_nonconfig_vlans(BITMAP_DECLARE(vlans_to_cfg, MAX_VLANS))
+void del_nonconfig_vlans(BITMAP_DECLARE(vlans_to_cfg, MAX_VLANS))
 {
-    const auto vlan_list_result = gnmi_get("/sonic-vlan:sonic-vlan/VLAN/VLAN_LIST");
-
-    if (!vlan_list_result)
-        throw std::runtime_error{"Failed to get VLAN list via gNMI"};
+    const auto vlan_list = gnmi_get("/sonic-vlan:sonic-vlan/VLAN/VLAN_LIST");
 
     gnmi_operation op;
-    const json vlan_list_json = json::parse(*vlan_list_result, nullptr, false);
+    const json vlan_list_json = json::parse(vlan_list, nullptr, false);
 
     for (const auto vlan : vlan_list_json.at("sonic-vlan:VLAN_LIST"))
     {
@@ -45,26 +41,25 @@ void delete_nonconfig_vlans(BITMAP_DECLARE(vlans_to_cfg, MAX_VLANS))
         }
     }
 
-    if (!op.execute())
-        throw std::runtime_error{"Failed to delete VLANs via gNMI"};
+    op.execute();
 }
 
-std::tuple<std::vector<std::bitset<MAX_NUM_OF_PORTS>>, std::vector<std::bitset<MAX_NUM_OF_PORTS>>> get_vlan_membership()
+std::tuple<
+    std::vector<std::bitset<MAX_NUM_OF_PORTS>>,
+    std::vector<std::bitset<MAX_NUM_OF_PORTS>>>
+get_vlan_membership()
 {
     std::vector<std::bitset<MAX_NUM_OF_PORTS>> vlan_membership(MAX_VLANS);
-	std::vector<std::bitset<MAX_NUM_OF_PORTS>> vlan_tagged(MAX_VLANS);
+    std::vector<std::bitset<MAX_NUM_OF_PORTS>> vlan_tagged(MAX_VLANS);
 
-    const auto vlan_membership_result = gnmi_get("/sonic-vlan:sonic-vlan/VLAN_MEMBER/VLAN_MEMBER_LIST");
+    const auto vlan_membership_data = gnmi_get("/sonic-vlan:sonic-vlan/VLAN_MEMBER/VLAN_MEMBER_LIST");
 
-    if (!vlan_membership_result)
-        throw std::runtime_error{"Failed to get VLAN membership data via gNMI"};
-
-    const json vlan_membership_json = json::parse(*vlan_membership_result, nullptr, false);
+    const json vlan_membership_json = json::parse(vlan_membership_data, nullptr, false);
 
     for (const auto entry : vlan_membership_json.at("sonic-vlan:VLAN_MEMBER_LIST"))
     {
-        std::uint16_t vlan_id{};
-        std::uint16_t port_id{};
+        std::uint16_t vlan_id = 0;
+        std::uint16_t port_id = 0;
 
         if (NAME_TO_VLAN(&vlan_id, entry.at("name").template get<std::string>().c_str()) < 1)
         {
@@ -85,16 +80,16 @@ std::tuple<std::vector<std::bitset<MAX_NUM_OF_PORTS>>, std::vector<std::bitset<M
     return {std::move(vlan_membership), std::move(vlan_tagged)};
 }
 
-bool apply_vlan_config(plat_cfg *cfg)
+void apply_vlan_config(plat_cfg *cfg)
 {
     // Step 1: delete VLANs that currently exist, but are not present in the supplied config
-    delete_nonconfig_vlans(cfg->vlans_to_cfg);
+    del_nonconfig_vlans(cfg->vlans_to_cfg);
 
     const auto [vlan_membership, vlan_tagged] = get_vlan_membership();
 
     gnmi_operation op;
 
-    std::size_t i{};
+    std::size_t i = 0;
     BITMAP_FOR_EACH_BIT_SET(i, cfg->vlans_to_cfg, MAX_VLANS)
     {
         const plat_port_vlan *vlan = &cfg->vlans[i];
@@ -105,7 +100,7 @@ bool apply_vlan_config(plat_cfg *cfg)
         vlan_json["name"] = "Vlan" + std::to_string(vlan->id);
 
         json add_vlan_json;
-	    add_vlan_json["sonic-vlan:VLAN_LIST"] = {vlan_json};
+        add_vlan_json["sonic-vlan:VLAN_LIST"] = {vlan_json};
 
         op.add_update("/sonic-vlan:sonic-vlan/VLAN/VLAN_LIST", add_vlan_json.dump());
 
@@ -115,7 +110,7 @@ bool apply_vlan_config(plat_cfg *cfg)
 
         for (plat_vlan_memberlist *pv = vlan->members_list_head; pv; pv = pv->next)
         {
-            std::uint16_t port_id{};
+            std::uint16_t port_id = 0;
 
             if (NAME_TO_PID(&port_id, pv->port.name) < 1)
                 throw std::runtime_error{"Failed to parse port ID"};
@@ -163,7 +158,7 @@ bool apply_vlan_config(plat_cfg *cfg)
         }
     }
 
-	return op.execute();
+    op.execute();
 }
 
 }

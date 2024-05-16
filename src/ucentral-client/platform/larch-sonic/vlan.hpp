@@ -5,7 +5,7 @@
 
 namespace larch {
 
-bool apply_vlan_config(plat_cfg *cfg);
+void apply_vlan_config(plat_cfg *cfg);
 
 }
 

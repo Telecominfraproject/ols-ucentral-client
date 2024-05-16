@@ -15,7 +15,6 @@
 #include <ucentral-platform.h>
 
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <utility> // std::move

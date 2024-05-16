@@ -6,7 +6,6 @@
 
 #include <gnmi.pb.h>
 
-#include <optional>
 #include <string>
 
 namespace larch {
@@ -18,16 +17,16 @@ void convert_yang_path_to_proto(std::string yang_path, gnmi::Path *proto_path);
 /**
  * @brief Get value by specified path.
  *
- * @return Optional containing the response if operation was successful, nullopt otherwise
+ * @throw std::runtime_error If get request wasn't successful
  */
-std::optional<std::string> gnmi_get(const std::string &yang_path);
+std::string gnmi_get(const std::string &yang_path);
 
 /**
  * @brief Convenience wrapper to set only one entry.
  *
- * @return True of operation is successful, false otherwise
+ * @throw std::runtime_error If set request wasn't successful
 */
-bool gnmi_set(std::string yang_path, std::string json_data);
+void gnmi_set(std::string yang_path, std::string json_data);
 
 class gnmi_operation {
 public:
@@ -36,7 +35,12 @@ public:
 	void add_update(const std::string &yang_path, const std::string &json_data);
 	void add_delete(const std::string &yang_path);
 
-	bool execute();
+	/**
+	 * @brief Execute the previously added modifications.
+	 *
+	 * @throw std::runtime_error If set request wasn't successful
+	 */
+	void execute();
 
 protected:
 	gnmi::SetRequest set_request_;
