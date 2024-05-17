@@ -17,6 +17,8 @@
 #include <utility> // std::move
 
 using nlohmann::json;
+using std::bitset;
+using std::vector;
 
 namespace larch {
 
@@ -46,13 +48,11 @@ void del_nonconfig_vlans(BITMAP_DECLARE(vlans_to_cfg, MAX_VLANS))
     op.execute();
 }
 
-std::tuple<
-    std::vector<std::bitset<MAX_NUM_OF_PORTS>>,
-    std::vector<std::bitset<MAX_NUM_OF_PORTS>>>
+std::tuple<vector<bitset<MAX_NUM_OF_PORTS>>, vector<bitset<MAX_NUM_OF_PORTS>>>
 get_vlan_membership()
 {
-    std::vector<std::bitset<MAX_NUM_OF_PORTS>> vlan_membership(MAX_VLANS);
-    std::vector<std::bitset<MAX_NUM_OF_PORTS>> vlan_tagged(MAX_VLANS);
+    vector<bitset<MAX_NUM_OF_PORTS>> vlan_membership(MAX_VLANS);
+    vector<bitset<MAX_NUM_OF_PORTS>> vlan_tagged(MAX_VLANS);
 
     const auto vlan_membership_data = gnmi_get("/sonic-vlan:sonic-vlan/VLAN_MEMBER/VLAN_MEMBER_LIST");
 
@@ -109,8 +109,8 @@ void apply_vlan_config(plat_cfg *cfg)
         op.add_update("/sonic-vlan:sonic-vlan/VLAN/VLAN_LIST", add_vlan_json.dump());
 
         // Step 3: delete VLAN members that are not in the config
-        std::bitset<MAX_NUM_OF_PORTS> vlan_members_config;
-        std::bitset<MAX_NUM_OF_PORTS> vlan_tagged_config;
+        bitset<MAX_NUM_OF_PORTS> vlan_members_config;
+        bitset<MAX_NUM_OF_PORTS> vlan_tagged_config;
 
         for (plat_vlan_memberlist *pv = vlan->members_list_head; pv; pv = pv->next)
         {
