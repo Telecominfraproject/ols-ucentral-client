@@ -3,6 +3,8 @@
 
 #include <nlohmann/json.hpp>
 
+#define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
+#include <ucentral-log.h>
 #include <ucentral-platform.h>
 
 #include <bitset>
@@ -63,11 +65,13 @@ get_vlan_membership()
 
         if (NAME_TO_VLAN(&vlan_id, entry.at("name").template get<std::string>().c_str()) < 1)
         {
+            UC_LOG_ERR("Failed to parse VLAN ID");
             throw std::runtime_error{"Failed to parse VLAN ID"};
         }
 
         if (NAME_TO_PID(&port_id, entry.at("port").template get<std::string>().c_str()) < 1)
         {
+            UC_LOG_ERR("Failed to parse port ID");
             throw std::runtime_error{"Failed to parse port ID"};
         }
 
@@ -113,7 +117,10 @@ void apply_vlan_config(plat_cfg *cfg)
             std::uint16_t port_id = 0;
 
             if (NAME_TO_PID(&port_id, pv->port.name) < 1)
+            {
+                UC_LOG_ERR("Failed to parse port ID");
                 throw std::runtime_error{"Failed to parse port ID"};
+            }
 
             vlan_members_config.set(port_id);
 

@@ -138,8 +138,9 @@ void gnmi_operation::execute()
 	if (!status.ok())
 	{
 		throw std::runtime_error{
-		    "Set operation wasn't successful: " + status.error_message()
-		    + "; error code " + std::to_string(status.error_code())};
+		    "gNMI set operation wasn't successful: "
+			+ status.error_message() + "; error code "
+			+ std::to_string(status.error_code())};
 	}
 }
 

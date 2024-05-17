@@ -11,11 +11,14 @@
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
+#define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
 #include <ucentral-log.h>
 #include <ucentral-platform.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility> // std::move
 
@@ -80,13 +83,25 @@ int plat_info_get(struct plat_platform_info *info)
 
 int plat_reboot(void)
 {
+	std::system("reboot");
 	return 0;
 }
 
 int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 {
-	UNUSED_PARAM(cfg);
+	using namespace larch;
+
 	UNUSED_PARAM(id);
+
+	try
+	{
+		apply_vlan_config(cfg);
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to apply config: %s", ex.what());
+	}
+
 	return 0;
 }
 
