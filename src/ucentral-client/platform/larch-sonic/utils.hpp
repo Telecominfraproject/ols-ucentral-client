@@ -26,7 +26,7 @@ std::string gnmi_get(const std::string &yang_path);
  *
  * @throw std::runtime_error If set request wasn't successful
 */
-void gnmi_set(std::string yang_path, std::string json_data);
+void gnmi_set(const std::string &yang_path, const std::string &json_data);
 
 class gnmi_operation {
 public:

@@ -107,7 +107,7 @@ std::string gnmi_get(const std::string &yang_path)
 	return value.json_ietf_val();
 }
 
-void gnmi_set(std::string yang_path, std::string json_data)
+void gnmi_set(const std::string &yang_path, const std::string &json_data)
 {
 	gnmi_operation op;
 	op.add_update(yang_path, json_data);
