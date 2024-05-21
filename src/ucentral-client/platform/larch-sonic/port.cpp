@@ -20,7 +20,7 @@ namespace larch {
 void set_port_admin_state(std::uint16_t port_id, bool state)
 {
 	json port_state_json;
-	port_state_json["openconfig-interfaces:config"]["enabled"] = true;
+	port_state_json["openconfig-interfaces:config"]["enabled"] = state;
 
 	gnmi_set(
 	    "/openconfig-interfaces:interfaces/interface[name=Ethernet"
