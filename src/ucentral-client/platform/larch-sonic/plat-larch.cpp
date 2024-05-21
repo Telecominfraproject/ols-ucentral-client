@@ -1,3 +1,4 @@
+#include <port.hpp>
 #include <state.hpp>
 #include <utils.hpp>
 #include <vlan.hpp>
@@ -96,10 +97,12 @@ int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 	try
 	{
 		apply_vlan_config(cfg);
+		apply_port_config(cfg);
 	}
 	catch (const std::exception &ex)
 	{
 		UC_LOG_ERR("Failed to apply config: %s", ex.what());
+		return -1;
 	}
 
 	return 0;

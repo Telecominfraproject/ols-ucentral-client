@@ -17,6 +17,7 @@ add_subdirectory(protos)
 add_library(larch-sonic
     STATIC
         "plat-larch.cpp"
+        "port.cpp"
         "utils.cpp"
         "vlan.cpp"
 )
