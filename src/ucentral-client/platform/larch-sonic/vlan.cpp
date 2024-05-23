@@ -27,7 +27,7 @@ void del_nonconfig_vlans(BITMAP_DECLARE(vlans_to_cfg, MAX_VLANS))
     const auto vlan_list = gnmi_get("/sonic-vlan:sonic-vlan/VLAN/VLAN_LIST");
 
     gnmi_operation op;
-    const json vlan_list_json = json::parse(vlan_list, nullptr, false);
+    const json vlan_list_json = json::parse(vlan_list);
 
     for (const auto vlan : vlan_list_json.at("sonic-vlan:VLAN_LIST"))
     {
@@ -56,7 +56,7 @@ get_vlan_membership()
 
     const auto vlan_membership_data = gnmi_get("/sonic-vlan:sonic-vlan/VLAN_MEMBER/VLAN_MEMBER_LIST");
 
-    const json vlan_membership_json = json::parse(vlan_membership_data, nullptr, false);
+    const json vlan_membership_json = json::parse(vlan_membership_data);
 
     for (const auto entry : vlan_membership_json.at("sonic-vlan:VLAN_MEMBER_LIST"))
     {
