@@ -9,7 +9,7 @@ struct ucentral_router_fib_key {
 	/* TODO vrf */
 	struct in_addr prefix;
 	int prefix_len;
-} key;
+};
 
 struct ucentral_router_fib_info { /* Destination info */
 	enum {
