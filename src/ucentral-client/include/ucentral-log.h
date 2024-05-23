@@ -3,6 +3,10 @@
 
 #include <syslog.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef UC_LOG_COMPONENT
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_UNKNOWN
 #endif
@@ -57,5 +61,9 @@ void uc_log(enum uc_log_component c, int sv, const char *fmt, ...);
 		uc_log(UC_LOG_COMPONENT, UC_LOG_SV_CRIT,                \
 		       FMT __VA_OPT__(, ) __VA_ARGS__);                \
 	} while (0)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
