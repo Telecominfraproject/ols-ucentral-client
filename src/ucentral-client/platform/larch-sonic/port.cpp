@@ -12,10 +12,27 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 using nlohmann::json;
 
 namespace larch {
+
+std::vector<port> get_port_list()
+{
+	std::vector<port> port_list;
+
+	const json port_list_json =
+	    json::parse(gnmi_get("/sonic-port:sonic-port/PORT/PORT_LIST"));
+
+	for (const auto port_json : port_list_json.at("sonic-port:PORT_LIST"))
+	{
+		port &p = port_list.emplace_back();
+		p.name = port_json.at("ifname").template get<std::string>();
+	}
+
+	return port_list;
+}
 
 void set_port_admin_state(std::uint16_t port_id, bool state)
 {

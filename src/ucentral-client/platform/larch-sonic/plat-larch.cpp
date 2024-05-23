@@ -231,14 +231,50 @@ int plat_run_script(struct plat_run_script *)
 
 int plat_port_list_get(uint16_t list_size, struct plat_ports_list *ports)
 {
-	UNUSED_PARAM(ports);
-	UNUSED_PARAM(list_size);
+	try
+	{
+		const auto port_list = larch::get_port_list();
+
+		if (port_list.size() < list_size)
+		{
+			UC_LOG_ERR(
+			    "Too much ports requested (requested %hu, while "
+			    "only %zu available)",
+			    list_size,
+			    port_list.size());
+			return -1;
+		}
+
+		auto it = port_list.cbegin();
+		for (plat_ports_list *node = ports; node; node = node->next)
+		{
+			std::strncpy(
+			    node->name,
+			    it++->name.c_str(),
+			    sizeof(node->name) - 1);
+		}
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to get list of ports: %s", ex.what());
+		return -1;
+	}
+
 	return 0;
 }
 
 int plat_port_num_get(uint16_t *num_of_active_ports)
 {
-	UNUSED_PARAM(num_of_active_ports);
+	try
+	{
+		*num_of_active_ports = larch::get_port_list().size();
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to get count of ports: %s", ex.what());
+		return -1;
+	}
+
 	return 0;
 }
 
