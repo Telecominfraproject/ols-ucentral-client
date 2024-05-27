@@ -28,7 +28,7 @@ std::vector<port> get_port_list()
 	for (const auto port_json : port_list_json.at("sonic-port:PORT_LIST"))
 	{
 		port &p = port_list.emplace_back();
-		p.name = port_json.at("ifname").template get<std::string>();
+		p.name = port_json.at("name").template get<std::string>();
 	}
 
 	return port_list;
@@ -80,14 +80,14 @@ void set_port_speed(std::uint16_t port_id, std::uint32_t speed)
 	const std::string port_name = "Ethernet" + std::to_string(port_id);
 
 	json port_speed_json;
-	port_speed_json["ifname"] = port_name;
+	port_speed_json["name"] = port_name;
 	port_speed_json["speed"] = speed_to_str(speed);
 
 	json set_port_speed_json;
 	set_port_speed_json["sonic-port:PORT_LIST"] = {port_speed_json};
 
 	gnmi_set(
-	    "/sonic-port:sonic-port/PORT/PORT_LIST[ifname=" + port_name + "]",
+	    "/sonic-port:sonic-port/PORT/PORT_LIST[name=" + port_name + "]",
 	    set_port_speed_json.dump());
 }
 
