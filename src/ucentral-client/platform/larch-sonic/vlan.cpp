@@ -62,11 +62,9 @@ get_vlan_membership()
 
     const json vlan_membership_json = json::parse(vlan_membership_data);
 
-    // There are no VLAN members
-    if (!vlan_membership_json.contains("sonic-vlan:VLAN_MEMBER_LIST"))
-        return {{}, {}};
-
-    for (const auto entry : vlan_membership_json.at("sonic-vlan:VLAN_MEMBER_LIST"))
+    for (const auto entry : vlan_membership_json.value(
+	     "sonic-vlan:VLAN_MEMBER_LIST",
+	     json::array()))
     {
         std::uint16_t vlan_id = 0;
         std::uint16_t port_id = 0;
