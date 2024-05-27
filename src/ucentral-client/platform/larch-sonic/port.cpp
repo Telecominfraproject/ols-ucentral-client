@@ -20,10 +20,14 @@ namespace larch {
 
 std::vector<port> get_port_list()
 {
-	std::vector<port> port_list;
-
 	const json port_list_json =
 	    json::parse(gnmi_get("/sonic-port:sonic-port/PORT/PORT_LIST"));
+
+	// There are no ports
+	if (!port_list_json.contains("sonic-port:PORT_LIST"))
+		return {};
+
+	std::vector<port> port_list;
 
 	for (const auto port_json : port_list_json.at("sonic-port:PORT_LIST"))
 	{
