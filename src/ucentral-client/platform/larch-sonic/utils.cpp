@@ -111,13 +111,9 @@ void convert_yang_path_to_proto(std::string yang_path, gnmi::Path *proto_path)
 		std::map<std::string, std::string> kv;
 	};
 
-	std::string::size_type pos{};
 	std::vector<path_element> elements;
 
-	while ((pos = yang_path.find('/')) != std::string::npos)
-	{
-		std::string elem_str{yang_path.substr(0, pos)};
-
+	auto process_elem_str = [&elements](std::string elem_str) {
 		if (!elem_str.empty())
 		{
 			const auto open_bracket_pos = elem_str.find('[');
@@ -148,12 +144,18 @@ void convert_yang_path_to_proto(std::string yang_path, gnmi::Path *proto_path)
 				}
 			}
 		}
+	};
+
+	std::string::size_type pos{};
+	while ((pos = yang_path.find('/')) != std::string::npos)
+	{
+		process_elem_str(yang_path.substr(0, pos));
 
 		yang_path.erase(0, pos + 1);
 	}
 
-	// Add the last part of split string
-	elements.push_back({std::move(yang_path), {}});
+	// Process the last part of split string
+	process_elem_str(std::move(yang_path));
 
 	std::string &first_element = elements[0].name;
 	const auto colon_pos = first_element.find(':');
