@@ -48,27 +48,27 @@ void set_port_admin_state(std::uint16_t port_id, bool state)
 
 void set_port_speed(std::uint16_t port_id, std::uint32_t speed)
 {
-	auto speed_to_str = [](std::uint32_t speed) {
+	auto speed_to_num = [](std::uint32_t speed) -> std::uint32_t {
 		switch (speed)
 		{
 			case UCENTRAL_PORT_SPEED_10_E:
-				return "10";
+				return 10;
 			case UCENTRAL_PORT_SPEED_100_E:
-				return "100";
+				return 100;
 			case UCENTRAL_PORT_SPEED_1000_E:
-				return "1000";
+				return 1000;
 			case UCENTRAL_PORT_SPEED_2500_E:
-				return "2500";
+				return 2500;
 			case UCENTRAL_PORT_SPEED_5000_E:
-				return "5000";
+				return 5000;
 			case UCENTRAL_PORT_SPEED_10000_E:
-				return "10000";
+				return 10000;
 			case UCENTRAL_PORT_SPEED_25000_E:
-				return "25000";
+				return 25000;
 			case UCENTRAL_PORT_SPEED_40000_E:
-				return "40000";
+				return 40000;
 			case UCENTRAL_PORT_SPEED_100000_E:
-				return "100000";
+				return 100000;
 
 			default:
 			{
@@ -82,7 +82,7 @@ void set_port_speed(std::uint16_t port_id, std::uint32_t speed)
 
 	json port_speed_json;
 	port_speed_json["name"] = port_name;
-	port_speed_json["speed"] = speed_to_str(speed);
+	port_speed_json["speed"] = speed_to_num(speed);
 
 	json set_port_speed_json;
 	set_port_speed_json["sonic-port:PORT_LIST"] = {port_speed_json};
