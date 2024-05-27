@@ -15,14 +15,13 @@
 #include <ctime>
 #include <fstream>
 #include <iterator> // std::begin, std::size
-#include <stdexcept>
 #include <string>
 
 namespace larch {
 
 static plat_system_info get_system_info()
 {
-	plat_system_info system_info;
+	plat_system_info system_info{};
 
 	// Get load average
 	std::array<double, std::size(system_info.load_average)> load_average{};
