@@ -502,7 +502,6 @@ static int client_config_read(void)
 {
 	long f_devid_size;
 	FILE *f_devid;
-	int i;
 	const char *file_devid = UCENTRAL_CONFIG "dev-id";
 
 	/* UGLY W/A for now: get MAC from cert's CN */
@@ -510,13 +509,30 @@ static int client_config_read(void)
 		UC_LOG_ERR("CN read from cert failed");
 		return -1;
 	}
-	client.serial = &client.CN[10];
 
-	/* Make sure MAC in CN is lowercase (either way redirector won't be
-	 * happy)
-	 */
-	for (i = 10; i < 63; ++i)
-		client.CN[i] = tolower(client.CN[i]);
+	/* Just in case if this function is called multiple times */
+	char *serial_buf = (char *)client.serial;
+
+	if (serial_buf)
+		free(serial_buf);
+
+	const size_t max_serial_size = 64;
+	serial_buf = calloc(max_serial_size, sizeof(char));
+
+	const char *serial_env = getenv("UC_SERIAL");
+
+	snprintf(
+		serial_buf,
+		max_serial_size,
+		"%s",
+		serial_env ? serial_env : "001122334455");
+
+	/* Make sure MAC in serial is lowercase (otherwise redirector won't be
+	 * happy) */
+        for (size_t i = 0; i < strlen(serial_buf); ++i)
+		serial_buf[i] = tolower(serial_buf[i]);
+
+	client.serial = serial_buf;
 
 	f_devid = fopen(file_devid, "rb");
 	if (!f_devid) {
