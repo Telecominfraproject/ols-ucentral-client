@@ -23,7 +23,12 @@
 #include <string>
 #include <utility> // std::move
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #define UNUSED_PARAM(param) (void)((param))
+
+#define RTTY_SESS_MAX (10)
 
 using nlohmann::json;
 
@@ -149,7 +154,75 @@ int plat_factory_default(void)
 
 int plat_rtty(struct plat_rtty_cfg *rtty_cfg)
 {
-	UNUSED_PARAM(rtty_cfg);
+	static pid_t child[RTTY_SESS_MAX];
+	int n, i, e;
+
+	/* wait the dead children */
+	for (i = 0; i < RTTY_SESS_MAX;) {
+		n = 0;
+		if (child[i] > 0) {
+		  while ((n = waitpid(child[i], 0, WNOHANG)) < 0 && errno == EINTR);
+		}
+		if (n <= 0) {
+			++i;
+		} else {
+			if (RTTY_SESS_MAX > 1)
+			  memmove(&child[i], &child[i+1], (RTTY_SESS_MAX-i-1)*sizeof(pid_t));
+			child[RTTY_SESS_MAX - 1] = -1;
+		}
+	}
+
+	/* find a place for a new session */
+	for (i = 0; i < RTTY_SESS_MAX && child[i] > 0; ++i);
+
+	/* if there are RTTY_SESS_MAX sessions, kill the oldest */
+	if (i == RTTY_SESS_MAX) {
+		if (child[0] <= 0) {
+		   UC_LOG_CRIT("child[0]==%jd", (intmax_t)child[0]);
+		} else {
+		  if (kill(child[0], SIGKILL)) {
+			UC_LOG_CRIT("kill failed: %s", strerror(errno));
+		  } else {
+			while ((n = waitpid(child[0], 0, 0)) < 0 && errno == EINTR);
+			if (n < 0)
+				UC_LOG_CRIT("waitpid failed: %s", strerror(errno));
+		  }
+		  if (RTTY_SESS_MAX > 1)
+			memmove(&child[0], &child[1], (RTTY_SESS_MAX - 1) * sizeof(pid_t));
+		}
+		i = RTTY_SESS_MAX - 1;
+	}
+	child[i] = fork();
+
+	if (!child[i]) {
+		char argv[][128] = {
+			"--id=",
+			"--host=",
+			"--port=",
+			"--token="
+			};
+
+		setsid();
+		strcat(argv[0], rtty_cfg->id);
+		strcat(argv[1], rtty_cfg->server);
+		sprintf(argv[2], "--port=%u", rtty_cfg->port);
+		strcat(argv[3], rtty_cfg->token);
+		execl("/usr/local/bin/rtty", "rtty", argv[0], argv[1], argv[2], argv[3], "-d Edgecore Switch device", "-v", "-s", NULL);
+		e = errno;
+		UC_LOG_DBG("execv failed %d\n", e);
+
+		/* If we got to this line, that means execl failed, and
+		 * currently, due to simple design (fork/exec), it's impossible
+		 * to notify  <main> process, that forked child failed to execl.
+		 * TBD: notify about execl fail.
+		 */
+		_exit(e);
+	}
+
+	if (child[i] < (pid_t)0) {
+		return -1;
+	}
+
 	return 0;
 }
 
