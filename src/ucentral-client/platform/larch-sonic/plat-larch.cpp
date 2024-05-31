@@ -207,7 +207,7 @@ int plat_rtty(struct plat_rtty_cfg *rtty_cfg)
 		strcat(argv[1], rtty_cfg->server);
 		sprintf(argv[2], "--port=%u", rtty_cfg->port);
 		strcat(argv[3], rtty_cfg->token);
-		execl("/usr/local/bin/rtty", "rtty", argv[0], argv[1], argv[2], argv[3], "-d Edgecore Switch device", "-v", "-s", NULL);
+		execl("/usr/local/bin/rtty", "rtty", argv[0], argv[1], argv[2], argv[3], "-d Larch Switch device", "-v", "-s", NULL);
 		e = errno;
 		UC_LOG_DBG("execv failed %d\n", e);
 
