@@ -11,11 +11,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio> // std::snprintf, std::sscanf
-#include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include <utility> // std::pair
 #include <vector>
 
 using nlohmann::json;
@@ -180,16 +178,16 @@ void apply_port_config(plat_cfg *cfg)
 	}
 }
 
-std::pair<std::unique_ptr<plat_port_info[]>, std::size_t> get_port_info()
+std::vector<plat_port_info> get_port_info()
 {
 	std::vector<port> ports = get_port_list();
 
-	auto ports_info = std::make_unique<plat_port_info[]>(ports.size());
+	std::vector<plat_port_info> ports_info(ports.size());
 
-	for (std::size_t i = 0; i < ports.size(); ++i)
+	std::size_t i = 0;
+	for (auto &port_info : ports_info)
 	{
-		const std::string &port_name = ports[i].name;
-		plat_port_info &port_info = ports_info[i];
+		const std::string &port_name = ports[i++].name;
 
 		std::snprintf(
 		    port_info.name,
@@ -231,7 +229,7 @@ std::pair<std::unique_ptr<plat_port_info[]>, std::size_t> get_port_info()
 				   + get_counter("out-broadcast-pkts");
 	}
 
-	return {std::move(ports_info), ports.size()};
+	return ports_info;
 }
 
 } // namespace larch
