@@ -2,6 +2,7 @@
 #include <state.hpp>
 #include <utils.hpp>
 #include <vlan.hpp>
+#include <metrics.hpp>
 
 #include <gnmi.grpc.pb.h>
 #include <gnmi.pb.h>

@@ -19,6 +19,7 @@ add_library(larch-sonic
         "metrics.cpp"
         "plat-larch.cpp"
         "port.cpp"
+        "state.cpp"
         "utils.cpp"
         "vlan.cpp"
 )

@@ -1,4 +1,5 @@
 #include <metrics.hpp>
+#include <port.hpp>
 
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
 #include <ucentral-log.h>
@@ -15,7 +16,11 @@
 #include <ctime>
 #include <fstream>
 #include <iterator> // std::begin, std::size
+#include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
+#include <utility> // std::move
 
 namespace larch {
 
@@ -93,13 +98,63 @@ static plat_system_info get_system_info()
 	return system_info;
 }
 
-plat_state_info get_state_info()
+std::pair<plat_state_info, state_data> get_state_info()
 {
 	plat_state_info state_info{};
+	state_data data{};
 
 	state_info.system_info = get_system_info();
 
-	return state_info;
+	// Get port info
+	data.port_info = get_port_info();
+	state_info.port_info = data.port_info.data();
+	state_info.port_info_count = data.port_info.size();
+
+	return {std::move(state_info), std::move(data)};
+}
+
+void periodic::start(
+    std::function<void()> callback,
+    std::chrono::seconds period)
+{
+	if (thread_)
+		stop();
+
+	callback_ = std::move(callback);
+	period_ = std::move(period);
+
+	thread_ =
+	    std::make_unique<std::thread>(std::bind(&periodic::worker, this));
+}
+
+void periodic::stop()
+{
+	if (!thread_)
+		return;
+
+	{
+		std::scoped_lock lk{mut_};
+		stop_signal_ = true;
+	}
+	cv_.notify_one();
+
+	if (thread_->joinable())
+		thread_->join();
+
+	thread_.reset();
+	stop_signal_ = false;
+}
+
+void periodic::worker()
+{
+	std::unique_lock lk{mut_};
+
+	while (!stop_signal_)
+	{
+		callback_();
+
+		cv_.wait_for(lk, period_, [this] { return stop_signal_; });
+	}
 }
 
 } // namespace larch
