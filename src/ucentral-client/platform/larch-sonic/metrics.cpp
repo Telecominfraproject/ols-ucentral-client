@@ -18,6 +18,7 @@
 #include <iterator> // std::begin, std::size
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility> // std::move
@@ -113,6 +114,12 @@ std::pair<plat_state_info, state_data> get_state_info()
 	return {std::move(state_info), std::move(data)};
 }
 
+periodic::~periodic()
+{
+	if (thread_ && thread_->joinable())
+		thread_->join();
+}
+
 void periodic::start(
     std::function<void()> callback,
     std::chrono::seconds period)
@@ -151,7 +158,16 @@ void periodic::worker()
 
 	while (!stop_signal_)
 	{
-		callback_();
+		try
+		{
+			callback_();
+		}
+		catch (const std::exception &ex)
+		{
+			UC_LOG_ERR(
+			    "Error occurred during periodic task execution: %s",
+			    ex.what());
+		}
 
 		cv_.wait_for(lk, period_, [this] { return stop_signal_; });
 	}

@@ -1,3 +1,4 @@
+#include <metrics.hpp>
 #include <state.hpp>
 
 namespace larch {

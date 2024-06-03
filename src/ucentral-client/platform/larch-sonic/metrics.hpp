@@ -34,6 +34,7 @@ std::pair<plat_state_info, state_data> get_state_info();
 class periodic {
 public:
 	periodic() = default;
+	~periodic();
 
 	void start(std::function<void()> callback, std::chrono::seconds period);
 	void stop();

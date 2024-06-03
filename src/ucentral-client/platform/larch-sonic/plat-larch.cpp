@@ -1,8 +1,8 @@
+#include <metrics.hpp>
 #include <port.hpp>
 #include <state.hpp>
 #include <utils.hpp>
 #include <vlan.hpp>
-#include <metrics.hpp>
 
 #include <gnmi.grpc.pb.h>
 #include <gnmi.pb.h>
@@ -17,6 +17,7 @@
 #include <ucentral-log.h>
 #include <ucentral-platform.h>
 
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -52,6 +53,9 @@ int plat_init(void)
 
 	state->channel = grpc::CreateChannel("127.0.0.1:8080", std::move(credentials));
 	state->gnmi_stub = gnmi::gNMI::NewStub(state->channel);
+
+	state->telemetry_periodic = std::make_unique<periodic>();
+	state->state_periodic = std::make_unique<periodic>();
 
 	return 0;
 }
@@ -270,22 +274,70 @@ void plat_health_poll_stop(void)
 
 void plat_telemetry_poll(void (*cb)(struct plat_state_info *), int period_sec)
 {
-	UNUSED_PARAM(period_sec);
-	UNUSED_PARAM(cb);
+	using namespace larch;
+
+	try
+	{
+		state->telemetry_periodic->stop();
+		state->telemetry_periodic->start(
+		    [cb] {
+			    auto [state_info, data] = get_state_info();
+			    cb(&state_info);
+		    },
+		    std::chrono::seconds{period_sec});
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to start telemetry poll: %s", ex.what());
+	}
 }
 
 void plat_telemetry_poll_stop(void)
 {
+	using namespace larch;
+
+	try
+	{
+		state->state_periodic->stop();
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to stop state poll: %s", ex.what());
+	}
 }
 
 void plat_state_poll(void (*cb)(struct plat_state_info *), int period_sec)
 {
-	UNUSED_PARAM(period_sec);
-	UNUSED_PARAM(cb);
+	using namespace larch;
+
+	try
+	{
+		state->state_periodic->stop();
+		state->state_periodic->start(
+		    [cb] {
+			    auto [state_info, data] = get_state_info();
+			    cb(&state_info);
+		    },
+		    std::chrono::seconds{period_sec});
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to start state poll: %s", ex.what());
+	}
 }
 
 void plat_state_poll_stop(void)
 {
+	using namespace larch;
+
+	try
+	{
+		state->state_periodic->stop();
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to stop state poll: %s", ex.what());
+	}
 }
 
 void plat_upgrade_poll(int (*cb)(struct plat_upgrade_info *), int period_sec)
