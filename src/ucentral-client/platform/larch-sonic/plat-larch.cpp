@@ -298,7 +298,7 @@ void plat_telemetry_poll_stop(void)
 
 	try
 	{
-		state->state_periodic->stop();
+		state->telemetry_periodic->stop();
 	}
 	catch (const std::exception &ex)
 	{
