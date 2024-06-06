@@ -29,6 +29,24 @@ bool verify_response(const httplib::Result &result, bool expect_ok)
 	return true;
 }
 
+std::vector<std::string>
+split_string(std::string str, const std::string &delimiter)
+{
+	std::vector<std::string> results;
+
+	std::string::size_type pos{};
+	while ((pos = str.find(delimiter)) != std::string::npos)
+	{
+		results.push_back(str.substr(0, pos));
+		str.erase(0, pos + 1);
+	}
+
+	// Process the last part
+	results.push_back(std::move(str));
+
+	return results;
+}
+
 std::map<std::string, std::string> parse_kv(const std::string &kv_str)
 {
 	enum class parse_state { open_bracket, close_bracket, key, value };

@@ -47,7 +47,7 @@ protected:
 	std::mutex mut_;
 	bool stop_signal_ = false;
 
-	std::chrono::seconds period_;
+	std::chrono::seconds period_{};
 	std::function<void()> callback_;
 };
 

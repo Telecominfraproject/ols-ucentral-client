@@ -7,10 +7,14 @@
 #include <gnmi.pb.h>
 
 #include <string>
+#include <vector>
 
 namespace larch {
 
 bool verify_response(const httplib::Result &result, bool expect_ok = true);
+
+std::vector<std::string>
+split_string(std::string str, const std::string &delimiter);
 
 void convert_yang_path_to_proto(std::string yang_path, gnmi::Path *proto_path);
 

@@ -302,7 +302,7 @@ void plat_telemetry_poll_stop(void)
 	}
 	catch (const std::exception &ex)
 	{
-		UC_LOG_ERR("Failed to stop state poll: %s", ex.what());
+		UC_LOG_ERR("Failed to stop telemetry poll: %s", ex.what());
 	}
 }
 
