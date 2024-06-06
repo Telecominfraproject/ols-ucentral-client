@@ -8,9 +8,13 @@
 #include <ucentral-log.h>
 #include <ucentral-platform.h>
 
+#include <arpa/inet.h>
+
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio> // std::snprintf, std::sscanf
+#include <cstring>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -158,6 +162,90 @@ get_port_counters(const std::string &port_name)
 	return counters;
 }
 
+static plat_port_lldp_peer_info get_lldp_peer_info(const std::string &port_name)
+{
+	const json neighbors_json = json::parse(gnmi_get(
+	    "/openconfig-lldp:lldp/interfaces/interface[name=" + port_name
+	    + "]/neighbors/neighbor[id=" + port_name + "]"));
+
+	const json &peer_info_json =
+	    neighbors_json.at("openconfig-lldp:neighbor").at(0);
+
+	plat_port_lldp_peer_info peer_info{};
+
+	const json &capabilities = peer_info_json.at("capabilities");
+
+	for (const auto &cap : capabilities.at("capability"))
+	{
+		const std::string name =
+		    cap.at("name").template get<std::string>();
+
+		const bool enabled =
+		    cap.at("state").at("enabled").template get<bool>();
+
+		if (name == "openconfig-lldp-types:MAC_BRIDGE")
+			peer_info.capabilities.is_bridge = enabled;
+		else if (name == "openconfig-lldp-types:ROUTER")
+			peer_info.capabilities.is_router = enabled;
+		else if (name == "openconfig-lldp-types:WLAN_ACCESS_POINT")
+			peer_info.capabilities.is_wlan_ap = enabled;
+		else if (name == "openconfig-lldp-types:STATION_ONLY")
+			peer_info.capabilities.is_station = enabled;
+	}
+
+	const json &state = peer_info_json.at("state");
+
+	std::strncpy(
+	    peer_info.name,
+	    state.at("system-name").template get<std::string>().c_str(),
+	    std::size(peer_info.name) - 1);
+	std::strncpy(
+	    peer_info.description,
+	    state.at("system-description").template get<std::string>().c_str(),
+	    std::size(peer_info.description) - 1);
+	std::strncpy(
+	    peer_info.mac,
+	    state.at("chassis-id").template get<std::string>().c_str(),
+	    std::size(peer_info.mac) - 1);
+	std::strncpy(
+	    peer_info.port,
+	    peer_info_json.at("id").template get<std::string>().c_str(),
+	    std::size(peer_info.port) - 1);
+
+	std::string mgmt_address =
+	    state.at("management-address").template get<std::string>();
+
+	// Parse management addresses
+	const auto addresses = split_string(mgmt_address, ",");
+
+	for (std::size_t i = 0; i < UCENTRAL_PORT_LLDP_PEER_INFO_MAX_MGMT_IPS;
+	     ++i)
+	{
+		if (i >= addresses.size())
+			break;
+
+		const char *address = addresses[i].c_str();
+
+		// Verify that retrieved address is either valid IPv4 or IPv6
+		// address. If so - copy it to peer_info.
+		bool success = false;
+		std::array<unsigned char, sizeof(in6_addr)> addr_buf{};
+
+		if (inet_pton(AF_INET, address, addr_buf.data()) == 1)
+			success = true;
+		else if (inet_pton(AF_INET6, address, addr_buf.data()) == 1)
+			success = true;
+
+		if (success)
+			std::strncpy(
+			    peer_info.mgmt_ips[i],
+			    address,
+			    INET6_ADDRSTRLEN);
+	}
+
+	return peer_info;
+}
+
 void apply_port_config(plat_cfg *cfg)
 {
 	std::size_t i = 0;
@@ -227,6 +315,20 @@ std::vector<plat_port_info> get_port_info()
 		stats.tx_packets = get_counter("out-unicast-pkts")
 				   + get_counter("out-multicast-pkts")
 				   + get_counter("out-broadcast-pkts");
+
+		try
+		{
+			port_info.lldp_peer_info =
+			    get_lldp_peer_info(port_name);
+
+			port_info.has_lldp_peer_info = 1;
+		}
+		catch (const std::exception &ex)
+		{
+			UC_LOG_DBG(
+			    "Couldn't get LLDP peer info: %s",
+			    ex.what());
+		}
 	}
 
 	return ports_info;
