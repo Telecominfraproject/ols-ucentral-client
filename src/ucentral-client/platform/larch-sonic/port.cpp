@@ -79,7 +79,7 @@ static void set_port_admin_state(const std::string &port_name, bool state)
 static std::uint32_t get_port_speed(const std::string &port_name)
 {
 	const json port_speed_json = json::parse(gnmi_get(
-	    "/sonic-port:sonic-port/PORT/PORT_LIST[ifname=" + port_name
+	    "/sonic-port:sonic-port/PORT/PORT_LIST[name=" + port_name
 	    + "]/speed"));
 
 	const std::string port_speed_str =
