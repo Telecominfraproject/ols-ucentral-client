@@ -83,18 +83,8 @@ static std::uint32_t get_port_speed(const std::string &port_name)
 	    "/sonic-port:sonic-port/PORT/PORT_LIST[name=" + port_name
 	    + "]/speed"));
 
-	const std::string port_speed_str =
-	    port_speed_json["sonic-port:speed"].template get<std::string>();
-
-	std::uint32_t port_speed = 0;
-
-	if (std::sscanf(port_speed_str.c_str(), "%u", &port_speed) < 1)
-	{
-		UC_LOG_ERR("Failed to parse port speed");
-		throw std::runtime_error{"Failed to parse port speed"};
-	}
-
-	return port_speed;
+	return port_speed_json["sonic-port:speed"]
+	    .template get<std::uint32_t>();
 }
 
 static void set_port_speed(const std::string &port_name, std::uint32_t speed)
