@@ -2,7 +2,6 @@
 #define LARCH_PLATFORM_UTILS_HPP_
 
 #include <grpcpp/grpcpp.h>
-#include <httplib.h>
 
 #include <gnmi.pb.h>
 
@@ -10,8 +9,6 @@
 #include <vector>
 
 namespace larch {
-
-bool verify_response(const httplib::Result &result, bool expect_ok = true);
 
 std::vector<std::string>
 split_string(std::string str, const std::string &delimiter);
