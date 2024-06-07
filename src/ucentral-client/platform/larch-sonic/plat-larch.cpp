@@ -10,7 +10,6 @@
 #include <grpc++/create_channel.h>
 #include <grpc++/security/credentials.h>
 #include <grpc/grpc.h>
-#include <httplib.h>
 #include <nlohmann/json.hpp>
 
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
@@ -33,10 +32,6 @@
 #define RTTY_SESS_MAX (10)
 
 using nlohmann::json;
-
-namespace {
-const std::string api_address = "http://127.0.0.1:8090";
-}
 
 int plat_init(void)
 {
@@ -64,30 +59,42 @@ int plat_info_get(struct plat_platform_info *info)
 {
 	using namespace larch;
 
-	httplib::Client client{api_address};
+	try
+	{
+		const json metadata_json =
+		    json::parse(
+			gnmi_get("/sonic-device_metadata:sonic-device_metadata/"
+				 "DEVICE_METADATA/localhost"))
+			.at("sonic-device_metadata:localhost");
 
-	auto result = client.Get("/v1/config/devicemetadata");
+		auto copy_from_json =
+		    [](const json &obj, char *dest, std::size_t dest_size) {
+			    std::strncpy(
+				dest,
+				obj.template get<std::string>().c_str(),
+				dest_size > 0 ? dest_size - 1 : 0);
+		    };
 
-	if (!verify_response(result))
-		return -1;
+		copy_from_json(
+		    metadata_json.at("platform"),
+		    info->platform,
+		    std::size(info->platform));
 
-	const json response = json::parse(result->body, nullptr, false);
+		copy_from_json(
+		    metadata_json.at("hwsku"),
+		    info->hwsku,
+		    std::size(info->hwsku));
 
-	if (response.is_discarded())
-		return -1;
-
-	*info = {};
-
-	auto copy_from_json = [](const json &obj, char *dest, std::size_t dest_size) {
-		std::strncpy(
-			dest,
-			obj.template get<std::string>().c_str(),
-			dest_size > 0 ? dest_size - 1 : 0);
-	};
-
-	copy_from_json(response["platform"], info->platform, std::size(info->platform));
-	copy_from_json(response["hwsku"], info->hwsku, std::size(info->hwsku));
-	copy_from_json(response["mac_address"], info->mac, std::size(info->mac));
+		copy_from_json(
+		    metadata_json.at("mac"),
+		    info->mac,
+		    std::size(info->mac));
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to get device metadata: %s", ex.what());
+		return 1;
+	}
 
 	return 0;
 }
