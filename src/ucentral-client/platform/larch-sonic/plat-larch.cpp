@@ -16,9 +16,11 @@
 #include <ucentral-log.h>
 #include <ucentral-platform.h>
 
+#include <cerrno>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -32,6 +34,10 @@
 #define RTTY_SESS_MAX (10)
 
 using nlohmann::json;
+
+namespace {
+const std::string config_id_path = "/var/lib/ucentral/saved_config_id";
+}
 
 int plat_init(void)
 {
@@ -127,7 +133,20 @@ int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 
 int plat_config_save(uint64_t id)
 {
-	UNUSED_PARAM(id);
+	// TO-DO: actually save the config, not only config id
+
+	std::ofstream os{config_id_path};
+
+	if (!os)
+	{
+		UC_LOG_ERR(
+		    "Failed to save config id - can't open the file: %s",
+		    std::strerror(errno));
+		return 1;
+	}
+
+	os << id << std::endl;
+
 	return 0;
 }
 
@@ -150,7 +169,24 @@ int plat_metrics_restore(struct plat_metrics_cfg *cfg)
 
 int plat_saved_config_id_get(uint64_t *id)
 {
-	UNUSED_PARAM(id);
+	std::ifstream is{config_id_path};
+
+	if (!is)
+	{
+		UC_LOG_ERR(
+		    "Failed to get saved config id - can't open the file: %s",
+		    std::strerror(errno));
+		return 1;
+	}
+
+	is >> *id;
+
+	if (!is.good())
+	{
+		UC_LOG_ERR("Failed to get saved config id - read failed");
+		return 1;
+	}
+
 	return 0;
 }
 
