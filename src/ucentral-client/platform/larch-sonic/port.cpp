@@ -10,6 +10,7 @@
 
 #include <arpa/inet.h>
 
+#include <algorithm> // std::find_if
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -164,18 +165,38 @@ get_port_counters(const std::string &port_name)
 
 static plat_port_lldp_peer_info get_lldp_peer_info(const std::string &port_name)
 {
-	const json neighbors_json = json::parse(gnmi_get(
+	/*
+	 * Actually, more specific YANG path should be used here
+	 * (/openconfig-lldp:lldp/interfaces/interface[name=<interface>]/neighbors/neighbor[id=<interface>])
+	 * but for some reason gNMI response for this path is empty, so the
+	 * workaround is to make more generic request and filter the response
+	 * and find necessary data.
+	 */
+	const json lldp_json = json::parse(gnmi_get(
 	    "/openconfig-lldp:lldp/interfaces/interface[name=" + port_name
-	    + "]/neighbors/neighbor[id=" + port_name + "]"));
+	    + "]"));
 
-	const json &peer_info_json =
-	    neighbors_json.at("openconfig-lldp:neighbor").at(0);
+	const auto &neighbors = lldp_json.at("openconfig-lldp:interface")
+				    .at(0)
+				    .at("neighbors")
+				    .at("neighbor");
+
+	const auto neighbor_it = std::find_if(
+	    neighbors.cbegin(),
+	    neighbors.cend(),
+	    [&port_name](const auto &neighbor) {
+		    return neighbor.at("id").template get<std::string>()
+			   == port_name;
+	    });
+
+	if (neighbor_it == neighbors.cend())
+	{
+		throw std::runtime_error{"Failed to find LLDP neighbor"};
+	}
 
 	plat_port_lldp_peer_info peer_info{};
 
-	const json &capabilities = peer_info_json.at("capabilities");
-
-	for (const auto &cap : capabilities.at("capability"))
+	for (const auto &cap : neighbor_it->at("capabilities").at("capability"))
 	{
 		const std::string name =
 		    cap.at("name").template get<std::string>();
@@ -193,7 +214,7 @@ static plat_port_lldp_peer_info get_lldp_peer_info(const std::string &port_name)
 			peer_info.capabilities.is_station = enabled;
 	}
 
-	const json &state = peer_info_json.at("state");
+	const json &state = neighbor_it->at("state");
 
 	std::strncpy(
 	    peer_info.name,
@@ -209,14 +230,13 @@ static plat_port_lldp_peer_info get_lldp_peer_info(const std::string &port_name)
 	    std::size(peer_info.mac) - 1);
 	std::strncpy(
 	    peer_info.port,
-	    peer_info_json.at("id").template get<std::string>().c_str(),
+	    neighbor_it->at("id").template get<std::string>().c_str(),
 	    std::size(peer_info.port) - 1);
 
-	std::string mgmt_address =
-	    state.at("management-address").template get<std::string>();
-
 	// Parse management addresses
-	const auto addresses = split_string(mgmt_address, ",");
+	const auto addresses = split_string(
+	    state.at("management-address").template get<std::string>(),
+	    ",");
 
 	for (std::size_t i = 0; i < UCENTRAL_PORT_LLDP_PEER_INFO_MAX_MGMT_IPS;
 	     ++i)
