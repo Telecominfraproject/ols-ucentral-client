@@ -22,7 +22,7 @@ struct platform_state {
 	std::unique_ptr<periodic> state_periodic;
 };
 
-inline thread_local std::unique_ptr<platform_state> state;
+inline std::unique_ptr<platform_state> state;
 
 } // namespace larch
 
