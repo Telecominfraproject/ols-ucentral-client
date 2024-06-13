@@ -9,6 +9,11 @@ include(FetchContent)
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
 FetchContent_MakeAvailable(json)
 
+set(REDIS_PLUS_PLUS_BUILD_TEST OFF)
+set(REDIS_PLUS_PLUS_BUILD_SHARED OFF)
+FetchContent_Declare(redis-plus-plus URL https://github.com/sewenew/redis-plus-plus/archive/refs/tags/1.3.12.zip)
+FetchContent_MakeAvailable(redis-plus-plus)
+
 add_subdirectory(protos)
 
 add_library(larch-sonic
@@ -27,6 +32,7 @@ target_link_libraries(larch-sonic
     PRIVATE
         proto-objects
         nlohmann_json::nlohmann_json
+        redis++::redis++_static
 )
 
 target_include_directories(larch-sonic
@@ -43,6 +49,7 @@ add_custom_target(plat.a
     DEPENDS larch-sonic
     COMMAND ${CMAKE_AR} rcsT ${PROJECT_SOURCE_DIR}/plat.a
         $<TARGET_FILE:larch-sonic>
+        $<TARGET_FILE:redis++::redis++_static>
         /usr/local/lib/libabsl_bad_optional_access.a
         /usr/local/lib/libabsl_bad_variant_access.a
         /usr/local/lib/libabsl_base.a

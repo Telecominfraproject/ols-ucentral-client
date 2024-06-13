@@ -19,7 +19,7 @@ platform/plat.a:
 
 ucentral-client: ucentral-client.o proto.o platform/plat.a \
 				 ucentral-json-parser.o ucentral-log.o router-utils.o base64.o
-	g++ -o $@ $^ -lcurl -lwebsockets -lcjson -lssl -lcrypto -lpthread -ljsoncpp -lresolv
+	g++ -o $@ $^ -lcurl -lwebsockets -lcjson -lssl -lcrypto -lpthread -ljsoncpp -lresolv -lhiredis
 
 test:
 	@echo "========= running unit tests  ========="

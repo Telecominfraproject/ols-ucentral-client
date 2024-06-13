@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   libjsoncpp-dev \
   busybox \
   gdb \
+  libhiredis0.14 \
   && rm -rf /var/lib/apt/lists/*
 
 RUN ln -s /bin/busybox /usr/local/bin/nslookup
