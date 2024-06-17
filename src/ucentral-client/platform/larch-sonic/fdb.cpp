@@ -45,6 +45,8 @@ static std::unordered_map<std::string, std::string> get_port_mapping()
 		constexpr std::size_t offset =
 		    pattern.size() - 1 + oid_prefix.size();
 
+		keys.clear();
+
 		cursor = state->redis_asic->scan(
 		    cursor,
 		    pattern,
@@ -153,6 +155,8 @@ std::vector<plat_learned_mac_addr> get_learned_mac_addrs()
 	{
 		constexpr std::string_view pattern =
 		    "ASIC_STATE:SAI_OBJECT_TYPE_FDB_ENTRY:*";
+
+		keys.clear();
 
 		cursor = state->redis_asic->scan(
 		    cursor,
