@@ -16,7 +16,7 @@ plat.a: $(CMAKE_BUILD_DIR)/Makefile
 # <D - directory part (i.e. path without file) of the first prerequisite
 # @D - directory part of the target
 $(CMAKE_BUILD_DIR)/Makefile: $(CMAKE_BINARY) $(CMAKE_FILE)
-	$(CMAKE_BINARY) -S $(dir $(CMAKE_FILE)) -B $(@D) -G "Unix Makefiles"
+	$(CMAKE_BINARY) -S $(dir $(CMAKE_FILE)) -B $(@D) -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug
 
 $(CMAKE_BINARY):
 	wget -qO- --no-check-certificate "https://github.com/Kitware/CMake/releases/download/v$(CMAKE_VERSION)/cmake-$(CMAKE_VERSION)-linux-$(MACHINE_ARCH).tar.gz" | tar -xz
