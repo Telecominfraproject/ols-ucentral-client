@@ -44,12 +44,25 @@ std::vector<port> get_port_list()
 
 static bool get_port_oper_status(const std::string &port_name)
 {
-	const json port_status_json = json::parse(gnmi_get(
-	    "/openconfig-interfaces:interfaces/interface[name=" + port_name
-	    + "]/state/oper-status"));
+	std::string port_status_data;
+
+	try
+	{
+		port_status_data = gnmi_get(
+		    "/openconfig-interfaces:interfaces/interface[name="
+		    + port_name + "]/state/oper-status");
+	}
+	catch (const gnmi_exception &ex)
+	{
+		// For some reason there's no oper-status field in the gNMI
+		// response when carrier is down
+		return false;
+	}
+
+	const json port_status_json = json::parse(port_status_data);
 
 	const std::string port_status_str =
-	    port_status_json["openconfig-interfaces:oper-status"]
+	    port_status_json.at("openconfig-interfaces:oper-status")
 		.template get<std::string>();
 
 	if (port_status_str == "UP")
