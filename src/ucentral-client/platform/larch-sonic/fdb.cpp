@@ -45,7 +45,7 @@ static std::unordered_map<std::string, std::string> get_port_mapping()
 		constexpr std::size_t offset =
 		    pattern.size() - 1 + oid_prefix.size();
 
-		state->redis_asic->scan(
+		cursor = state->redis_asic->scan(
 		    cursor,
 		    pattern,
 		    std::inserter(keys, keys.begin()));
@@ -109,7 +109,7 @@ static std::optional<std::string> get_vlan_id(const std::string &object_id)
 	const std::string pattern =
 	    "ASIC_STATE:SAI_OBJECT_TYPE_VLAN:" + object_id;
 
-	state->redis_asic->scan(
+	cursor = state->redis_asic->scan(
 	    cursor,
 	    pattern,
 	    std::inserter(keys, keys.begin()));
@@ -145,7 +145,7 @@ std::vector<plat_learned_mac_addr> get_learned_mac_addrs()
 		constexpr std::string_view pattern =
 		    "ASIC_STATE:SAI_OBJECT_TYPE_FDB_ENTRY:*";
 
-		state->redis_asic->scan(
+		cursor = state->redis_asic->scan(
 		    cursor,
 		    pattern,
 		    std::inserter(keys, keys.begin()));
