@@ -311,7 +311,19 @@ std::vector<plat_port_info> get_port_info()
 		port_info.carrier_up = get_port_oper_status(port_name);
 
 		// Get port counters
-		const auto counters = get_port_counters(port_name);
+		std::unordered_map<std::string, std::uint64_t> counters;
+
+		try
+		{
+			counters = get_port_counters(port_name);
+		}
+		catch (const gnmi_exception &ex)
+		{
+			UC_LOG_ERR(
+			    "Couldn't get counters for port %s: %s",
+			    port_name.c_str(),
+			    ex.what());
+		}
 
 		auto get_counter =
 		    [&counters](const std::string &counter) -> std::uint64_t {
