@@ -93,7 +93,7 @@ static std::unordered_map<std::string, std::string> get_interface_mapping()
 		auto node = entry.extract(it++);
 
 		mapping.try_emplace(
-		    std::move(node.mapped()),
+		    node.mapped().substr(oid_prefix.size()),
 		    std::move(node.key()));
 	}
 
