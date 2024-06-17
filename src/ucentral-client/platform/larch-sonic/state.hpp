@@ -8,6 +8,11 @@
 
 #include <memory>
 
+// Forward declarations
+namespace sw::redis {
+class Redis;
+}
+
 namespace larch {
 
 class periodic;
@@ -20,6 +25,9 @@ struct platform_state {
 
 	std::unique_ptr<periodic> telemetry_periodic;
 	std::unique_ptr<periodic> state_periodic;
+
+	std::unique_ptr<sw::redis::Redis> redis_asic;
+	std::unique_ptr<sw::redis::Redis> redis_counters;
 };
 
 inline std::unique_ptr<platform_state> state;

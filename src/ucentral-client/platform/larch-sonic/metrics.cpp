@@ -1,3 +1,4 @@
+#include <fdb.hpp>
 #include <metrics.hpp>
 #include <port.hpp>
 
@@ -110,6 +111,11 @@ std::pair<plat_state_info, state_data> get_state_info()
 	data.port_info = get_port_info();
 	state_info.port_info = data.port_info.data();
 	state_info.port_info_count = data.port_info.size();
+
+	// Get learned MAC addresses
+	data.learned_mac_addrs = get_learned_mac_addrs();
+	state_info.learned_mac_list = data.learned_mac_addrs.data();
+	state_info.learned_mac_list_size = data.learned_mac_addrs.size();
 
 	return {std::move(state_info), std::move(data)};
 }

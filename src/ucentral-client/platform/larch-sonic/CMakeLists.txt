@@ -18,6 +18,7 @@ add_subdirectory(protos)
 
 add_library(larch-sonic
     STATIC
+        "fdb.cpp"
         "metrics.cpp"
         "plat-larch.cpp"
         "port.cpp"

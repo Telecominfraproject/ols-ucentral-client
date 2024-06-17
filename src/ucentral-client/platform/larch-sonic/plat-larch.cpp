@@ -11,6 +11,7 @@
 #include <grpc++/security/credentials.h>
 #include <grpc/grpc.h>
 #include <nlohmann/json.hpp>
+#include <sw/redis++/redis++.h>
 
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
 #include <ucentral-log.h>
@@ -57,6 +58,9 @@ int plat_init(void)
 
 	state->telemetry_periodic = std::make_unique<periodic>();
 	state->state_periodic = std::make_unique<periodic>();
+
+	state->redis_asic = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379/1");
+	state->redis_counters = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379/2");
 
 	return 0;
 }
