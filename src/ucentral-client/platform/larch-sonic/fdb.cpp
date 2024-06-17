@@ -109,24 +109,33 @@ static std::optional<std::string> get_vlan_id(const std::string &object_id)
 	const std::string pattern =
 	    "ASIC_STATE:SAI_OBJECT_TYPE_VLAN:" + object_id;
 
-	cursor = state->redis_asic->scan(
-	    cursor,
-	    pattern,
-	    std::inserter(keys, keys.begin()));
+	// There is no guarantee that the necessary key will be found during the
+	// first scan, so we need to scan until we find it
+	do
+	{
+		keys.clear();
 
-	if (keys.empty())
-		throw std::runtime_error{"Failed to get VLAN by object ID"};
+		cursor = state->redis_asic->scan(
+		    cursor,
+		    pattern,
+		    std::inserter(keys, keys.begin()));
 
-	std::unordered_map<std::string, std::string> entry;
+		if (keys.empty())
+			continue;
 
-	state->redis_asic->hgetall(
-	    *keys.begin(),
-	    std::inserter(entry, entry.begin()));
+		std::unordered_map<std::string, std::string> entry;
 
-	const auto it = entry.find("SAI_VLAN_ATTR_VLAN_ID");
+		state->redis_asic->hgetall(
+		    *keys.begin(),
+		    std::inserter(entry, entry.begin()));
 
-	return it != entry.cend() ? std::make_optional(it->second)
-				  : std::nullopt;
+		const auto it = entry.find("SAI_VLAN_ATTR_VLAN_ID");
+
+		return it != entry.cend() ? std::make_optional(it->second)
+					  : std::nullopt;
+	} while (cursor != 0);
+
+	throw std::runtime_error{"Failed to get VLAN by object ID"};
 }
 
 std::vector<plat_learned_mac_addr> get_learned_mac_addrs()
