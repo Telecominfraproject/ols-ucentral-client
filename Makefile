@@ -62,7 +62,7 @@ build-ucentral-docker-img: build-ucentral-app
 	cp docker/deliverables/ucentral-client docker/
 	cp docker/deliverables/rtty docker/
 	OLDIMG=$$(docker images --format "{{.ID}}" ucentral-client:latest)
-	docker build --file docker/Dockerfile --tag ucentral-client:latest docker
+	docker build --file docker/Dockerfile --tag ucentral-client:latest docker --label com.azure.sonic.manifest="$$(cat docker/manifest.json)"
 	NEWIMG=$$(docker images --format "{{.ID}}" ucentral-client:latest)
 	if [ -n "$$OLDIMG" ] && [ ! "$$OLDIMG" = "$$NEWIMG" ]; then
 		docker image rm $$OLDIMG

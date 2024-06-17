@@ -3,13 +3,18 @@
     "version": "1.0.0",
     "package": {
         "version": "1.0.0",
-        "depends": [],
-        "name": "ucentral_client"
+        "depends": [
+            {
+                "name": "mgmt-framework"         
+            }
+        ],
+        "name": "ucentral_client",
+        "description": "SONiC uCentral client package"
     },
     "service": {
         "name": "ucentral_client",
-        "requires": [],
-        "after": [],
+        "requires": ["mgmt-framework"],
+        "after": ["mgmt-framework"],
         "before": [],
         "dependent-of": [],
         "asic-service": false,
@@ -25,12 +30,26 @@
     },
     "container": {
         "privileged": false,
-        "volumes": [],
+        "volumes": ["/var/lib/ucentral:/var/lib/ucentral"],
+        "mounts": 
+								[
+									{
+										"source": "TCA",
+										"target": "/etc/ucentral",
+										"type": "volume",
+										"volume-opt": 
+										{
+										  "device": "/dev/disk/by-label/ONIE-TIP-CA-CERT",
+										  "type": "ext4",                 
+										  "o": "ro"             
+										}      
+									}
+								],
         "tmpfs": []
     },
     "cli": {
-        "config": "",
-        "show": "",
-        "clear": ""
+        "config": [],
+        "show": [],
+        "clear": []
     }
 }
