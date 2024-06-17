@@ -250,7 +250,9 @@ std::vector<plat_learned_mac_addr> get_learned_mac_addrs()
 			    learned_entry.mac,
 			    PLATFORM_MAC_STR_SIZE,
 			    "%s",
-			    fdb_json.at("mac").template get<std::string>());
+			    fdb_json.at("mac")
+				.template get<std::string>()
+				.c_str());
 
 			learned_mac_addrs.push_back(learned_entry);
 		}
