@@ -5,6 +5,7 @@
 
 #include <gnmi.pb.h>
 
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,10 @@ std::vector<std::string>
 split_string(std::string str, const std::string &delimiter);
 
 void convert_yang_path_to_proto(std::string yang_path, gnmi::Path *proto_path);
+
+class gnmi_exception : public std::runtime_error {
+	using std::runtime_error::runtime_error;
+};
 
 /**
  * @brief Get value by specified path.

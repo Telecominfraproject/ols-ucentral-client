@@ -197,7 +197,7 @@ std::string gnmi_get(const std::string &yang_path)
 
 	if (!status.ok())
 	{
-		throw std::runtime_error{
+		throw gnmi_exception{
 		    "gNMI get operation wasn't successful: "
 		    + status.error_message() + "; error code "
 		    + std::to_string(status.error_code())};
@@ -205,25 +205,25 @@ std::string gnmi_get(const std::string &yang_path)
 
 	if (gres.notification_size() != 1)
 	{
-		throw std::runtime_error{"Unsupported notification size"};
+		throw gnmi_exception{"Unsupported notification size"};
 	}
 
 	gnmi::Notification notification = gres.notification(0);
 	if (notification.update_size() != 1)
 	{
-		throw std::runtime_error{"Unsupported update size"};
+		throw gnmi_exception{"Unsupported update size"};
 	}
 
 	gnmi::Update update = notification.update(0);
 	if (!update.has_val())
 	{
-		throw std::runtime_error{"Empty value"};
+		throw gnmi_exception{"Empty value"};
 	}
 
 	gnmi::TypedValue value = update.val();
 	if (!value.has_json_ietf_val())
 	{
-		throw std::runtime_error{"Empty JSON value"};
+		throw gnmi_exception{"Empty JSON value"};
 	}
 
 	return value.json_ietf_val();
@@ -259,10 +259,10 @@ void gnmi_operation::execute()
 
 	if (!status.ok())
 	{
-		throw std::runtime_error{
+		throw gnmi_exception{
 		    "gNMI set operation wasn't successful: "
-			+ status.error_message() + "; error code "
-			+ std::to_string(status.error_code())};
+		    + status.error_message() + "; error code "
+		    + std::to_string(status.error_code())};
 	}
 }
 
