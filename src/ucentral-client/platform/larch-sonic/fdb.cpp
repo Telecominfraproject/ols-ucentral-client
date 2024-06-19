@@ -85,6 +85,10 @@ static std::unordered_map<std::string, std::string> get_interface_mapping()
 	    "COUNTERS_PORT_NAME_MAP",
 	    std::inserter(entry, entry.begin()));
 
+	state->redis_counters->hgetall(
+	    "COUNTERS_LAG_NAME_MAP",
+	    std::inserter(entry, entry.begin()));
+
 	std::unordered_map<std::string, std::string> mapping;
 
 	for (auto it = entry.cbegin(); it != entry.cend();)
@@ -184,12 +188,10 @@ std::vector<plat_learned_mac_addr> get_learned_mac_addrs()
 			if (port_it == port_mapping.cend())
 				continue;
 
-			std::string interface_name;
-
 			const auto interface_it =
 			    interface_mapping.find(port_it->second);
 
-			interface_name =
+			const std::string interface_name =
 			    (interface_it != interface_mapping.cend())
 				? interface_it->second
 				: port_it->second;
