@@ -1,5 +1,6 @@
 #include <metrics.hpp>
 #include <port.hpp>
+#include <route.hpp>
 #include <state.hpp>
 #include <utils.hpp>
 #include <vlan.hpp>
@@ -16,6 +17,7 @@
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
 #include <ucentral-log.h>
 #include <ucentral-platform.h>
+#include <router-utils.h>
 
 #include <cerrno>
 #include <chrono>
@@ -76,6 +78,30 @@ int plat_init(void)
 
 			state->interfaces_addrs.push_back(
 			    addresses.empty() ? no_address : addresses[0]);
+		}
+
+		/*
+		 * Initialize the router
+		 */
+		ucentral_router_fib_db_free(&state->router);
+
+		auto routes = get_routes(0);
+
+		if (ucentral_router_fib_db_alloc(&state->router, routes.size())
+		    != 0)
+		{
+			UC_LOG_CRIT("Failed to allocate FIB DB");
+			return -1;
+		}
+
+		for (auto &node : routes)
+		{
+			if (ucentral_router_fib_db_append(&state->router, &node)
+			    != 0)
+			{
+				UC_LOG_CRIT("Failed to append entry to FIB DB");
+				return -1;
+			}
 		}
 	}
 	catch (const std::exception &ex)
@@ -147,6 +173,7 @@ int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 	{
 		apply_vlan_config(cfg);
 		apply_port_config(cfg);
+		apply_route_config(cfg);
 	}
 	catch (const std::exception &ex)
 	{

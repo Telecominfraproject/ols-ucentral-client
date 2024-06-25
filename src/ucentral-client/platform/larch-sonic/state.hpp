@@ -6,6 +6,7 @@
 
 #include <grpc++/grpc++.h>
 
+#include <router-utils.h>
 #include <ucentral-platform.h>
 
 #include <memory>
@@ -33,6 +34,7 @@ struct platform_state {
 	std::unique_ptr<sw::redis::Redis> redis_counters;
 
 	std::vector<plat_ipv4> interfaces_addrs;
+	ucentral_router router{};
 };
 
 inline std::unique_ptr<platform_state> state;
