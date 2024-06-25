@@ -125,7 +125,7 @@ int plat_info_get(struct plat_platform_info *info)
 	catch (const std::exception &ex)
 	{
 		UC_LOG_ERR("Failed to get device metadata: %s", ex.what());
-		return 1;
+		return -1;
 	}
 
 	return 0;
@@ -168,7 +168,7 @@ int plat_config_save(uint64_t id)
 		UC_LOG_ERR(
 		    "Failed to save config id - can't open the file: %s",
 		    std::strerror(errno));
-		return 1;
+		return -1;
 	}
 
 	os << id << std::endl;
@@ -202,7 +202,7 @@ int plat_saved_config_id_get(uint64_t *id)
 		UC_LOG_ERR(
 		    "Failed to get saved config id - can't open the file: %s",
 		    std::strerror(errno));
-		return 1;
+		return -1;
 	}
 
 	is >> *id;
@@ -210,7 +210,7 @@ int plat_saved_config_id_get(uint64_t *id)
 	if (!is.good())
 	{
 		UC_LOG_ERR("Failed to get saved config id - read failed");
-		return 1;
+		return -1;
 	}
 
 	return 0;
