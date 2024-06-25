@@ -5,6 +5,10 @@
 
 #include <netinet/in.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct ucentral_router_fib_key {
 	/* TODO vrf */
 	struct in_addr prefix;
@@ -95,5 +99,9 @@ int ucentral_router_fib_info_cmp(const struct ucentral_router_fib_info *a,
 	     (DIFF) > 0 ? ++(IOLD) : 0, \
 	     (DIFF) < 0 ? ++(INEW) : 0 \
 	)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
