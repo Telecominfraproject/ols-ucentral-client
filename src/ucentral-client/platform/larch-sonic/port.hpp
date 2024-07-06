@@ -15,6 +15,8 @@ struct port {
 
 std::vector<port> get_port_list();
 
+std::vector<plat_ipv4> get_port_addresses(const port &p);
+
 void apply_port_config(plat_cfg *cfg);
 
 std::vector<plat_port_info> get_port_info();

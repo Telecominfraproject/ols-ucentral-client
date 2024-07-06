@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility> // std::move
 #include <vector>
 
 using nlohmann::json;
@@ -267,6 +268,60 @@ static plat_port_lldp_peer_info get_lldp_peer_info(const std::string &port_name)
 	}
 
 	return peer_info;
+}
+
+std::vector<plat_ipv4> get_port_addresses(const port &p)
+{
+	// TO-DO: should gnmi_exception be caught (this would mean that there're
+	// no addresses assigned to interface)?
+	const json addresses_json = json::parse(gnmi_get(
+	    "/openconfig-interfaces:interfaces/interface[name=" + p.name
+	    + "]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/"
+	      "addresses"));
+
+	if (!addresses_json.contains("openconfig-if-ip:addresses"))
+		return {};
+
+	std::vector<plat_ipv4> addresses;
+
+	for (const auto &address_json :
+	     addresses_json.at("openconfig-if-ip:addresses")
+		 .value("address", json::array()))
+	{
+		const json &config_json = address_json.at("config");
+
+		const std::string address_str =
+		    config_json.at("ip").template get<std::string>();
+
+		plat_ipv4 address{};
+
+		if (inet_pton(AF_INET, address_str.c_str(), &address.subnet)
+		    != 1)
+		{
+			UC_LOG_ERR(
+			    "Failed to parse interface IP address: %s",
+			    address_str.c_str());
+			continue;
+		}
+
+		address.subnet_len = config_json.at("prefix-length")
+					 .template get<std::int32_t>();
+
+		if (address.subnet_len < 0 || address.subnet_len > 32)
+		{
+			UC_LOG_ERR(
+			    "Incorrect subnet length: %d (address %s)",
+			    address.subnet_len,
+			    address_str.c_str());
+			continue;
+		}
+
+		address.exist = true;
+
+		addresses.push_back(std::move(address));
+	}
+
+	return addresses;
 }
 
 void apply_port_config(plat_cfg *cfg)
