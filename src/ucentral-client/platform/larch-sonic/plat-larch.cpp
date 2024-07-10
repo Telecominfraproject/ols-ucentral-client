@@ -19,6 +19,7 @@
 
 #include <cerrno>
 #include <chrono>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -61,6 +62,27 @@ int plat_init(void)
 
 	state->redis_asic = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379/1");
 	state->redis_counters = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379/2");
+
+	try
+	{
+		/*
+		 * Get the state of interfaces addresses
+		 */
+		const plat_ipv4 no_address{false};
+
+		for (port &p : get_port_list())
+		{
+			const auto addresses = get_port_addresses(p);
+
+			state->interfaces_addrs.push_back(
+			    addresses.empty() ? no_address : addresses[0]);
+		}
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_CRIT("Platform initialization failed: %s", ex.what());
+		return -1;
+	}
 
 	return 0;
 }

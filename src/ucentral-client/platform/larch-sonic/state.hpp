@@ -6,7 +6,10 @@
 
 #include <grpc++/grpc++.h>
 
+#include <ucentral-platform.h>
+
 #include <memory>
+#include <vector>
 
 // Forward declarations
 namespace sw::redis {
@@ -28,6 +31,8 @@ struct platform_state {
 
 	std::unique_ptr<sw::redis::Redis> redis_asic;
 	std::unique_ptr<sw::redis::Redis> redis_counters;
+
+	std::vector<plat_ipv4> interfaces_addrs;
 };
 
 inline std::unique_ptr<platform_state> state;
