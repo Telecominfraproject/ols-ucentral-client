@@ -6,6 +6,9 @@
 
 #include <grpcpp/grpcpp.h>
 
+#include <arpa/inet.h>
+
+#include <array>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -264,6 +267,23 @@ void gnmi_operation::execute()
 		    + status.error_message() + "; error code "
 		    + std::to_string(status.error_code())};
 	}
+}
+
+std::string addr_to_str(const in_addr &address)
+{
+	std::array<char, INET_ADDRSTRLEN> addr_str_buf{};
+
+	if (!inet_ntop(
+		AF_INET,
+		&address,
+		addr_str_buf.data(),
+		addr_str_buf.size()))
+	{
+		throw std::runtime_error{
+		    "Failed to convert binary IP address to string"};
+	}
+
+	return addr_str_buf.data();
 }
 
 }

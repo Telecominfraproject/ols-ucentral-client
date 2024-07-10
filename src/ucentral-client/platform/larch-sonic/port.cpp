@@ -1,4 +1,5 @@
 #include <port.hpp>
+#include <state.hpp>
 #include <utils.hpp>
 
 #include <nlohmann/json.hpp>
@@ -324,6 +325,46 @@ std::vector<plat_ipv4> get_port_addresses(const port &p)
 	return addresses;
 }
 
+static void
+add_port_address(const std::string &port_name, const plat_ipv4 &address)
+{
+	const std::string addr_str = addr_to_str(address.subnet);
+
+	json address_json;
+	address_json["ip"] = addr_str;
+	address_json["config"]["ip"] = addr_str;
+	address_json["config"]["prefix-length"] = address.subnet_len;
+
+	json port_json;
+	port_json["index"] = 0;
+	port_json["openconfig-if-ip:ipv4"]["addresses"]["address"] = {
+	    address_json};
+
+	json add_port_json;
+	add_port_json["openconfig-interfaces:subinterface"] = {port_json};
+
+	gnmi_set(
+	    "/openconfig-interfaces:interfaces/interface[name=" + port_name
+		+ "]/subinterfaces/subinterface",
+	    add_port_json.dump());
+}
+
+static void
+delete_port_address(const std::string &port_name, const plat_ipv4 &address)
+{
+	const std::string addr_str = addr_to_str(address.subnet);
+
+	gnmi_operation op;
+
+	op.add_delete(
+	    "/openconfig-interfaces:interfaces/interface[name=" + port_name
+	    + "]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/"
+	      "addresses/address[ip="
+	    + addr_str + "]");
+
+	op.execute();
+}
+
 void apply_port_config(plat_cfg *cfg)
 {
 	std::size_t i = 0;
@@ -333,13 +374,44 @@ void apply_port_config(plat_cfg *cfg)
 		const plat_port &port = cfg->ports[i];
 
 		const std::string port_name = "Ethernet" + std::to_string(i);
-		const bool state = port.state == UCENTRAL_PORT_ENABLED_E;
+		const bool admin_state = port.state == UCENTRAL_PORT_ENABLED_E;
 
-		set_port_admin_state(port_name, state);
+		set_port_admin_state(port_name, admin_state);
 
-		if (state)
+		if (admin_state)
 		{
 			set_port_speed(port_name, port.speed);
+		}
+
+		/*
+		 * Configure the interface address
+		 */
+		const plat_ipv4 &address = cfg->portsl2[i].ipv4;
+		plat_ipv4 &port_addr = state->interfaces_addrs.at(i);
+
+		if (address.exist)
+		{
+			if (!port_addr.exist
+			    || port_addr.subnet.s_addr != address.subnet.s_addr
+			    || port_addr.subnet_len != address.subnet_len)
+			{
+				if (port_addr.exist)
+				{
+					delete_port_address(
+					    port_name,
+					    port_addr);
+				}
+
+				add_port_address(port_name, address);
+
+				port_addr = address;
+			}
+		}
+		else if (port_addr.exist)
+		{
+			delete_port_address(port_name, port_addr);
+
+			port_addr = plat_ipv4{false};
 		}
 	}
 }

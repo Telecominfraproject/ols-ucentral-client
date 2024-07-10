@@ -5,6 +5,8 @@
 
 #include <gnmi.pb.h>
 
+#include <arpa/inet.h>
+
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -51,6 +53,13 @@ public:
 protected:
 	gnmi::SetRequest set_request_;
 };
+
+/**
+ * @brief Convert address from binary form to text form.
+ *
+ * @throw std::runtime_error If conversion failed
+ */
+std::string addr_to_str(const in_addr &address);
 
 /**
  * @brief Verifier that marks all the certificates as valid.
