@@ -20,6 +20,7 @@ namespace larch {
 struct state_data {
 	std::vector<plat_port_info> port_info;
 	std::vector<plat_learned_mac_addr> learned_mac_addrs;
+	std::vector<plat_gw_address> gw_addresses;
 };
 
 /**

@@ -1,8 +1,10 @@
 #include <route.hpp>
+#include <sai_redis.hpp>
 #include <state.hpp>
 #include <utils.hpp>
 
 #include <nlohmann/json.hpp>
+#include <sw/redis++/redis++.h>
 
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
 #include <router-utils.h>
@@ -13,8 +15,15 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <iterator> // std::inserter
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 using nlohmann::json;
@@ -170,6 +179,127 @@ std::vector<ucentral_router_fib_node> get_routes(std::uint16_t router_id)
 	}
 
 	return routes;
+}
+
+struct router_interface {
+	std::string mac;
+	sai::object_id port_oid;
+};
+
+static std::optional<router_interface>
+parse_router_interface(const sai::object_id &oid)
+{
+	router_interface router_if{};
+
+	std::unordered_map<std::string, std::string> entry;
+
+	state->redis_asic->hgetall(
+	    "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:" + oid,
+	    std::inserter(entry, entry.begin()));
+
+	try
+	{
+		if (entry.at("SAI_ROUTER_INTERFACE_ATTR_TYPE")
+		    != "SAI_ROUTER_INTERFACE_TYPE_PORT")
+		{
+			// Other types are not supported
+			return std::nullopt;
+		}
+
+		router_if.mac =
+		    entry.at("SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS");
+		router_if.port_oid =
+		    entry.at("SAI_ROUTER_INTERFACE_ATTR_PORT_ID");
+	}
+	catch (const std::out_of_range &ex)
+	{
+		return std::nullopt;
+	}
+
+	return router_if;
+}
+
+std::vector<plat_gw_address> get_gw_addresses()
+{
+	const auto port_name_mapping = sai::get_port_name_mapping();
+
+	std::vector<plat_gw_address> gw_addresses;
+
+	std::int64_t cursor = 0;
+	std::unordered_set<std::string> keys;
+
+	do
+	{
+		constexpr std::string_view pattern =
+		    "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*";
+
+		keys.clear();
+
+		cursor = state->redis_asic->scan(
+		    cursor,
+		    pattern,
+		    std::inserter(keys, keys.begin()));
+
+		for (const auto &key : keys)
+		{
+			const json route_json =
+			    json::parse(key.substr(pattern.size() - 1));
+
+			plat_gw_address gw_addr{};
+
+			// Get IP
+			const std::string ip =
+			    route_json.at("dest").template get<std::string>();
+
+			if (inet_pton(AF_INET, ip.c_str(), &gw_addr.ip) != 1)
+			{
+				UC_LOG_ERR(
+				    "Failed to parse GW IP address %s",
+				    ip.c_str());
+				continue;
+			}
+
+			std::unordered_map<std::string, std::string> entry;
+
+			state->redis_asic->hgetall(
+			    key,
+			    std::inserter(entry, entry.begin()));
+
+			const auto router_it =
+			    entry.find("SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID");
+
+			if (router_it == entry.cend())
+				continue;
+
+			auto router_if_opt =
+			    parse_router_interface(router_it->second);
+
+			if (!router_if_opt)
+				continue;
+
+			// Get MAC
+			std::strncpy(
+			    gw_addr.mac,
+			    router_if_opt->mac.c_str(),
+			    std::size(gw_addr.mac) - 1);
+
+			// Get port name
+			const auto port_name_it =
+			    port_name_mapping.find(router_if_opt->port_oid);
+
+			if (port_name_it == port_name_mapping.cend())
+				continue;
+
+			std::strncpy(
+			    gw_addr.port,
+			    port_name_it->second.c_str(),
+			    std::size(gw_addr.port) - 1);
+
+			gw_addresses.push_back(gw_addr);
+		}
+	} while (cursor != 0);
+
+	return gw_addresses;
 }
 
 void apply_route_config(plat_cfg *cfg)

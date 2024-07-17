@@ -20,6 +20,8 @@ void remove_route(
 
 std::vector<ucentral_router_fib_node> get_routes(std::uint16_t router_id);
 
+std::vector<plat_gw_address> get_gw_addresses();
+
 void apply_route_config(plat_cfg *cfg);
 
 } // namespace larch

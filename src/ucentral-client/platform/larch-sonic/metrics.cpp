@@ -1,6 +1,7 @@
 #include <fdb.hpp>
 #include <metrics.hpp>
 #include <port.hpp>
+#include <route.hpp>
 
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
 #include <ucentral-log.h>
@@ -116,6 +117,11 @@ std::pair<plat_state_info, state_data> get_state_info()
 	data.learned_mac_addrs = get_learned_mac_addrs();
 	state_info.learned_mac_list = data.learned_mac_addrs.data();
 	state_info.learned_mac_list_size = data.learned_mac_addrs.size();
+
+	// Get GW addresses
+	data.gw_addresses = get_gw_addresses();
+	state_info.gw_addr_list = data.gw_addresses.data();
+	state_info.gw_addr_list_size = data.gw_addresses.size();
 
 	return {std::move(state_info), std::move(data)};
 }

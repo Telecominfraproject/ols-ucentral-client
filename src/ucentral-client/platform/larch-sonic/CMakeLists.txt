@@ -23,6 +23,7 @@ add_library(larch-sonic
         "plat-larch.cpp"
         "port.cpp"
         "route.cpp"
+        "sai_redis.cpp"
         "state.cpp"
         "utils.cpp"
         "vlan.cpp"
