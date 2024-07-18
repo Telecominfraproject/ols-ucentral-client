@@ -7,6 +7,7 @@
 
 #include <arpa/inet.h>
 
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -79,6 +80,14 @@ public:
 
 	void Cancel(grpc::experimental::TlsCustomVerificationCheckRequest *) override {}
 };
+
+struct cidr {
+	std::string ip_address;
+	std::uint16_t mask;
+};
+
+cidr parse_cidr(const std::string &str);
+
 }
 
 #endif // !LARCH_PLATFORM_UTILS_HPP_

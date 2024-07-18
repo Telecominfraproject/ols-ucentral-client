@@ -13,6 +13,7 @@
 
 #include <arpa/inet.h>
 
+#include <algorithm> // std::find_if
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -221,6 +222,10 @@ parse_router_interface(const sai::object_id &oid)
 
 std::vector<plat_gw_address> get_gw_addresses()
 {
+	// TO-DO: remove this and use state->interfaces_addrs after mergin
+	// interface-addresses PR
+	std::vector<plat_ipv4> interfaces_addrs;
+
 	const auto port_name_mapping = sai::get_port_name_mapping();
 
 	std::vector<plat_gw_address> gw_addresses;
@@ -248,14 +253,54 @@ std::vector<plat_gw_address> get_gw_addresses()
 			plat_gw_address gw_addr{};
 
 			// Get IP
-			const std::string ip =
-			    route_json.at("dest").template get<std::string>();
+			cidr gw_ip_range = parse_cidr(
+			    route_json.at("dest").template get<std::string>());
 
-			if (inet_pton(AF_INET, ip.c_str(), &gw_addr.ip) != 1)
+			if (inet_pton(
+				AF_INET,
+				gw_ip_range.ip_address.c_str(),
+				&gw_addr.ip)
+			    != 1)
 			{
 				UC_LOG_ERR(
 				    "Failed to parse GW IP address %s",
-				    ip.c_str());
+				    gw_ip_range.ip_address.c_str());
+				continue;
+			}
+
+			const auto *static_routes_begin = state->router.arr;
+			const auto *static_routes_end =
+			    static_routes_begin + state->router.len;
+
+			if (std::find_if(
+				static_routes_begin,
+				static_routes_end,
+				[&gw_addr](const auto &fib_node) {
+					// TO-DO: uncomment after merging
+					// interface-addresses PR return
+					// addr_to_str(fib_node.key.prefix)
+					//        == addr_to_str(gw_addr.ip);
+
+					return false;
+				})
+			    != static_routes_end)
+			{
+				continue;
+			}
+
+			if (std::find_if(
+				interfaces_addrs.cbegin(),
+				interfaces_addrs.cend(),
+				[&gw_addr](const auto &interface_addr) {
+					// TO-DO: uncomment after merging
+					// interface-addresses PR return
+					// addr_to_str(interface_addr.subnet)
+					//        == addr_to_str(gw_addr.ip);
+
+					return false;
+				})
+			    != interfaces_addrs.cend())
+			{
 				continue;
 			}
 

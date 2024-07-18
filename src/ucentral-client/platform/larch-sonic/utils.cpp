@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 
 #include <array>
+#include <cstring>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -284,6 +285,24 @@ std::string addr_to_str(const in_addr &address)
 	}
 
 	return addr_str_buf.data();
+}
+
+cidr parse_cidr(const std::string &str)
+{
+	cidr result{};
+	std::array<char, 16> addr_buf{};
+
+	if (std::sscanf(
+		str.c_str(),
+		"%15[^/]/%hhu",
+		addr_buf.data(),
+		&result.mask)
+	    != 2)
+		throw std::runtime_error{"Failed to parse CIDR notation"};
+
+	result.ip_address = addr_buf.data();
+
+	return result;
 }
 
 }
