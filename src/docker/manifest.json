@@ -31,20 +31,18 @@
     "container": {
         "privileged": false,
         "volumes": ["/var/lib/ucentral:/var/lib/ucentral"],
-        "mounts": 
-								[
-									{
-										"source": "TCA",
-										"target": "/etc/ucentral",
-										"type": "volume",
-										"volume-opt": 
-										{
-										  "device": "/dev/disk/by-label/ONIE-TIP-CA-CERT",
-										  "type": "ext4",                 
-										  "o": "ro"             
-										}      
-									}
-								],
+        "mounts": [
+            {
+                "source": "TCA",
+                "target": "/etc/ucentral",
+                "type": "volume",
+                "volume-opt": {
+                    "device": "/dev/disk/by-label/ONIE-TIP-CA-CERT",
+                    "type": "ext4",
+                    "o": "ro"
+                }
+            }
+        ],
         "tmpfs": []
     },
     "cli": {
