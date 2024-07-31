@@ -115,6 +115,13 @@ void apply_vlan_config(plat_cfg *cfg)
         vlan_json["vlanid"] = vlan->id;
         vlan_json["name"] = "Vlan" + std::to_string(vlan->id);
 
+        // add DHCP Relay server
+        const std::string addr_str = addr_to_str(vlan->dhcp.relay.server_address);
+        if (vlan->dhcp.relay.enabled && addr_str.length() > 0) {
+            vlan_json["dhcp_servers"] = json::array();
+            vlan_json["dhcp_servers"].push_back(addr_str);
+        }
+
         json add_vlan_json;
         add_vlan_json["sonic-vlan:VLAN_LIST"] = {vlan_json};
 
