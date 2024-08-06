@@ -5,7 +5,16 @@
         "version": "1.0.0",
         "depends": [
             {
+                "name": "gnmi"
+            },
+            {
                 "name": "mgmt-framework"         
+            },
+            {
+                "name": "swss"
+            },
+            {
+                "name": "syncd"
             }
         ],
         "name": "ucentral_client",
@@ -13,8 +22,8 @@
     },
     "service": {
         "name": "ucentral_client",
-        "requires": ["mgmt-framework"],
-        "after": ["mgmt-framework"],
+        "requires": ["gnmi", "mgmt-framework", "swss", "syncd"],
+        "after": ["gnmi", "mgmt-framework", "swss", "syncd"],
         "before": [],
         "dependent-of": [],
         "asic-service": false,
