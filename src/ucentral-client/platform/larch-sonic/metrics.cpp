@@ -109,19 +109,43 @@ std::pair<plat_state_info, state_data> get_state_info()
 	state_info.system_info = get_system_info();
 
 	// Get port info
-	data.port_info = get_port_info();
-	state_info.port_info = data.port_info.data();
-	state_info.port_info_count = data.port_info.size();
+	try
+	{
+		data.port_info = get_port_info();
+		state_info.port_info = data.port_info.data();
+		state_info.port_info_count = data.port_info.size();
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to get port info: %s", ex.what());
+	}
 
 	// Get learned MAC addresses
-	data.learned_mac_addrs = get_learned_mac_addrs();
-	state_info.learned_mac_list = data.learned_mac_addrs.data();
-	state_info.learned_mac_list_size = data.learned_mac_addrs.size();
+	try
+	{
+		data.learned_mac_addrs = get_learned_mac_addrs();
+		state_info.learned_mac_list = data.learned_mac_addrs.data();
+		state_info.learned_mac_list_size =
+		    data.learned_mac_addrs.size();
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR(
+		    "Failed to get learned MAC addresses: %s",
+		    ex.what());
+	}
 
 	// Get GW addresses
-	data.gw_addresses = get_gw_addresses();
-	state_info.gw_addr_list = data.gw_addresses.data();
-	state_info.gw_addr_list_size = data.gw_addresses.size();
+	try
+	{
+		data.gw_addresses = get_gw_addresses();
+		state_info.gw_addr_list = data.gw_addresses.data();
+		state_info.gw_addr_list_size = data.gw_addresses.size();
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to get GW addresses: %s", ex.what());
+	}
 
 	return {std::move(state_info), std::move(data)};
 }
