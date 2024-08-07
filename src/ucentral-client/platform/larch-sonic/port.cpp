@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstdio> // std::snprintf, std::sscanf
 #include <cstring>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -168,7 +169,8 @@ get_port_counters(const std::string &port_name)
 	return counters;
 }
 
-static plat_port_lldp_peer_info get_lldp_peer_info(const std::string &port_name)
+static std::optional<plat_port_lldp_peer_info>
+get_lldp_peer_info(const std::string &port_name)
 {
 	/*
 	 * Actually, more specific YANG path should be used here
@@ -197,6 +199,11 @@ static plat_port_lldp_peer_info get_lldp_peer_info(const std::string &port_name)
 	if (neighbor_it == neighbors.cend())
 	{
 		throw std::runtime_error{"Failed to find LLDP neighbor"};
+	}
+
+	if (!neighbor_it->contains("capabilities"))
+	{
+		return std::nullopt;
 	}
 
 	plat_port_lldp_peer_info peer_info{};
@@ -480,10 +487,15 @@ std::vector<plat_port_info> get_port_info()
 
 		try
 		{
-			port_info.lldp_peer_info =
-			    get_lldp_peer_info(port_name);
+			auto peer_info_opt = get_lldp_peer_info(port_name);
 
-			port_info.has_lldp_peer_info = 1;
+			if (peer_info_opt)
+			{
+				port_info.lldp_peer_info =
+				    std::move(*peer_info_opt);
+
+				port_info.has_lldp_peer_info = 1;
+			}
 		}
 		catch (const std::exception &ex)
 		{
