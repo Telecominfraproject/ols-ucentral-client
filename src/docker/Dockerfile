@@ -25,6 +25,7 @@ COPY /lib* /usr/local/lib/
 
 # Install root CA certificate for development purposes
 COPY /ca-cert.pem /usr/local/share/ca-certificates/ca-cert.crt
+COPY /tip-cert.pem /usr/local/share/ca-certificates/tip-cert.crt
 RUN update-ca-certificates
 
 RUN ldconfig
