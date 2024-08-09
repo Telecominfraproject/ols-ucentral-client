@@ -28,6 +28,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility> // std::move
 
 #include <sys/types.h>
@@ -79,11 +80,24 @@ int plat_init(void)
 		{
 			ports = get_port_list();
 
-			if (!ports.empty())
+			if (ports.empty())
+			{
+				UC_LOG_DBG("Port list is empty");
+			}
+			else
+			{
 				break;
+			}
 		}
-		catch (const std::exception &)
-		{}
+		catch (const std::exception &ex)
+		{
+			UC_LOG_DBG(
+			    "Failed to get initial port list: %s",
+			    ex.what());
+		}
+
+		UC_LOG_DBG("Retrying in 10 seconds...");
+		std::this_thread::sleep_for(std::chrono::seconds{10});
 	}
 
 	UC_LOG_INFO("Successfully got the port list, continuing platform "
