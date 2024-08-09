@@ -65,6 +65,30 @@ int plat_init(void)
 	state->redis_asic = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379/1");
 	state->redis_counters = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379/2");
 
+	/*
+	 * Workaround to fix the issue when ucentral-client starts too early
+	 * (before gNMI container or before ports are up)
+	 */
+	UC_LOG_INFO("Trying to get initial port list...");
+
+	std::vector<port> ports;
+
+	while (true)
+	{
+		try
+		{
+			ports = get_port_list();
+
+			if (!ports.empty())
+				break;
+		}
+		catch (const std::exception &)
+		{}
+	}
+
+	UC_LOG_INFO("Successfully got the port list, continuing platform "
+		    "initialization");
+
 	try
 	{
 		/*
