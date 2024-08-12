@@ -4,6 +4,12 @@
 #include <gnmi.grpc.pb.h>
 #include <gnmi.pb.h>
 
+#include "system.grpc.pb.h"
+#include "system.pb.h"
+#include "sonic_gnoi.pb.h"
+#include "sonic_gnoi.grpc.pb.h"
+
+
 #include <grpc++/grpc++.h>
 
 #include <router-utils.h>
@@ -26,6 +32,10 @@ struct platform_state {
 
 	std::shared_ptr<grpc::ChannelInterface> channel;
 	std::unique_ptr<gnmi::gNMI::Stub> gnmi_stub;
+
+	std::unique_ptr<gnoi::system::System::Stub> system_gnoi_stub;
+
+	std::unique_ptr<gnoi::sonic::SonicService::Stub> stub_gnoi_sonic;
 
 	std::unique_ptr<periodic> telemetry_periodic;
 	std::unique_ptr<periodic> state_periodic;

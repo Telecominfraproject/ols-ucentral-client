@@ -1,0 +1,315 @@
+syntax = "proto3";
+
+package gnoi.sonic;
+
+
+//option (types.gnoi_version) = "0.1.0";
+
+service SonicService {
+  rpc ShowTechsupport (TechsupportRequest) returns (TechsupportResponse) {}
+  rpc ShowTechsupportCancel (TechsupportCancelRequest) returns (TechsupportCancelResponse) {}
+  rpc Sum (SumRequest) returns (SumResponse) {}
+
+  rpc ImageInstall(ImageInstallRequest) returns (ImageInstallResponse) {}
+  rpc ImageRemove(ImageRemoveRequest) returns (ImageRemoveResponse) {}
+  rpc ImageDefault(ImageDefaultRequest) returns (ImageDefaultResponse) {}
+
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
+  rpc Refresh(RefreshRequest) returns (RefreshResponse) {}
+  rpc ClearNeighbors(ClearNeighborsRequest) returns (ClearNeighborsResponse) {}
+  rpc VlanReplace(VlanReplaceRequest) returns (VlanReplaceResponse) {}
+
+  rpc GetAuditLog (GetAuditLogRequest) returns (GetAuditLogResponse) {}
+  rpc ClearAuditLog (ClearAuditLogRequest) returns (ClearAuditLogResponse) {}
+  rpc ShowSysLog(ShowSysLogRequest) returns (GetShowSysLogResponse) {} 
+ 
+  rpc GetEvents (GetEventsRequest) returns (GetEventsResponse) {}
+  rpc GetAlarms (GetAlarmsRequest) returns (GetAlarmsResponse) {}
+  rpc AckAlarms (AckAlarmsRequest) returns (AckAlarmsResponse) {}
+  rpc UnackAlarms (UnackAlarmsRequest) returns (UnackAlarmsResponse) {}
+  rpc GetEventProfile (GetEventProfileRequest) returns (GetEventProfileResponse) {}
+  rpc SetEventProfile (SetEventProfileRequest) returns (SetEventProfileResponse) {}
+    
+}
+
+
+message SonicOutput {
+    int32 status = 1;
+    string status_detail = 2;
+}
+
+message GetEventProfileRequest {
+}
+
+message GetEventProfileResponse {
+	message Output {
+		string file_name = 1;
+		repeated string file_list = 2;
+	}  
+    Output output = 1;
+}
+
+message SetEventProfileRequest {
+	message Input {
+		string filename =1;
+	}
+	Input input =1;
+}
+
+message SetEventProfileResponse {
+   SonicOutput output = 1;
+}
+
+message AckAlarmsRequest {
+	message Input {
+		repeated string id = 1;
+	}
+    Input input = 1;
+}
+
+message AckAlarmsResponse {
+    SonicOutput output = 1;
+}
+
+message UnackAlarmsRequest {
+	message Input {
+		repeated string id = 1;
+	}
+    Input input = 1;
+}
+
+message UnackAlarmsResponse {
+    SonicOutput output = 1;
+}
+
+message EventTimeFilter {
+    string begin = 1;
+    string end = 2;
+}
+
+message EventId {
+    string begin = 1;
+    string end = 2;
+}
+
+message EventsFilter {
+    EventTimeFilter time = 1;
+	string interval = 2;
+    string severity = 3;
+    EventId id = 4;
+}
+
+message GetEventsRequest {
+    EventsFilter input = 1;
+}
+
+message Event {
+    string id = 1;
+    string resource = 2;
+    string text = 3;
+    string time_created = 4;
+    string type_id = 5;
+    string severity = 6;
+   	string action = 7;
+}
+
+message Events {
+	repeated Event EVENT_LIST = 1;
+}
+
+message EventsResponse {
+    int32 status = 1;
+    string status_detail = 2;
+	Events EVENT =3;
+}
+
+message GetEventsResponse {
+	EventsResponse output = 1;
+}
+
+message Alarm {
+    string id = 1;
+    string resource = 2;
+    string text = 3;
+    string time_created = 4;
+    string type_id = 5;
+    string severity = 6;
+   	bool acknowledged = 7;
+   	string acknowledge_time = 8;
+}
+
+message GetAlarmsRequest {
+    EventsFilter input = 1;
+}
+
+message Alarms {
+	repeated Alarm ALARM_LIST = 1;
+}
+
+message AlarmsResponse {
+    int32 status = 1;
+    string status_detail = 2;
+	Alarms ALARM =3;
+}
+
+message GetAlarmsResponse {
+	AlarmsResponse output = 1;
+}
+
+
+message TechsupportRequest {
+    message Input {
+        string date = 1;
+    }
+    Input input = 1;
+}
+
+message TechsupportResponse {
+    message Output {
+        uint32 status = 1;
+        string status_detail = 2;
+        string output_filename = 3;
+    }
+    Output output = 1;
+}
+
+message TechsupportCancelRequest {
+}
+
+message TechsupportCancelResponse {
+    message Output {
+        uint32 status = 1;
+        string status_detail = 2;
+    }
+    Output output = 1;
+}
+
+message ClearNeighborsRequest {
+    message Input {
+        bool force = 1;
+        string family = 2;
+        string ip = 3;
+        string ifname = 4;
+    }
+    Input input = 1;
+}
+
+message ClearNeighborsResponse {
+    message Output {
+        string response = 1;
+    }
+    Output output = 1;
+}
+
+message VlanReplaceRequest {
+    message Input {
+        string ifname = 1;
+        string vlanlist = 2;
+    }
+    Input input = 1;
+}
+
+message VlanReplaceResponse {
+    message Output {
+        string response = 1;
+    }
+    Output output = 1;
+}
+
+message SumRequest {
+    message Input {
+        int32 left = 1;
+        int32 right = 2;
+    }
+    Input input = 1;
+}
+message SumResponse {
+    message Output {
+        int32 result = 1;
+    }
+    Output output = 1;
+}
+
+message ImageInstallRequest {
+    message Input {
+        string imagename = 1;
+    }
+    Input input = 1;
+}
+message ImageInstallResponse {
+    SonicOutput output = 1;
+}
+message ImageRemoveRequest {
+    message Input {
+        string imagename = 1;
+    }
+    Input input = 1;
+}
+message ImageRemoveResponse {
+    SonicOutput output = 1;
+}
+message ImageDefaultRequest {
+    message Input {
+        string imagename = 1;
+    }
+    Input input = 1;
+}
+message ImageDefaultResponse {
+    SonicOutput output = 1;
+}
+
+message GetAuditLogRequest {
+    message Input {
+        string content_type = 1;
+    }
+    Input input = 1;
+}
+
+message GetAuditLogResponse {
+    message AuditOutput { 
+        repeated string audit_content = 1;
+    }
+    AuditOutput output = 1;
+}
+
+message ClearAuditLogRequest {
+}
+
+message ClearAuditLogResponse {
+    SonicOutput output = 1;
+}
+
+message ShowSysLogRequest {
+    message Input {
+        int32 num_lines = 1 ;
+    }
+    Input input = 1;
+}
+
+message ShowSysLogResponse {
+    repeated string status_detail = 1;
+}
+message GetShowSysLogResponse {
+        ShowSysLogResponse output = 1;
+}
+
+message JwtToken {
+    string access_token = 1;
+    string type = 2;
+    int64 expires_in = 3; 
+}
+message AuthenticateRequest {
+    string username = 1;
+    string password = 2;
+}
+
+message AuthenticateResponse {
+    JwtToken Token = 1;
+}
+
+message RefreshRequest {
+}
+
+message RefreshResponse {
+    JwtToken Token = 1;
+}

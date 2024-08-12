@@ -57,8 +57,12 @@ int plat_init(void)
 	options.set_check_call_host(false);
 	auto credentials = grpc::experimental::TlsCredentials(options);
 
-	state->channel = grpc::CreateChannel("127.0.0.1:8080", std::move(credentials));
+	state->channel = grpc::CreateChannel("127.0.0.1:8080", credentials);
 	state->gnmi_stub = gnmi::gNMI::NewStub(state->channel);
+
+	// created new channel for gnoi
+	state->system_gnoi_stub = gnoi::system::System::NewStub(grpc::CreateChannel("127.0.0.1:8080", credentials));
+	state->stub_gnoi_sonic = gnoi::sonic::SonicService::NewStub(grpc::CreateChannel("127.0.0.1:8080", credentials));
 
 	state->telemetry_periodic = std::make_unique<periodic>();
 	state->state_periodic = std::make_unique<periodic>();
@@ -198,7 +202,18 @@ int plat_info_get(struct plat_platform_info *info)
 
 int plat_reboot(void)
 {
-	std::system("reboot");
+	grpc::Status status;
+	gnoi::system::RebootResponse gres;
+	gnoi::system::RebootRequest greq;
+
+	grpc::ClientContext context;
+	status = (larch::state->system_gnoi_stub)->Reboot(&context, greq, &gres);
+
+	if (!status.ok()) {
+		UC_LOG_ERR("Request failed");
+		UC_LOG_ERR("Code: %d", status.error_code());
+		return 1;
+	}
 	return 0;
 }
 
