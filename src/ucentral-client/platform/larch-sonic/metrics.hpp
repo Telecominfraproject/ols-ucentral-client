@@ -33,6 +33,10 @@ struct state_data {
  */
 std::pair<plat_state_info, state_data> get_state_info();
 
+void save_metrics_config(const plat_metrics_cfg *cfg);
+
+void load_metrics_config(plat_metrics_cfg *cfg);
+
 class periodic {
 public:
 	periodic() = default;

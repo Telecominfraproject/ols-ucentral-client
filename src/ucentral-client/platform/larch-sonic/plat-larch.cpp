@@ -248,13 +248,31 @@ int plat_config_restore(void)
 
 int plat_metrics_save(const struct plat_metrics_cfg *cfg)
 {
-	UNUSED_PARAM(cfg);
+	try
+	{
+		larch::save_metrics_config(cfg);
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to save metrics config: %s", ex.what());
+		return -1;
+	}
+
 	return 0;
 }
 
 int plat_metrics_restore(struct plat_metrics_cfg *cfg)
 {
-	UNUSED_PARAM(cfg);
+	try
+	{
+		larch::load_metrics_config(cfg);
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to load metrics config: %s", ex.what());
+		return -1;
+	}
+
 	return 0;
 }
 

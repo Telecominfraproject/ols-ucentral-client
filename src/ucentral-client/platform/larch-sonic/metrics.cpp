@@ -3,6 +3,8 @@
 #include <port.hpp>
 #include <route.hpp>
 
+#include <metrics_config.pb.h>
+
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
 #include <ucentral-log.h>
 #include <ucentral-platform.h>
@@ -26,6 +28,11 @@
 #include <utility> // std::move
 
 namespace larch {
+
+namespace {
+	const std::string metrics_config_path =
+	    "/var/lib/ucentral/metrics_cfg.bin";
+}
 
 static plat_system_info get_system_info()
 {
@@ -148,6 +155,70 @@ std::pair<plat_state_info, state_data> get_state_info()
 	}
 
 	return {std::move(state_info), std::move(data)};
+}
+
+void save_metrics_config(const plat_metrics_cfg *cfg)
+{
+	MetricsConfig metrics_cfg;
+
+	auto telemetry_cfg = metrics_cfg.mutable_telemetry_config();
+	telemetry_cfg->set_enabled(cfg->telemetry.enabled);
+	telemetry_cfg->set_interval(cfg->telemetry.interval);
+
+	auto healthcheck_cfg = metrics_cfg.mutable_healthcheck_config();
+	healthcheck_cfg->set_enabled(cfg->healthcheck.enabled);
+	healthcheck_cfg->set_interval(cfg->healthcheck.interval);
+
+	auto state_cfg = metrics_cfg.mutable_state_config();
+	state_cfg->set_enabled(cfg->state.enabled);
+	state_cfg->set_lldp_enabled(cfg->state.lldp_enabled);
+	state_cfg->set_clients_enabled(cfg->state.clients_enabled);
+	state_cfg->set_interval(cfg->state.interval);
+	state_cfg->set_max_mac_count(cfg->state.max_mac_count);
+	state_cfg->set_public_ip_lookup(cfg->state.public_ip_lookup);
+
+	std::ofstream os{metrics_config_path};
+	if (!metrics_cfg.SerializeToOstream(&os))
+	{
+		throw std::runtime_error{
+		    "Failed to write metrics config to the file"};
+	}
+}
+
+void load_metrics_config(plat_metrics_cfg *cfg)
+{
+	std::ifstream is{metrics_config_path};
+
+	// Metrics configuration doesn't exist yet, return silently without any
+	// error
+	if (!is.is_open())
+		return;
+
+	MetricsConfig metrics_cfg;
+	if (!metrics_cfg.ParseFromIstream(&is))
+	{
+		throw std::runtime_error{
+		    "Failed to read metrics config from the file"};
+	}
+
+	const auto &telemetry_cfg = metrics_cfg.telemetry_config();
+	cfg->telemetry.enabled = telemetry_cfg.enabled();
+	cfg->telemetry.interval = telemetry_cfg.interval();
+
+	const auto &healthcheck_cfg = metrics_cfg.healthcheck_config();
+	cfg->healthcheck.enabled = healthcheck_cfg.enabled();
+	cfg->healthcheck.interval = healthcheck_cfg.interval();
+
+	const auto &state_cfg = metrics_cfg.state_config();
+	cfg->state.enabled = state_cfg.enabled();
+	cfg->state.lldp_enabled = state_cfg.lldp_enabled();
+	cfg->state.clients_enabled = state_cfg.clients_enabled();
+	cfg->state.interval = state_cfg.interval();
+	cfg->state.max_mac_count = state_cfg.max_mac_count();
+	std::strncpy(
+	    cfg->state.public_ip_lookup,
+	    state_cfg.public_ip_lookup().c_str(),
+	    std::size(cfg->state.public_ip_lookup) - 1);
 }
 
 periodic::~periodic()

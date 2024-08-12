@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package larch;
+
+message MetricsConfig {
+  message TelemetryConfig {
+    bool enabled = 1;
+    uint64 interval = 2;
+  }
+
+  message HealthCheckConfig {
+    bool enabled = 1;
+    uint64 interval = 2;
+  }
+
+  message StateConfig {
+    bool enabled = 1;
+    bool lldp_enabled = 2;
+    bool clients_enabled = 3;
+    uint64 interval = 4;
+    uint64 max_mac_count = 5;
+    string public_ip_lookup = 6;
+  }
+
+  TelemetryConfig telemetry_config = 1;
+  HealthCheckConfig healthcheck_config = 2;
+  StateConfig state_config = 3;
+}
