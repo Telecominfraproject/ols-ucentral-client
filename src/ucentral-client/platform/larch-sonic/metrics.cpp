@@ -3,7 +3,7 @@
 #include <port.hpp>
 #include <route.hpp>
 
-#include <metrics_config.pb.h>
+#include <nlohmann/json.hpp>
 
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
 #include <ucentral-log.h>
@@ -13,12 +13,14 @@
 
 #include <array>
 #include <cerrno>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <iomanip>  // std::setw
 #include <iterator> // std::begin, std::size
 #include <memory>
 #include <mutex>
@@ -27,11 +29,13 @@
 #include <thread>
 #include <utility> // std::move
 
+using nlohmann::json;
+
 namespace larch {
 
 namespace {
 	const std::string metrics_config_path =
-	    "/var/lib/ucentral/metrics_cfg.bin";
+	    "/var/lib/ucentral/metrics_cfg.json";
 }
 
 static plat_system_info get_system_info()
@@ -159,26 +163,30 @@ std::pair<plat_state_info, state_data> get_state_info()
 
 void save_metrics_config(const plat_metrics_cfg *cfg)
 {
-	MetricsConfig metrics_cfg;
+	json metrics_cfg;
 
-	auto telemetry_cfg = metrics_cfg.mutable_telemetry_config();
-	telemetry_cfg->set_enabled(cfg->telemetry.enabled);
-	telemetry_cfg->set_interval(cfg->telemetry.interval);
+	json &telemetry_cfg = metrics_cfg["telemetry"];
+	telemetry_cfg["enabled"] = static_cast<bool>(cfg->telemetry.enabled);
+	telemetry_cfg["interval"] = cfg->telemetry.interval;
 
-	auto healthcheck_cfg = metrics_cfg.mutable_healthcheck_config();
-	healthcheck_cfg->set_enabled(cfg->healthcheck.enabled);
-	healthcheck_cfg->set_interval(cfg->healthcheck.interval);
+	json &healthcheck_cfg = metrics_cfg["healthcheck"];
+	healthcheck_cfg["enabled"] =
+	    static_cast<bool>(cfg->healthcheck.enabled);
+	healthcheck_cfg["interval"] = cfg->healthcheck.interval;
 
-	auto state_cfg = metrics_cfg.mutable_state_config();
-	state_cfg->set_enabled(cfg->state.enabled);
-	state_cfg->set_lldp_enabled(cfg->state.lldp_enabled);
-	state_cfg->set_clients_enabled(cfg->state.clients_enabled);
-	state_cfg->set_interval(cfg->state.interval);
-	state_cfg->set_max_mac_count(cfg->state.max_mac_count);
-	state_cfg->set_public_ip_lookup(cfg->state.public_ip_lookup);
+	json &state_cfg = metrics_cfg["state"];
+	state_cfg["enabled"] = static_cast<bool>(cfg->state.enabled);
+	state_cfg["lldp_enabled"] = static_cast<bool>(cfg->state.lldp_enabled);
+	state_cfg["clients_enabled"] =
+	    static_cast<bool>(cfg->state.clients_enabled);
+	state_cfg["interval"] = cfg->state.interval;
+	state_cfg["max_mac_count"] = cfg->state.max_mac_count;
+	state_cfg["public_ip_lookup"] = cfg->state.public_ip_lookup;
 
 	std::ofstream os{metrics_config_path};
-	if (!metrics_cfg.SerializeToOstream(&os))
+	os << std::setw(4) << metrics_cfg << std::endl;
+
+	if (!os)
 	{
 		throw std::runtime_error{
 		    "Failed to write metrics config to the file"};
@@ -194,31 +202,47 @@ void load_metrics_config(plat_metrics_cfg *cfg)
 	if (!is.is_open())
 		return;
 
-	MetricsConfig metrics_cfg;
-	if (!metrics_cfg.ParseFromIstream(&is))
+	json metrics_cfg = json::parse(is);
+
+	if (metrics_cfg.contains("telemetry"))
 	{
-		throw std::runtime_error{
-		    "Failed to read metrics config from the file"};
+		const json &telemetry_cfg = metrics_cfg.at("telemetry");
+		cfg->telemetry.enabled =
+		    telemetry_cfg.at("enabled").template get<bool>();
+		cfg->telemetry.interval =
+		    telemetry_cfg.at("interval").template get<std::size_t>();
 	}
 
-	const auto &telemetry_cfg = metrics_cfg.telemetry_config();
-	cfg->telemetry.enabled = telemetry_cfg.enabled();
-	cfg->telemetry.interval = telemetry_cfg.interval();
+	if (metrics_cfg.contains("healthcheck"))
+	{
+		const json &healthcheck_cfg = metrics_cfg.at("healthcheck");
+		cfg->healthcheck.enabled =
+		    healthcheck_cfg.at("enabled").template get<bool>();
+		cfg->healthcheck.interval =
+		    healthcheck_cfg.at("interval").template get<std::size_t>();
+	}
 
-	const auto &healthcheck_cfg = metrics_cfg.healthcheck_config();
-	cfg->healthcheck.enabled = healthcheck_cfg.enabled();
-	cfg->healthcheck.interval = healthcheck_cfg.interval();
+	if (metrics_cfg.contains("state"))
+	{
+		const json &state_cfg = metrics_cfg.at("state");
+		cfg->state.enabled =
+		    state_cfg.at("enabled").template get<bool>();
+		cfg->state.lldp_enabled =
+		    state_cfg.at("lldp_enabled").template get<bool>();
+		cfg->state.clients_enabled =
+		    state_cfg.at("clients_enabled").template get<bool>();
+		cfg->state.interval =
+		    state_cfg.at("interval").template get<std::size_t>();
+		cfg->state.max_mac_count =
+		    state_cfg.at("max_mac_count").template get<std::size_t>();
 
-	const auto &state_cfg = metrics_cfg.state_config();
-	cfg->state.enabled = state_cfg.enabled();
-	cfg->state.lldp_enabled = state_cfg.lldp_enabled();
-	cfg->state.clients_enabled = state_cfg.clients_enabled();
-	cfg->state.interval = state_cfg.interval();
-	cfg->state.max_mac_count = state_cfg.max_mac_count();
-	std::strncpy(
-	    cfg->state.public_ip_lookup,
-	    state_cfg.public_ip_lookup().c_str(),
-	    std::size(cfg->state.public_ip_lookup) - 1);
+		std::strncpy(
+		    cfg->state.public_ip_lookup,
+		    state_cfg.at("public_ip_lookup")
+			.template get<std::string>()
+			.c_str(),
+		    std::size(cfg->state.public_ip_lookup) - 1);
+	}
 }
 
 periodic::~periodic()
