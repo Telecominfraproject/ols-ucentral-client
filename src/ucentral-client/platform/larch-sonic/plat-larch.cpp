@@ -62,6 +62,7 @@ int plat_init(void)
 
 	state->telemetry_periodic = std::make_unique<periodic>();
 	state->state_periodic = std::make_unique<periodic>();
+	state->health_periodic = std::make_unique<periodic>();
 
 	state->redis_asic = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379/1");
 	state->redis_counters = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379/2");
@@ -416,12 +417,36 @@ void plat_event_unsubscribe(void)
 
 void plat_health_poll(void (*cb)(struct plat_health_info *), int period_sec)
 {
-	UNUSED_PARAM(period_sec);
-	UNUSED_PARAM(cb);
+	using namespace larch;
+
+	try
+	{
+		state->health_periodic->stop();
+		state->health_periodic->start(
+		    [cb] {
+			    plat_health_info health_info{100};
+			    cb(&health_info);
+		    },
+		    std::chrono::seconds{period_sec});
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to start health poll: %s", ex.what());
+	}
 }
 
 void plat_health_poll_stop(void)
 {
+	using namespace larch;
+
+	try
+	{
+		state->health_periodic->stop();
+	}
+	catch (const std::exception &ex)
+	{
+		UC_LOG_ERR("Failed to stop health poll: %s", ex.what());
+	}
 }
 
 void plat_telemetry_poll(void (*cb)(struct plat_state_info *), int period_sec)

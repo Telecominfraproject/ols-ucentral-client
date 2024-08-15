@@ -29,6 +29,7 @@ struct platform_state {
 
 	std::unique_ptr<periodic> telemetry_periodic;
 	std::unique_ptr<periodic> state_periodic;
+	std::unique_ptr<periodic> health_periodic;
 
 	std::unique_ptr<sw::redis::Redis> redis_asic;
 	std::unique_ptr<sw::redis::Redis> redis_counters;
