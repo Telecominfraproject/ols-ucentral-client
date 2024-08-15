@@ -28,6 +28,7 @@ add_library(larch-sonic
         "state.cpp"
         "utils.cpp"
         "vlan.cpp"
+        "stp.cpp"
 )
 
 target_compile_features(larch-sonic PRIVATE cxx_std_17)

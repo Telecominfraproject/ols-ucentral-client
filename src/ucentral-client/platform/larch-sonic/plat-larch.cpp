@@ -5,6 +5,7 @@
 #include <state.hpp>
 #include <utils.hpp>
 #include <vlan.hpp>
+#include <stp.hpp>
 
 #include <gnmi.grpc.pb.h>
 #include <gnmi.pb.h>
@@ -229,7 +230,7 @@ int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 		apply_vlan_config(cfg);
 		apply_port_config(cfg);
 		apply_route_config(cfg);
-		apply_services_config(cfg);
+		apply_stp_config(cfg);
 	}
 	catch (const std::exception &ex)
 	{
