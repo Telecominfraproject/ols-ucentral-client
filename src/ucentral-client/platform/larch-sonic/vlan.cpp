@@ -92,6 +92,12 @@ get_vlan_membership()
 
 void apply_vlan_config(plat_cfg *cfg)
 {
+    if (BITMAP_TEST_BIT(cfg->vlans_to_cfg, FIRST_VLAN))
+    {
+        UC_LOG_ERR("VLAN 1 is reserved and cannot be configured");
+        throw std::runtime_error{"VLAN 1 is reserved and cannot be configured"};
+    }
+
     // Step 1: delete VLANs that currently exist, but are not present in the supplied config
     del_nonconfig_vlans(cfg->vlans_to_cfg);
 
