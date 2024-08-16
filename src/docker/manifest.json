@@ -22,7 +22,7 @@
     },
     "service": {
         "name": "ucentral_client",
-        "requires": ["gnmi", "mgmt-framework", "swss", "syncd"],
+        "requires": [],
         "after": ["gnmi", "mgmt-framework", "swss", "syncd"],
         "before": [],
         "dependent-of": [],
