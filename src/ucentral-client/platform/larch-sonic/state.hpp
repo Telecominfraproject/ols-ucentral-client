@@ -3,12 +3,10 @@
 
 #include <gnmi.grpc.pb.h>
 #include <gnmi.pb.h>
-
-#include "system.grpc.pb.h"
-#include "system.pb.h"
-#include "sonic_gnoi.pb.h"
-#include "sonic_gnoi.grpc.pb.h"
-
+#include <sonic_gnoi.grpc.pb.h>
+#include <sonic_gnoi.pb.h>
+#include <system.grpc.pb.h>
+#include <system.pb.h>
 
 #include <grpc++/grpc++.h>
 
