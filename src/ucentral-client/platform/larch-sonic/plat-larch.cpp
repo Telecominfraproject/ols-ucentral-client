@@ -1,6 +1,7 @@
 #include <metrics.hpp>
 #include <port.hpp>
 #include <route.hpp>
+#include <services.hpp>
 #include <state.hpp>
 #include <utils.hpp>
 #include <vlan.hpp>
@@ -228,6 +229,7 @@ int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 		apply_vlan_config(cfg);
 		apply_port_config(cfg);
 		apply_route_config(cfg);
+		apply_services_config(cfg);
 	}
 	catch (const std::exception &ex)
 	{
