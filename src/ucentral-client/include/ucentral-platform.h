@@ -28,6 +28,7 @@ extern "C" {
 #define RTTY_CFG_FIELD_STR_MAX_LEN (64)
 #define PLATFORM_INFO_STR_MAX_LEN (96)
 #define SYSLOG_CFG_FIELD_STR_MAX_LEN (64)
+#define NTP_CFG_HOSTNAME_STR_MAX_LEN (64)
 #define RADIUS_CFG_HOSTNAME_STR_MAX_LEN (64)
 #define RADIUS_CFG_PASSKEY_STR_MAX_LEN (64)
 #define RADIUS_CFG_DEFAULT_PORT (1812)
@@ -328,6 +329,15 @@ struct plat_enabled_service_cfg {
 	} http;
 };
 
+struct plat_ntp_server {
+	char hostname[NTP_CFG_HOSTNAME_STR_MAX_LEN];
+	struct plat_ntp_server *next;
+};
+
+struct plat_ntp_cfg {
+	struct plat_ntp_server *servers;
+};
+
 struct plat_rtty_cfg {
 	char id[RTTY_CFG_FIELD_STR_MAX_LEN];
 	char passwd[RTTY_CFG_FIELD_STR_MAX_LEN];
@@ -459,6 +469,7 @@ struct plat_cfg {
 	struct plat_metrics_cfg metrics;
 	struct plat_syslog_cfg *log_cfg;
 	struct plat_enabled_service_cfg enabled_services_cfg;
+	struct plat_ntp_cfg ntp_cfg;
 	/* Port's interfaces (provide l2 iface w/o bridge caps) */
 	struct plat_port_l2 portsl2[MAX_NUM_OF_PORTS];
 	struct ucentral_router router;
