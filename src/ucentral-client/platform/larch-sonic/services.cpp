@@ -10,15 +10,46 @@
 #include <arpa/inet.h>
 
 #include <array>
+#include <string>
+#include <unordered_set>
 
 using nlohmann::json;
 
 namespace larch {
 
+static std::unordered_set<std::string> get_existing_ntp_servers()
+{
+	const json existing_servers_json = json::parse(
+	    gnmi_get("/sonic-ntp:sonic-ntp/NTP_SERVER/NTP_SERVER_LIST"));
+
+	std::unordered_set<std::string> existing_servers;
+
+	if (existing_servers_json.contains("sonic-ntp:NTP_SERVER_LIST"))
+	{
+		for (const auto &server_json :
+		     existing_servers_json.at("sonic-ntp:NTP_SERVER_LIST"))
+		{
+			if (!server_json.contains("server_address"))
+				continue;
+
+			existing_servers.insert(
+			    server_json.at("server_address")
+				.template get<std::string>());
+		}
+	}
+
+	return existing_servers;
+}
+
 static void apply_ntp_config(const plat_ntp_cfg *ntp_cfg)
 {
 	if (ntp_cfg->servers)
 	{
+		gnmi_operation op;
+
+		std::unordered_set<std::string> existing_servers =
+		    get_existing_ntp_servers();
+
 		json ntp_json;
 		json &server_list_json = ntp_json["sonic-ntp:NTP_SERVER_LIST"];
 		server_list_json = json::array();
@@ -26,6 +57,15 @@ static void apply_ntp_config(const plat_ntp_cfg *ntp_cfg)
 		const plat_ntp_server *it = nullptr;
 		UCENTRAL_LIST_FOR_EACH_MEMBER(it, &ntp_cfg->servers)
 		{
+			const auto existing_it =
+			    existing_servers.find(it->hostname);
+
+			if (existing_it != existing_servers.cend())
+			{
+				existing_servers.erase(existing_it);
+				continue;
+			}
+
 			std::array<unsigned char, sizeof(in6_addr)> addr_buf{};
 
 			if (inet_pton(AF_INET, it->hostname, addr_buf.data())
@@ -50,9 +90,19 @@ static void apply_ntp_config(const plat_ntp_cfg *ntp_cfg)
 			server_list_json.push_back(server_json);
 		}
 
-		gnmi_set(
+		op.add_update(
 		    "/sonic-ntp:sonic-ntp/NTP_SERVER/NTP_SERVER_LIST",
 		    ntp_json.dump());
+
+		for (const auto &server : existing_servers)
+		{
+			op.add_delete(
+			    "/sonic-ntp:sonic-ntp/NTP_SERVER/"
+			    "NTP_SERVER_LIST[server_address="
+			    + server + "]");
+		}
+
+		op.execute();
 	}
 }
 
