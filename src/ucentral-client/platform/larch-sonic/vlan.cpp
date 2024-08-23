@@ -116,18 +116,23 @@ void apply_vlan_config(plat_cfg *cfg)
         vlan_json["name"] = "Vlan" + std::to_string(vlan->id);
 
         // add DHCP Relay server
-        const std::string addr_str = addr_to_str(vlan->dhcp.relay.server_address);
-        std::array<unsigned char, sizeof(in6_addr)> addr_buf{};
-        if (vlan->dhcp.relay.enabled && addr_str.length() > 0) {
-            if (inet_pton(AF_INET, addr_str.c_str(), addr_buf.data()) == 1) {
+        if (vlan->dhcp.relay.enabled)
+        {
+            const std::string addr_str = addr_to_str(vlan->dhcp.relay.server_address);
+            std::array<unsigned char, sizeof(in6_addr)> addr_buf{};
+
+            if (inet_pton(AF_INET, addr_str.c_str(), addr_buf.data()) == 1)
+            {
                 vlan_json["dhcp_servers"] = json::array();
                 vlan_json["dhcp_servers"].push_back(addr_str);
             }
-            else if (inet_pton(AF_INET6, addr_str.c_str(), addr_buf.data()) == 1) {
+            else if (inet_pton(AF_INET6, addr_str.c_str(), addr_buf.data()) == 1)
+            {
                 vlan_json["dhcpv6_servers"] = json::array();
                 vlan_json["dhcpv6_servers"].push_back(addr_str);
             }
-            else {
+            else
+            {
                 UC_LOG_ERR("Failed to parse DHCP Relay server address");
                 throw std::runtime_error{"Failed to parse DHCP Relay server address"};
             }
