@@ -5,7 +5,6 @@
 
 #define UC_LOG_COMPONENT UC_LOG_COMPONENT_PLAT
 #include <ucentral-log.h>
-#include <ucentral-platform.h>
 
 #include <string>
 

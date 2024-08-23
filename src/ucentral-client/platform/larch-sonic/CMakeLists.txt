@@ -26,9 +26,9 @@ add_library(larch-sonic
         "sai_redis.cpp"
         "services.cpp"
         "state.cpp"
+        "stp.cpp"
         "utils.cpp"
         "vlan.cpp"
-        "stp.cpp"
 )
 
 target_compile_features(larch-sonic PRIVATE cxx_std_17)

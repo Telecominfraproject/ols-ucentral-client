@@ -3,9 +3,9 @@
 #include <route.hpp>
 #include <services.hpp>
 #include <state.hpp>
+#include <stp.hpp>
 #include <utils.hpp>
 #include <vlan.hpp>
-#include <stp.hpp>
 
 #include <gnmi.grpc.pb.h>
 #include <gnmi.pb.h>
