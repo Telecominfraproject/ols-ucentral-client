@@ -7,6 +7,8 @@ namespace larch {
 
 void apply_vlan_config(plat_cfg *cfg);
 
+void apply_vlan_ipv4_config(plat_cfg *cfg);
+
 }
 
 #endif // !LARCH_PLATFORM_VLAN_HPP_

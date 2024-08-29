@@ -233,6 +233,7 @@ int plat_config_apply(struct plat_cfg *cfg, uint32_t id)
 		apply_route_config(cfg);
 		apply_stp_config(cfg);
 		apply_services_config(cfg);
+		apply_vlan_ipv4_config(cfg);
 		/* apply_syslog_config() call must always be the last one */
 		apply_syslog_config(cfg->log_cfg, cfg->log_cfg_cnt);
 	}

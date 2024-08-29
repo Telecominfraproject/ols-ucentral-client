@@ -1,3 +1,4 @@
+#include <igmp.hpp>
 #include <vlan.hpp>
 #include <utils.hpp>
 
@@ -201,6 +202,28 @@ void apply_vlan_config(plat_cfg *cfg)
     }
 
     op.execute();
+}
+
+void apply_vlan_ipv4_config(struct plat_cfg *cfg)
+{
+    size_t i;
+
+    BITMAP_FOR_EACH_BIT_SET(i, cfg->vlans_to_cfg, MAX_VLANS)
+    {
+        if (i == FIRST_VLAN)
+        {
+            UC_LOG_DBG("Skipping L3 configuration for default vlan\n");
+            continue;
+        }
+        UC_LOG_DBG("Configuring vlan ip <%u>\n", (uint16_t)i);
+
+        // TODO: configure vlan IP
+
+        if (cfg->vlans[i].igmp.exist)
+        {
+            apply_igmp_config(cfg->vlans[i].id, &cfg->vlans[i].igmp);
+        }
+    }
 }
 
 }
