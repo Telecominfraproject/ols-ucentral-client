@@ -1031,6 +1031,20 @@ err:
 	return -1;
 }
 
+static int
+cfg_switch_properties_parse(const cJSON *properties, struct plat_properties_cfg *cfg)
+{
+	const cJSON *jumbo_frames = cJSON_GetObjectItemCaseSensitive(properties, "jumbo-frames");
+	if (jumbo_frames && !cJSON_IsBool(jumbo_frames)) {
+		UC_LOG_ERR("Unexpected type of switch:properties:jumbo-frames: Boolean expected");
+		return -1;
+	}
+
+	cfg->jumbo_frames = cJSON_IsTrue(jumbo_frames);
+
+	return 0;
+}
+
 static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 {
 	cJSON *eth = NULL;
@@ -1815,6 +1829,12 @@ static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 	port_isolation = cJSON_GetObjectItemCaseSensitive(sw, "port-isolation");
 	if (port_isolation && cfg_switch_port_isolation_parse(port_isolation, &cfg->port_isolation_cfg)) {
 		UC_LOG_ERR("port-isolation config parse failed\n");
+		return -1;
+	}
+
+	const cJSON *properties = cJSON_GetObjectItemCaseSensitive(sw, "properties");
+	if (properties && cfg_switch_properties_parse(properties, &cfg->properties_cfg)) {
+		UC_LOG_ERR("properties config parse failed\n");
 		return -1;
 	}
 

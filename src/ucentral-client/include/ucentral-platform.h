@@ -459,6 +459,10 @@ struct plat_port_isolation_cfg {
 	size_t sessions_num;
 };
 
+struct plat_properties_cfg {
+	bool jumbo_frames;
+};
+
 struct plat_cfg {
 	struct plat_unit unit;
 	/* Alloc all ports, but access them only if bit is set. */
@@ -489,6 +493,7 @@ struct plat_cfg {
 		struct plat_ieee8021x_dac_list *das_dac_list;
 	} ieee8021x;
 	struct plat_port_isolation_cfg port_isolation_cfg;
+	struct plat_properties_cfg properties_cfg;
 };
 
 struct plat_learned_mac_addr {
