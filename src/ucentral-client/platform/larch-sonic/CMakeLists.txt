@@ -27,6 +27,7 @@ add_library(larch-sonic
         "services.cpp"
         "state.cpp"
         "stp.cpp"
+        "syslog.cpp"
         "utils.cpp"
         "vlan.cpp"
 )
