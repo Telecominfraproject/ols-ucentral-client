@@ -147,6 +147,20 @@ static void set_port_speed(const std::string &port_name, std::uint32_t speed)
 	    set_port_speed_json.dump());
 }
 
+static void set_port_mtu(const std::string &port_name, std::uint16_t mtu)
+{
+	json port_mtu_json;
+	port_mtu_json["name"] = port_name;
+	port_mtu_json["mtu"] = mtu;
+
+	json set_port_mtu_json;
+	set_port_mtu_json["sonic-port:PORT_LIST"] = {port_mtu_json};
+
+	gnmi_set(
+	    "/sonic-port:sonic-port/PORT/PORT_LIST[name=" + port_name + "]",
+	    set_port_mtu_json.dump());
+}
+
 static std::unordered_map<std::string, std::uint64_t>
 get_port_counters(const std::string &port_name)
 {
@@ -388,6 +402,9 @@ void apply_port_config(plat_cfg *cfg)
 		if (admin_state)
 		{
 			set_port_speed(port_name, port.speed);
+			set_port_mtu(
+			    port_name,
+			    cfg->properties_cfg.jumbo_frames ? 9216 : 1500);
 		}
 
 		/*
