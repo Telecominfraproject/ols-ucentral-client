@@ -1,9 +1,9 @@
 ---
 BasedOnStyle: LLVM
-IndentWidth: 8
+IndentWidth: 4
 ---
 Language: Cpp
-AccessModifierOffset: -8
+AccessModifierOffset: -4
 AlignAfterOpenBracket: AlwaysBreak
 AlignOperands: Align
 AllowAllArgumentsOnNextLine: false
@@ -48,5 +48,5 @@ NamespaceIndentation: Inner
 PackConstructorInitializers: CurrentLine
 PointerAlignment: Right
 RequiresExpressionIndentation: OuterScope
-UseTab: Always
+UseTab: Never
 ...
