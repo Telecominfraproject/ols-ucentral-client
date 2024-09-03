@@ -40,7 +40,7 @@ BraceWrapping:
   SplitEmptyFunction: false
   SplitEmptyRecord: false
   SplitEmptyNamespace: false
-ColumnLimit: 80
+ColumnLimit: 120
 DerivePointerAlignment: false
 IndentCaseLabels: true
 IndentPPDirectives: BeforeHash
