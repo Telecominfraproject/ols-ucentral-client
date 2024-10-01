@@ -1541,8 +1541,7 @@ static int cfg_service_ntp_parse(const cJSON *s, struct plat_ntp_cfg *ntp_cfg)
 	int ret = -1;
 
 	cJSON *servers = cJSON_GetObjectItemCaseSensitive(s, "servers");
-	if (!cJSON_IsArray(servers))
-	{
+	if (!cJSON_IsArray(servers)) {
 		UC_LOG_ERR("Unexpected type of services:ntp:servers: Array expected");
 		goto err;
 	}
@@ -1550,22 +1549,19 @@ static int cfg_service_ntp_parse(const cJSON *s, struct plat_ntp_cfg *ntp_cfg)
 	const cJSON *server_json = NULL;
 
 	cJSON_ArrayForEach(server_json, servers) {
-		if (!cJSON_IsString(server_json))
-		{
+		if (!cJSON_IsString(server_json)) {
 			UC_LOG_ERR("Unexpected type of services:ntp:servers:<element>: String expected");
 			continue;
 		}
 
 		const char *hostname = cJSON_GetStringValue(server_json);
-		if (!hostname)
-		{
+		if (!hostname) {
 			UC_LOG_ERR("Cannot read services:ntp:servers:<element (string)>");
 			continue;
 		}
 
 		struct plat_ntp_server *server = calloc(1, sizeof(struct plat_ntp_server));
-		if (!server)
-		{
+		if (!server) {
 			UC_LOG_ERR("calloc failed");
 			continue;
 		}
