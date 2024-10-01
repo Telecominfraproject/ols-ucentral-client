@@ -4,8 +4,6 @@
 #include <vector>
 #include <chrono>
 #include <list>
-#include <string>
-#include <utility> // std::move
 #include <gnmi_c_connector.h>
 
 #include <jsoncpp/json/json.h>
@@ -51,40 +49,34 @@ static void set_deadline_after_us(grpc::ClientContext &c, int64_t us)
 
 static int convertYangPath2ProtoPath(const char *yangPath, ::gnmi::Path *path)
 {
-	std::string str{yangPath};
+	int strLen = strlen(yangPath);
+	char* pathStart;
+	char* tmpPath;
+	int ret = 0;
+	int i;
 
-	std::string::size_type pos{};
-	std::vector<std::string> elements;
+	tmpPath = (char*)calloc(strLen+1,1);
 
-	while ((pos = str.find('/')) != std::string::npos)
-	{
-		std::string elem{str.substr(0, pos)};
+	if(tmpPath == NULL || yangPath == NULL)
+		return (ret);
 
-		if (!elem.empty())
-			elements.push_back(std::move(elem));
+	strncpy(tmpPath,yangPath,strLen);
 
-		str.erase(0, pos + 1);
+	pathStart = (tmpPath);
+	for (i=0; i < strLen; i++) {
+		if( *(tmpPath+i) == '/' ) {
+			*(tmpPath+i) = 0;
+			if(strlen(pathStart))
+				path->add_element(pathStart);
+			pathStart = (tmpPath+i+1);
+		}
 	}
+	if(strlen(pathStart))
+		path->add_element(pathStart);
 
-	// Add the last part of split string
-	elements.push_back(str);
-
-	std::string &first_element = elements[0];
-	const auto colon_pos = first_element.find(':');
-
-	if (colon_pos != std::string::npos)
-	{
-		path->set_origin(first_element.substr(0, colon_pos));
-		first_element.erase(0, colon_pos + 1);
-	}
-
-	for (const auto &elem : elements)
-	{
-		::gnmi::PathElem *path_elem = path->add_elem();
-		path_elem->set_name(elem);
-	}
-
-	return 1;
+	ret = 1;
+	free(tmpPath);
+	return(ret);
 }
 
 class SyncCertificateVerifier
