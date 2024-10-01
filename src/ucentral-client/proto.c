@@ -1031,20 +1031,6 @@ err:
 	return -1;
 }
 
-static int
-cfg_switch_properties_parse(const cJSON *properties, struct plat_properties_cfg *cfg)
-{
-	const cJSON *jumbo_frames = cJSON_GetObjectItemCaseSensitive(properties, "jumbo-frames");
-	if (jumbo_frames && !cJSON_IsBool(jumbo_frames)) {
-		UC_LOG_ERR("Unexpected type of switch:properties:jumbo-frames: Boolean expected");
-		return -1;
-	}
-
-	cfg->jumbo_frames = cJSON_IsTrue(jumbo_frames);
-
-	return 0;
-}
-
 static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 {
 	cJSON *eth = NULL;
@@ -1757,7 +1743,7 @@ static int cfg_switch_ieee8021x_parse(cJSON *sw, struct plat_cfg *cfg)
 
 static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 {
-	cJSON *sw, *obj, *iter, *arr, *port_isolation;
+	cJSON *sw, *obj, *iter, *arr, *port_isolation, *jumbo_frames;
 	BITMAP_DECLARE(instances_parsed, MAX_VLANS);
 	int id, prio, fwd, hello, age;
 	bool enabled;
@@ -1831,11 +1817,13 @@ static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 		return -1;
 	}
 
-	const cJSON *properties = cJSON_GetObjectItemCaseSensitive(sw, "properties");
-	if (properties && cfg_switch_properties_parse(properties, &cfg->properties_cfg)) {
-		UC_LOG_ERR("properties config parse failed\n");
+	jumbo_frames = cJSON_GetObjectItemCaseSensitive(sw, "jumbo-frames");
+	if (jumbo_frames && !cJSON_IsBool(jumbo_frames)) {
+		UC_LOG_ERR("Unexpected type of switch:jumbo-frames: Boolean expected");
 		return -1;
 	}
+
+	cfg->jumbo_frames = cJSON_IsTrue(jumbo_frames);
 
 	return 0;
 }

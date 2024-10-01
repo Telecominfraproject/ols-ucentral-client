@@ -404,7 +404,7 @@ void apply_port_config(plat_cfg *cfg)
 			set_port_speed(port_name, port.speed);
 			set_port_mtu(
 			    port_name,
-			    cfg->properties_cfg.jumbo_frames ? 9216 : 1500);
+			    cfg->jumbo_frames ? 9216 : 1500);
 		}
 
 		/*
