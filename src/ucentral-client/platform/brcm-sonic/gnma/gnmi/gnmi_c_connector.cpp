@@ -362,20 +362,12 @@ static int gnmi_jsoni_get_internal(struct gnmi_session *gs, const char *path,
 	gpath = greq.add_path();
 	convertYangPath2ProtoPath(path, gpath);
 
-	::grpc::ClientContext context;
-	set_deadline_after_us(context, timeout_us);
-	status = (*gs->stub)->Get(&context, greq, &gres);
-
-	/*
-	 * We don't have the implementation of JWT authentication, so disable it
-
 	status = invoke_with_token(gs, [&](const std::string &token) {
 		::grpc::ClientContext context;
 		context.AddMetadata("access_token", token);
 		set_deadline_after_us(context, timeout_us);
 		return (*gs->stub)->Get(&context, greq, &gres);
 	});
-	 */
 
 	if (!status.ok()) {
 		GNMI_C_CONNECTOR_DEBUG_LOG("Request failed");
