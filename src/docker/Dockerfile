@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   curl \
   libjsoncpp-dev \
   busybox \
-  gdb \
   libhiredis0.14 \
   && rm -rf /var/lib/apt/lists/*
 

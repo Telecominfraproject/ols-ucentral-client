@@ -13,7 +13,7 @@ netlink/netlink.full.a:
 
 %.o: %.c
 ifdef PLATFORM_REVISION
-	gcc -c -g -o $@ ${CFLAGS} -I ./ -I ../../include -D PLATFORM_REVISION='"$(PLATFORM_REVISION)"' $^
+	gcc -c -o $@ ${CFLAGS} -I ./ -I ../../include -D PLATFORM_REVISION='"$(PLATFORM_REVISION)"' $^
 else
-	gcc -c -g -o $@ ${CFLAGS} -I ./ -I ../../include $^
+	gcc -c -o $@ ${CFLAGS} -I ./ -I ../../include $^
 endif

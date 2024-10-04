@@ -1031,20 +1031,6 @@ err:
 	return -1;
 }
 
-static int
-cfg_switch_properties_parse(const cJSON *properties, struct plat_properties_cfg *cfg)
-{
-	const cJSON *jumbo_frames = cJSON_GetObjectItemCaseSensitive(properties, "jumbo-frames");
-	if (jumbo_frames && !cJSON_IsBool(jumbo_frames)) {
-		UC_LOG_ERR("Unexpected type of switch:properties:jumbo-frames: Boolean expected");
-		return -1;
-	}
-
-	cfg->jumbo_frames = cJSON_IsTrue(jumbo_frames);
-
-	return 0;
-}
-
 static int cfg_ethernet_parse(cJSON *ethernet, struct plat_cfg *cfg)
 {
 	cJSON *eth = NULL;
@@ -1540,32 +1526,31 @@ static int cfg_service_ntp_parse(const cJSON *s, struct plat_ntp_cfg *ntp_cfg)
 {
 	int ret = -1;
 
-	cJSON *servers = cJSON_GetObjectItemCaseSensitive(s, "servers");
-	if (!cJSON_IsArray(servers))
-	{
+	cJSON *servers;
+	const cJSON *server_json;
+	const char *hostname;
+	struct plat_ntp_server *server;
+
+	servers = cJSON_GetObjectItemCaseSensitive(s, "servers");
+	if (!cJSON_IsArray(servers)) {
 		UC_LOG_ERR("Unexpected type of services:ntp:servers: Array expected");
 		goto err;
 	}
 
-	const cJSON *server_json = NULL;
-
 	cJSON_ArrayForEach(server_json, servers) {
-		if (!cJSON_IsString(server_json))
-		{
+		if (!cJSON_IsString(server_json)) {
 			UC_LOG_ERR("Unexpected type of services:ntp:servers:<element>: String expected");
 			continue;
 		}
 
-		const char *hostname = cJSON_GetStringValue(server_json);
-		if (!hostname)
-		{
+		hostname = cJSON_GetStringValue(server_json);
+		if (!hostname) {
 			UC_LOG_ERR("Cannot read services:ntp:servers:<element (string)>");
 			continue;
 		}
 
-		struct plat_ntp_server *server = calloc(1, sizeof(struct plat_ntp_server));
-		if (!server)
-		{
+		server = calloc(1, sizeof(struct plat_ntp_server));
+		if (!server) {
 			UC_LOG_ERR("calloc failed");
 			continue;
 		}
@@ -1758,7 +1743,7 @@ static int cfg_switch_ieee8021x_parse(cJSON *sw, struct plat_cfg *cfg)
 
 static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 {
-	cJSON *sw, *obj, *iter, *arr, *port_isolation;
+	cJSON *sw, *obj, *iter, *arr, *port_isolation, *jumbo_frames;
 	BITMAP_DECLARE(instances_parsed, MAX_VLANS);
 	int id, prio, fwd, hello, age;
 	bool enabled;
@@ -1832,11 +1817,13 @@ static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 		return -1;
 	}
 
-	const cJSON *properties = cJSON_GetObjectItemCaseSensitive(sw, "properties");
-	if (properties && cfg_switch_properties_parse(properties, &cfg->properties_cfg)) {
-		UC_LOG_ERR("properties config parse failed\n");
+	jumbo_frames = cJSON_GetObjectItemCaseSensitive(sw, "jumbo-frames");
+	if (jumbo_frames && !cJSON_IsBool(jumbo_frames)) {
+		UC_LOG_ERR("Unexpected type of switch:jumbo-frames: Boolean expected");
 		return -1;
 	}
+
+	cfg->jumbo_frames = cJSON_IsTrue(jumbo_frames);
 
 	return 0;
 }

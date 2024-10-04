@@ -16,10 +16,10 @@ $(GNMI_CC_FILES) $(GNMI_H_FILES): gnmi_protoc_stamp
 	touch $@
 
 $(GNMI_OBJECTS): $(GNMI_CC_FILES) $(GNMI_H_FILES)
-	g++ -g ${CCFLAGS} -I ./ -std=gnu++14 -c -o $@ $(patsubst %.o,%,$@).cc
+	g++ ${CCFLAGS} -I ./ -std=gnu++14 -c -o $@ $(patsubst %.o,%,$@).cc
 
 gnmi_c_connector.o: gnmi_c_connector.cpp gnmi_c_connector.h $(GNMI_H_FILES)
-	g++ -g ${CCFLAGS} -I ./ -std=gnu++14 -c -o $@ $<
+	g++ ${CCFLAGS} -I ./ -std=gnu++14 -c -o $@ $<
 
 gnmi_c_connector.a: gnmi_c_connector.o $(GNMI_OBJECTS)
 	ar crs $@ $^

@@ -3,27 +3,14 @@
     "version": "1.0.0",
     "package": {
         "version": "1.0.0",
-        "depends": [
-            {
-                "name": "gnmi"
-            },
-            {
-                "name": "mgmt-framework"         
-            },
-            {
-                "name": "swss"
-            },
-            {
-                "name": "syncd"
-            }
-        ],
+        "depends": [],
         "name": "ucentral_client",
         "description": "SONiC uCentral client package"
     },
     "service": {
         "name": "ucentral_client",
         "requires": [],
-        "after": ["gnmi", "mgmt-framework", "swss", "syncd"],
+        "after": [],
         "before": [],
         "dependent-of": [],
         "asic-service": false,
