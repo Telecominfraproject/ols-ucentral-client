@@ -4,7 +4,8 @@
     "package": {
         "version": "1.0.0",
         "depends": [],
-        "name": "ucentral_client"
+        "name": "ucentral_client",
+        "description": "SONiC uCentral client package"
     },
     "service": {
         "name": "ucentral_client",
@@ -25,12 +26,24 @@
     },
     "container": {
         "privileged": false,
-        "volumes": [],
+        "volumes": ["/var/lib/ucentral:/var/lib/ucentral"],
+        "mounts": [
+            {
+                "source": "TCA",
+                "target": "/etc/ucentral",
+                "type": "volume",
+                "volume-opt": {
+                    "device": "/dev/disk/by-label/ONIE-TIP-CA-CERT",
+                    "type": "ext4",
+                    "o": "ro"
+                }
+            }
+        ],
         "tmpfs": []
     },
     "cli": {
-        "config": "",
-        "show": "",
-        "clear": ""
+        "config": [],
+        "show": [],
+        "clear": []
     }
 }

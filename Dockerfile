@@ -1,4 +1,4 @@
-FROM debian:buster
+FROM arm64v8/debian:buster
 LABEL Description="Ucentral client (Build) environment"
 
 ARG HOME /root
@@ -23,7 +23,8 @@ RUN apt-get update -q -y  && apt-get -q -y --no-install-recommends install \
 	autoconf \
 	libtool \
 	pkg-config \
-	libjsoncpp-dev
+	libjsoncpp-dev \
+	libhiredis-dev
 
 RUN git config --global http.sslverify false
 RUN git clone https://github.com/DaveGamble/cJSON.git ${HOME}/ucentral-external-libs/cJSON/

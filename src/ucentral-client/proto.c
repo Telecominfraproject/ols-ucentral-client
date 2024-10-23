@@ -1522,6 +1522,49 @@ err:
 	return ret;
 }
 
+static int cfg_service_ntp_parse(const cJSON *s, struct plat_ntp_cfg *ntp_cfg)
+{
+	int ret = -1;
+
+	cJSON *servers;
+	const cJSON *server_json;
+	const char *hostname;
+	struct plat_ntp_server *server;
+
+	servers = cJSON_GetObjectItemCaseSensitive(s, "servers");
+	if (!cJSON_IsArray(servers)) {
+		UC_LOG_ERR("Unexpected type of services:ntp:servers: Array expected");
+		goto err;
+	}
+
+	cJSON_ArrayForEach(server_json, servers) {
+		if (!cJSON_IsString(server_json)) {
+			UC_LOG_ERR("Unexpected type of services:ntp:servers:<element>: String expected");
+			continue;
+		}
+
+		hostname = cJSON_GetStringValue(server_json);
+		if (!hostname) {
+			UC_LOG_ERR("Cannot read services:ntp:servers:<element (string)>");
+			continue;
+		}
+
+		server = calloc(1, sizeof(struct plat_ntp_server));
+		if (!server) {
+			UC_LOG_ERR("calloc failed");
+			continue;
+		}
+
+		strncpy(server->hostname, hostname, sizeof(server->hostname) - 1);
+
+		UCENTRAL_LIST_PUSH_MEMBER(&ntp_cfg->servers, server);
+	}
+
+	ret = 0;
+err:
+	return ret;
+}
+
 static int cfg_services_parse(cJSON *services, struct plat_cfg *cfg)
 {
 	cJSON *s;
@@ -1596,6 +1639,17 @@ static int cfg_services_parse(cJSON *services, struct plat_cfg *cfg)
 		}
 
 		cfg->enabled_services_cfg.http.enabled = cJSON_IsTrue(enable);
+	}
+
+	s = cJSON_GetObjectItemCaseSensitive(services, "ntp");
+	if (s) {
+		if (!cJSON_IsObject(s)) {
+			UC_LOG_ERR("Unexpected type of services:ntp: Object expected");
+			return -1;
+		}
+
+		if (cfg_service_ntp_parse(s, &cfg->ntp_cfg))
+			return -1;
 	}
 
 	return 0;
@@ -1689,7 +1743,7 @@ static int cfg_switch_ieee8021x_parse(cJSON *sw, struct plat_cfg *cfg)
 
 static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 {
-	cJSON *sw, *obj, *iter, *arr, *port_isolation;
+	cJSON *sw, *obj, *iter, *arr, *port_isolation, *jumbo_frames;
 	BITMAP_DECLARE(instances_parsed, MAX_VLANS);
 	int id, prio, fwd, hello, age;
 	bool enabled;
@@ -1762,6 +1816,14 @@ static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 		UC_LOG_ERR("port-isolation config parse failed\n");
 		return -1;
 	}
+
+	jumbo_frames = cJSON_GetObjectItemCaseSensitive(sw, "jumbo-frames");
+	if (jumbo_frames && !cJSON_IsBool(jumbo_frames)) {
+		UC_LOG_ERR("Unexpected type of switch:jumbo-frames: Boolean expected");
+		return -1;
+	}
+
+	cfg->jumbo_frames = cJSON_IsTrue(jumbo_frames);
 
 	return 0;
 }
@@ -2152,6 +2214,14 @@ static struct plat_cfg * cfg_parse(cJSON *config)
 
 err_parse:
 	/* TODO: free all ports->vlans as well */
+
+	/* Empty statement is needed because labels can only be followed by
+	 * statements (and declaration is not a statement)
+	 */
+	;
+	struct plat_ntp_server *ntp_node = NULL;
+	UCENTRAL_LIST_DESTROY_SAFE(&cfg->ntp_cfg.servers, ntp_node);
+
 	free(cfg->log_cfg);
 	free(cfg);
 	return NULL;
@@ -2254,6 +2324,9 @@ configure_handle(cJSON **rpc)
 
 err_apply:
 	plat_config_destroy(plat_cfg);
+
+	struct plat_ntp_server *ntp_node = NULL;
+	UCENTRAL_LIST_DESTROY_SAFE(&plat_cfg->ntp_cfg.servers, ntp_node);
 
 	free(plat_cfg->log_cfg);
 	free(plat_cfg);
