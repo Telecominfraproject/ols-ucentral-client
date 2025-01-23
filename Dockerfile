@@ -3,7 +3,7 @@ LABEL Description="Ucentral client (Build) environment"
 
 ARG HOME /root
 ARG EXTERNAL_LIBS ${HOME}/ucentral-external-libs
-
+ARG SCHEMA_COMMITID adeeb0457b7060d192e4180f96eca60d562d1d15
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update -q -y  && apt-get -q -y --no-install-recommends install \
@@ -30,6 +30,7 @@ RUN git clone https://github.com/DaveGamble/cJSON.git ${HOME}/ucentral-external-
 RUN git clone https://libwebsockets.org/repo/libwebsockets ${HOME}/ucentral-external-libs/libwebsockets/
 RUN git clone --recurse-submodules -b v1.50.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc ${HOME}/ucentral-external-libs/grpc/
 RUN git clone --recursive --branch v7.1.4 https://github.com/zhaojh329/rtty.git ${HOME}/ucentral-external-libs/rtty/
+RUN git clone https://github.com/Telecominfraproject/ols-ucentral-schema.git ${HOME}/ucentral-external-libs/ols-ucentral-schema/
 
 # The following libs should be prebuilt in docker-build-env img to speed-up
 # recompilation of only the ucentral-client itself
@@ -62,3 +63,7 @@ RUN cd ${HOME}/ucentral-external-libs/rtty/ && \
 	cd build && \
 	cmake .. && \
 	make -j4
+
+RUN cd ${HOME}/ucentral-external-libs/ols-ucentral-schema/ && \
+        git checkout ${SCHEMA_COMMITID}
+

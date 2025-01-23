@@ -41,6 +41,8 @@ extern "C" {
 struct client_config {
 	const char *redirector_file;
 	const char *redirector_file_dbg;
+	const char *ols_client_version_file;
+	const char *ols_schema_version_file;
 	const char *server;
 	int16_t port;
 	const char *path;
