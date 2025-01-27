@@ -2,6 +2,7 @@
 
 #include <ucentral-platform.h>
 #include <ucentral-log.h>
+#include <plat-revision.h>
 
 #define UNUSED_PARAM(param) (void)((param))
 
@@ -12,7 +13,11 @@ int plat_init(void)
 
 int plat_info_get(struct plat_platform_info *info)
 {
-	UNUSED_PARAM(info);
+	*info = (struct plat_platform_info){0};
+        snprintf(info->platform, sizeof info->platform, "%s", "Example Platform" );
+        snprintf(info->hwsku, sizeof info->hwsku, "%s", "example-platform-sku");
+        snprintf(info->mac, sizeof info->mac, "%s", "24:fe:9a:0f:48:f0");
+
 	return 0;
 }
 
@@ -156,10 +161,45 @@ int plat_port_num_get(uint16_t *num_of_active_ports)
 	UNUSED_PARAM(num_of_active_ports);
 	return 0;
 }
-
+int plat_revision_get(char *str, size_t str_max_len) 
+{
+        snprintf(str, str_max_len, PLATFORM_REVISION);
+        return 0;
+}
+int plat_reboot_cause_get(struct plat_reboot_cause *cause)
+{
+	UNUSED_PARAM(cause);
+	return 0;
+}
+int plat_event_subscribe(const struct plat_event_callbacks *cbs)
+{
+	UNUSED_PARAM(cbs);
+        return 0;
+}
+void plat_event_unsubscribe(void)
+{
+	return;
+}
+	
 int plat_running_img_name_get(char *str, size_t str_max_len)
 {
 	UNUSED_PARAM(str_max_len);
 	UNUSED_PARAM(str);
 	return 0;
 }
+int plat_metrics_save(const struct plat_metrics_cfg *cfg)
+{
+	UNUSED_PARAM(cfg);
+        return 0;
+}
+int plat_metrics_restore(struct plat_metrics_cfg *cfg)
+{
+	UNUSED_PARAM(cfg);
+        return 0;
+}
+int plat_run_script(struct plat_run_script *p)
+{
+	UNUSED_PARAM(p);
+        return 0;
+}
+

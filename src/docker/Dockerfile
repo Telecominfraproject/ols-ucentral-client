@@ -21,6 +21,8 @@ COPY /ucentral-client /usr/local/bin/ucentral-client
 COPY /rtty /usr/local/bin/
 COPY /lib* /usr/local/lib/
 
+COPY /version.jso[n] /etc/
+COPY /schema.jso[n] /etc/
 RUN ldconfig
 RUN ls -l /usr/local/bin/ucentral-client
 

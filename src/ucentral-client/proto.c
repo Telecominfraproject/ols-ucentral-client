@@ -406,17 +406,46 @@ err:
 	proto_destroy_blob(&blob);
 }
 
-void
-connect_send(void)
-{
+static cJSON *readJsonFile(const char *filename) {
+
+	FILE *file = fopen(filename, "r");
+
+	if (!file) {
+		fprintf(stderr, "Error opening file: %s\n", filename);
+		return NULL;
+	}
+
+	cJSON *ret;
+
+	// Get the file size
+	fseek(file, 0, SEEK_END);
+	long fileSize = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	// Read the entire file into a buffer
+	char *buffer = (char *)malloc(fileSize + 1);
+	fread(buffer, 1, fileSize, file);
+	buffer[fileSize] = '\0'; // Null-terminate the string
+
+	// Close the file
+	fclose(file);
+
+	ret = cJSON_Parse(buffer);
+
+	return ret;
+}
+
+void connect_send(void) {
 	/* WIP: TMP hardcode; to be removed*/
 	unsigned mac[6];
 	struct plat_platform_info pinfo = {0};
-	struct plat_metrics_cfg restore_metrics = { 0 };
+	struct plat_metrics_cfg restore_metrics = {0};
 	struct blob blob = {0};
 	uint64_t uuid_buf; /* fixed storage size */
 	cJSON *params;
 	cJSON *cap;
+	cJSON *ver;
+
 	int ret;
 
 	blob.obj = proto_new_blob("connect");
@@ -446,7 +475,6 @@ connect_send(void)
 	if (password) {
 		if (!cJSON_AddStringToObject(params, "password", password))
 			goto err;
-
 		memset(password, 0, strlen(password));
 		free(password);
 		password = NULL;
@@ -456,30 +484,60 @@ connect_send(void)
 	if (!cap)
 		goto err;
 
+	ver = cJSON_AddObjectToObject(cap, "version");
+	if (!ver)
+		goto err;
+
 	if (plat_info_get(&pinfo)) {
 		UC_LOG_CRIT("failed to get platform info");
-	} else {
-		if (!cJSON_AddStringToObject(cap, "compatible", pinfo.hwsku))
-			goto err;
-
-		if (!cJSON_AddStringToObject(cap, "model", pinfo.platform))
-			goto err;
 	}
+
+	if (!cJSON_AddStringToObject(cap, "serial", client.serial))
+		goto err;
+
+	if (!cJSON_AddStringToObject(cap, "firmware", client.firmware))
+		goto err;
+
+	cJSON *client_version_json = readJsonFile(client.ols_client_version_file);
+	if (!client_version_json)
+		goto err;
+	if (!cJSON_AddItemToObject(ver, "switch", client_version_json))
+		goto err;
+	else
+		UC_LOG_DBG("client version added to connect.capabilities.version");
+
+	cJSON *schema_version_json = readJsonFile(client.ols_schema_version_file);
+	if (!schema_version_json) {
+		UC_LOG_DBG("No schema version present.");
+	}
+	else {
+		if (!cJSON_AddItemToObject(ver, "schema", schema_version_json))
+			goto err;
+		else
+			UC_LOG_DBG("schema version added to connect.capabilities.version");
+	}
+
+	if (!cJSON_AddStringToObject(cap, "compatible", pinfo.hwsku))
+		goto err;
+
+	if (!cJSON_AddStringToObject(cap, "model", pinfo.platform))
+		goto err;
 
 	if (!cJSON_AddStringToObject(cap, "platform", "switch"))
 		goto err;
 
 	if (client.serial &&
-		  sscanf(client.serial, "%2x%2x%2x%2x%2x%2x",
-			  &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
+		sscanf(client.serial, "%2x%2x%2x%2x%2x%2x",
+			   &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
 		char label_mac[32];
 		snprintf(label_mac, sizeof label_mac,
-			 "%02x:%02x:%02x:%02x:%02x:%02x",
-			 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+				 "%02x:%02x:%02x:%02x:%02x:%02x",
+				 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 		if (!cJSON_AddStringToObject(cap, "label_macaddr", label_mac)) {
 			goto err;
 		}
-	} else {
+	}
+	else {
 		UC_LOG_DBG("failed to parse serial as label_macaddr");
 	}
 
@@ -490,11 +548,11 @@ connect_send(void)
 
 		if (ucentral_metrics.state.enabled)
 			plat_state_poll(state_send,
-					ucentral_metrics.state.interval);
+							ucentral_metrics.state.interval);
 
 		if (ucentral_metrics.healthcheck.enabled)
 			plat_health_poll(health_send,
-					 ucentral_metrics.healthcheck.interval);
+							 ucentral_metrics.healthcheck.interval);
 	}
 
 	UC_LOG_DBG("xmit connect\n");

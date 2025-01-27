@@ -50,8 +50,13 @@ build-ucentral-app: run-host-env
 	@echo Running ucentralclient docker-build-env container to build ucentral-client...;
 	docker exec -t ${CONTAINER_NAME} /root/ols-nos/docker-build-client.sh
 	docker cp ${CONTAINER_NAME}:/root/deliverables/ src/docker/
+	# copy the schema version, if it is there
+	docker cp ${CONTAINER_NAME}:/root/ucentral-external-libs/ols-ucentral-schema/schema.json src/docker/ || true
 	docker container stop ${CONTAINER_NAME} > /dev/null 2>&1 || true;
 	docker container rm ${CONTAINER_NAME} > /dev/null 2>&1 || true;
+	if [ -f version.json ]; then
+	    cp version.json src/docker/
+	fi
 
 build-ucentral-docker-img: build-ucentral-app
 	pushd src
@@ -91,6 +96,8 @@ clean:
 	rm -rf src/docker/deliverables || true;
 	rm -rf src/docker/lib* || true;
 	rm -rf src/docker/ucentral-client || true;
+	rm -rf src/docker/version.json || true;
+	rm -rf src/docker/schema.json || true;
 	rm -rf src/debian/ucentral-client.substvars 2>/dev/null || true;
 	rm -rf src/debian/shasta-ucentral-client.debhelper.log 2>/dev/null || true;
 	rm -rf src/debian/.debhelper src/debian/ucentral-client 2>/dev/null || true;
