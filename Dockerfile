@@ -2,7 +2,7 @@ FROM debian:buster
 LABEL Description="Ucentral client (Build) environment"
 
 ARG HOME /root
-ARG SCHEMA="3.2.7"
+ARG SCHEMA="4.0.0-rc1"
 ARG SCHEMA_VERSION="v${SCHEMA}"
 ARG SCHEMA_ZIP_FILE="${SCHEMA_VERSION}.zip"
 ARG SCHEMA_UNZIPPED="ols-ucentral-schema-${SCHEMA}"
