@@ -2,7 +2,7 @@ FROM debian:buster
 LABEL Description="Ucentral client (Build) environment"
 
 ARG HOME /root
-ARG SCHEMA="4.0.0-rc1"
+ARG SCHEMA="4.1.0-rc1"
 ARG SCHEMA_VERSION="v${SCHEMA}"
 ARG SCHEMA_ZIP_FILE="${SCHEMA_VERSION}.zip"
 ARG SCHEMA_UNZIPPED="ols-ucentral-schema-${SCHEMA}"
@@ -47,6 +47,8 @@ RUN cd ${HOME}/ucentral-external-libs/cJSON/ && \
 	make install
 
 RUN cd ${HOME}/ucentral-external-libs/libwebsockets/ && \
+        git branch --all && \
+        git checkout a9b8fe7ebf61b8c0e7891e06e70d558412933a33 && \
 	mkdir build && \
 	cd build && \
 	cmake .. && \
