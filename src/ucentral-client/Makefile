@@ -1,3 +1,8 @@
+# Production build system for uCentral client
+# Configuration parser tests have been moved to tests/config-parser/Makefile
+# Unit tests remain here for backward compatibility with original repository structure.
+# See TESTING_FRAMEWORK.md for complete test documentation.
+
 .PHONY: test
 
 export CFLAGS+= -Werror -Wall -Wextra
@@ -31,4 +36,5 @@ test-ucentral-json-parser: test-ucentral-json-parser.o ucentral-json-parser.o
 	./test-ucentral-json-parser 2>/dev/null
 
 clean:
-	rm -f ucentral-client 2>/dev/null
+	rm -f ucentral-client *.o test-ucentral-json-parser 2>/dev/null
+	$(MAKE) -C platform/${PLATFORM} clean

@@ -1,0 +1,530 @@
+{
+       "ethernet": [
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet0"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet1"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet2"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet3"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet4"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet5"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet6"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet7"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet8"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet9"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet10"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet11"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet12"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet13"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet14"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet15"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet16"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet17"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet18"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet19"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet20"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet21"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet22"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet23"
+            ],
+            "speed": 1000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet24"
+            ],
+            "speed": 10000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+		"poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet25"
+            ],
+            "speed": 10000
+        },
+        {
+            "duplex": "full",
+            "enabled": true,
+	    "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet26"
+            ],
+            "speed": 10000
+        },
+ {
+            "duplex": "full",
+            "enabled": true,
+	    "poe": {
+                "admin-mode": true,
+                "detection": "2pt-dot3af",
+                "priority": "high"
+            },
+            "select-ports": [
+                "Ethernet27"
+            ],
+            "speed": 10000
+        }
+
+    ],
+    "interfaces": [
+        {
+            "ethernet": [
+                {
+                    "select-ports": [
+                         "Ethernet0",
+
+                "Ethernet5",
+                "Ethernet6",
+                "Ethernet7",
+                "Ethernet8",
+                "Ethernet9",
+                "Ethernet10",
+                "Ethernet11",
+                "Ethernet12",
+                "Ethernet13",
+                "Ethernet14",
+                "Ethernet15",
+                "Ethernet16",
+                "Ethernet17",
+                "Ethernet18",
+                "Ethernet19",
+                "Ethernet20",
+                "Ethernet21",
+                "Ethernet22",
+                "Ethernet23",
+                "Ethernet24",
+                "Ethernet25",
+                "Ethernet26",
+                "Ethernet27"
+                    ],
+                    "vlan-tag": "un-tagged"
+                }
+            ],
+            "ipv4": {
+                "addressing": "dynamic"
+            },
+            "name": "VLAN1",
+            "vlan": {
+                "id": 1
+            }
+        },
+{
+            "ethernet": [
+                {   "pvid": true,
+                    "select-ports": [
+                        "Ethernet1",
+		 	"Ethernet2",
+		 	"Ethernet3",
+		 	"Ethernet4"
+                    ],
+                    "vlan-tag": "un-tagged"
+                },
+	{
+	"select-ports": [
+		"Ethernet0"
+			],
+			"vlan-tag": "tagged"
+		}			
+
+            ],
+            "ipv4": {
+                "addressing": "static",
+                "subnet": [
+                    {
+                        "prefix": "10.1.12.157/24"
+                    }
+                ]
+            },
+            "name": "VLAN100",
+            "vlan": {
+                "id": 100,
+		"proto": "802.1q"
+            }
+},
+	{
+            "ethernet": [
+                {
+                    "select-ports": [
+                  	"Ethernet5",
+		 	"Ethernet6",
+		 	"Ethernet8"
+                    ],
+                    "vlan-tag": "un-tagged"
+                }		
+
+            ],
+            "ipv4": {
+                "addressing": "static",
+                "multicast": {
+                    "igmp": {
+                        "fast-leave-enable": true,
+                        "last-member-query-interval": 33,
+                        "max-response-time": 11,
+                        "querier-enable": true,
+                        "query-interval": 14,
+                        "snooping-enable": true,
+                        "static-mcast-groups": [
+                            {
+                                "address": "229.229.229.1",
+                                "egress-ports": [
+                                    "Ethernet5",
+                                    "Ethernet6",
+                                    "Ethernet8"
+                                ]
+                            }
+                        ],
+                        "version": 3
+                    }
+                }
+            },
+            "role": "upstream",
+            "services": [
+                "ssh",
+                "lldp"
+            ],
+            "vlan": {
+                "id": 500,
+                "proto": "802.1q"
+            }
+        }
+    ],
+    "metrics": {
+        "dhcp-snooping": {
+            "filters": [
+                "ack",
+                "discover",
+                "offer",
+                "request",
+                "solicit",
+                "reply",
+                "renew"
+            ]
+        },
+        "health": {
+            "interval": 60
+        },
+        "statistics": {
+            "interval": 300,
+            "types": ["lldp",
+		      "clients"
+        ]
+        }
+    },
+    "services": {
+        "http": {
+            "enable": true
+        },
+        "ssh": {
+            "enable": true
+        },
+        "lldp": {
+            "describe": "uCentral",
+            "location": "universe"
+        }
+    },
+    "unit": {
+        "leds-active": true,
+        "usage-threshold": 90
+    },
+    "uuid": 1719887774
+}
