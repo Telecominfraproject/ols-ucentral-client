@@ -34,37 +34,37 @@ make build-host-env
 
 # Run all tests - RECOMMENDED
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test-config-full"
+  "cd /root/ols-nos/tests/config-parser && make test-config-full"
 ```
 
 #### Run Individual Test Suites
 ```bash
 # Schema validation only
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make validate-schema"
+  "cd /root/ols-nos/tests/config-parser && make validate-schema"
 
 # Parser tests only
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test-config"
+  "cd /root/ols-nos/tests/config-parser && make test-config"
 
 # Unit tests
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test"
+  "cd /root/ols-nos/tests/config-parser && make test"
 ```
 
 #### Generate Test Reports
 ```bash
 # Generate HTML report (viewable in browser)
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test-config-html"
+  "cd /root/ols-nos/tests/config-parser && make test-config-html"
 
 # Generate JSON report (machine-readable)
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test-config-json"
+  "cd /root/ols-nos/tests/config-parser && make test-config-json"
 
 # Copy reports out of container to view
-docker cp ucentral_client_build_env:/root/ols-nos/src/ucentral-client/test-report.html ./
-docker cp ucentral_client_build_env:/root/ols-nos/src/ucentral-client/test-results.json ./
+docker cp ucentral_client_build_env:/root/ols-nos/tests/config-parser/test-report.html ./
+docker cp ucentral_client_build_env:/root/ols-nos/tests/config-parser/test-results.json ./
 ```
 
 ### Alternative: Run Tests Locally
@@ -72,7 +72,7 @@ docker cp ucentral_client_build_env:/root/ols-nos/src/ucentral-client/test-resul
 **Note:** Running tests locally may encounter OS-specific dependency issues. Docker is the recommended approach.
 
 ```bash
-cd src/ucentral-client
+cd tests/config-parser
 
 # Run all tests (schema + parser)
 make test-config-full
@@ -114,8 +114,8 @@ make run-host-env
 # In another terminal, exec into the container
 docker exec -it ucentral_client_build_env bash
 
-# Navigate to source directory and run tests
-cd /root/ols-nos/src/ucentral-client
+# Navigate to test directory and run tests
+cd /root/ols-nos/tests/config-parser
 make test-config-full
 ```
 
@@ -127,7 +127,7 @@ make build-host-env
 
 # Run tests in container
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test-config-full"
+  "cd /root/ols-nos/tests/config-parser && make test-config-full"
 ```
 
 ## Test Features
@@ -389,7 +389,7 @@ To check if the database is accurate:
 ```bash
 cd src/ucentral-client
 grep "cfg_ethernet_lldp_parse" proto.c
-# If this returns nothing, the function doesn't exist
+# If this returns nothing, the function doesn't exist in the base repository
 ```
 
 2. **Run property usage report:**
@@ -914,21 +914,21 @@ test-configs:
 
     # Run schema validation
     - docker exec ucentral_client_build_env bash -c
-        "cd /root/ols-nos/src/ucentral-client && make validate-schema"
+        "cd /root/ols-nos/tests/config-parser && make validate-schema"
 
     # Run parser tests
     - docker exec ucentral_client_build_env bash -c
-        "cd /root/ols-nos/src/ucentral-client && make test-config"
+        "cd /root/ols-nos/tests/config-parser && make test-config"
 
     # Generate JSON reports
     - docker exec ucentral_client_build_env bash -c
-        "cd /root/ols-nos/src/ucentral-client &&
+        "cd /root/ols-nos/tests/schema &&
          python3 validate-schema.py ../../config-samples/ --format json > schema-report.json"
 
   artifacts:
     paths:
-      - src/ucentral-client/schema-report.json
-      - src/ucentral-client/test-results.txt
+      - tests/schema/schema-report.json
+      - tests/config-parser/test-results.txt
     when: always
 
   coverage: '/Property coverage: (\d+\.\d+)%/'

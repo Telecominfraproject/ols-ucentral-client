@@ -74,7 +74,7 @@ cd /path/to/ols-ucentral-client
 #### Step 3: Validate Schema File
 
 ```bash
-cd /path/to/ols-ucentral-client/src/ucentral-client
+cd /path/to/ols-ucentral-client/tests/config-parser
 
 # Verify schema is valid JSON
 python3 -c "import json; json.load(open('../../config-samples/ucentral.schema.pretty.json'))"
@@ -233,7 +233,7 @@ grep -n "cfg_port_mirroring_parse" src/ucentral-client/proto.c
 
 If updating from upstream or merging branches:
 ```bash
-cd /path/to/ols-ucentral-client/src/ucentral-client
+cd /path/to/ols-ucentral-client/tests/config-parser
 
 # Compare parser functions between versions
 git diff HEAD~1 proto.c | grep "^+.*cfg_.*_parse"
@@ -332,7 +332,7 @@ print(f"Removed entries for {function_name}")
 
 **Usage:**
 ```bash
-cd /path/to/ols-ucentral-client/src/ucentral-client
+cd /path/to/ols-ucentral-client/tests/config-parser
 
 # Remove entries for obsolete function
 python3 remove-properties.py cfg_old_feature_parse
@@ -472,7 +472,7 @@ static struct property_info properties[] = {
 #### Step 4: Verify Property Database Accuracy
 
 ```bash
-cd /path/to/ols-ucentral-client/src/ucentral-client
+cd /path/to/ols-ucentral-client/tests/config-parser
 
 # Rebuild test suite
 make clean
@@ -528,7 +528,7 @@ EOF
 **B. Validate Configuration**
 
 ```bash
-cd /path/to/ols-ucentral-client/src/ucentral-client
+cd /path/to/ols-ucentral-client/tests/config-parser
 
 # Schema validation
 ./validate-schema.py ../../config-samples/test-new-feature.json
@@ -660,7 +660,7 @@ After updating schema or property database:
 cd /path/to/ols-ucentral-client
 
 # 1. Clean build
-cd src/ucentral-client
+cd tests/config-parser
 make clean
 
 # 2. Rebuild test tools
@@ -856,7 +856,7 @@ docker exec ucentral_client_build_env bash -c \
 
 # Verify paths in container
 docker exec ucentral_client_build_env bash -c \
-    "cd /root/ols-nos/src/ucentral-client && ls -la ../../config-samples/*.json"
+    "cd /root/ols-nos/tests/config-parser && ls -la ../../config-samples/*.json"
 
 # Rebuild container if needed
 make clean

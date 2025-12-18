@@ -252,8 +252,9 @@ The testing framework was added with minimal impact to production code:
 2. `src/ucentral-client/include/router-utils.h` - Added extern declarations
    - Exposed necessary functions for test stubs
 
-3. `src/ucentral-client/Makefile` - Removed test targets (moved to tests/config-parser/Makefile)
-   - Production Makefile now focuses only on deliverable code
+3. `src/ucentral-client/Makefile` - No changes (production build only)
+   - Test targets are in tests/config-parser/Makefile
+   - Clean separation between production and test code
 
 ### Configuration Files
 - Added `config-samples/cfg_invalid_*.json` - Negative test cases

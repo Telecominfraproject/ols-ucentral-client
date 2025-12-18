@@ -5,7 +5,7 @@ A modular, portable tool for validating JSON configuration files against the uCe
 ## Features
 
 - **Standalone Operation**: Works independently without external dependencies beyond Python 3 + jsonschema
-- **Modular Design**: Easy to port to other repositories (EC, etc.)
+- **Modular Design**: Easy to port to other repositories (platform-specific implementations, etc.)
 - **Multiple Output Formats**: Human-readable and machine-readable JSON
 - **Directory Validation**: Validate entire directories of configs at once
 - **CI/CD Ready**: Exit codes suitable for automated testing
@@ -121,17 +121,6 @@ Relative to the validator script location:
 - `../../config-samples/ols.ucentral.schema.json`
 - `../../../config-samples/ucentral.schema.pretty.json`
 - `./ols.ucentral.schema.json`
-
-### Example: Porting to EC Repository
-
-```bash
-# Copy validator
-cp validate-schema.py /path/to/ec-repo/src/ucentral-client/
-
-# Use with EC's schema location
-cd /path/to/ec-repo/src/ucentral-client
-python3 validate-schema.py --schema ../../config-tests/schema.json ../../config-tests/
-```
 
 ## Python API
 

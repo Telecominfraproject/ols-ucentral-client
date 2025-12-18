@@ -414,8 +414,8 @@ done
 
 ```bash
 # Start multiple containers for parallel testing
-docker exec ucentral_client_build_env_1 bash -c "cd /root/ols-nos/src/ucentral-client && ./test-config-parser config1.json" &
-docker exec ucentral_client_build_env_2 bash -c "cd /root/ols-nos/src/ucentral-client && ./test-config-parser config2.json" &
+docker exec ucentral_client_build_env_1 bash -c "cd /root/ols-nos/tests/config-parser && ./test-config-parser config1.json" &
+docker exec ucentral_client_build_env_2 bash -c "cd /root/ols-nos/tests/config-parser && ./test-config-parser config2.json" &
 wait
 ```
 

@@ -15,7 +15,7 @@ This testing framework includes multiple documentation files, each serving a spe
 
 ### Primary Documentation
 
-1. **[TEST_CONFIG_README.md](src/ucentral-client/TEST_CONFIG_README.md)** - Complete testing framework guide
+1. **[TEST_CONFIG_README.md](config-parser/TEST_CONFIG_README.md)** - Complete testing framework guide
    - Overview of two-layer validation approach
    - Quick start and running tests
    - Property tracking system
@@ -24,7 +24,7 @@ This testing framework includes multiple documentation files, each serving a spe
    - CI/CD integration
    - **Start here** for understanding the testing framework
 
-2. **[SCHEMA_VALIDATOR_README.md](src/ucentral-client/SCHEMA_VALIDATOR_README.md)** - Schema validator detailed documentation
+2. **[SCHEMA_VALIDATOR_README.md](schema/SCHEMA_VALIDATOR_README.md)** - Schema validator detailed documentation
    - Standalone validator usage
    - Command-line interface
    - Programmatic API
@@ -32,7 +32,7 @@ This testing framework includes multiple documentation files, each serving a spe
    - Common validation errors
    - **Start here** for schema validation specifics
 
-3. **[MAINTENANCE.md](src/ucentral-client/MAINTENANCE.md)** - Maintenance procedures guide
+3. **[MAINTENANCE.md](MAINTENANCE.md)** - Maintenance procedures guide
    - Schema update procedures
    - Property database update procedures
    - Version synchronization
@@ -69,35 +69,35 @@ make build-host-env
 
 # Run all tests (schema + parser) - RECOMMENDED
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test-config-full"
+  "cd /root/ols-nos/tests/config-parser && make test-config-full"
 
 # Run individual test suites
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make validate-schema"
+  "cd /root/ols-nos/tests/config-parser && make validate-schema"
 
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test-config"
+  "cd /root/ols-nos/tests/config-parser && make test-config"
 
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test"
+  "cd /root/ols-nos/tests/config-parser && make test"
 
 # Generate test reports
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test-config-html"
+  "cd /root/ols-nos/tests/config-parser && make test-config-html"
 
 docker exec ucentral_client_build_env bash -c \
-  "cd /root/ols-nos/src/ucentral-client && make test-config-json"
+  "cd /root/ols-nos/tests/config-parser && make test-config-json"
 
 # Copy report files out of container to view
-docker cp ucentral_client_build_env:/root/ols-nos/src/ucentral-client/test-report.html ./
-docker cp ucentral_client_build_env:/root/ols-nos/src/ucentral-client/test-results.json ./
+docker cp ucentral_client_build_env:/root/ols-nos/tests/config-parser/test-report.html ./
+docker cp ucentral_client_build_env:/root/ols-nos/tests/config-parser/test-results.json ./
 ```
 
 **Alternative: Run tests locally** (may have OS-specific dependencies):
 
 ```bash
 # Navigate to test directory
-cd src/ucentral-client
+cd tests/config-parser
 
 # Run all tests (schema + parser)
 make test-config-full
@@ -121,7 +121,7 @@ make test-config-junit # JUnit XML (CI/CD integration)
 - `tests/config-parser/test-config-parser.c` (3445 lines) - Parser test framework with property tracking
 - `tests/config-parser/test-stubs.c` (214 lines) - Platform function stubs for testing
 - `tests/schema/validate-schema.py` (305 lines) - Standalone schema validator
-- `src/ucentral-client/include/config-parser.h` - Test header exposing cfg_parse()
+- `tests/config-parser/config-parser.h` - Test header exposing cfg_parse()
 
 **Configuration Files:**
 - `config-samples/ucentral.schema.pretty.json` - uCentral JSON schema (human-readable)
@@ -130,7 +130,7 @@ make test-config-junit # JUnit XML (CI/CD integration)
 - `config-samples/*invalid*.json` - Negative test cases
 
 **Build System:**
-- `src/ucentral-client/Makefile` - Test targets and build rules
+- `tests/config-parser/Makefile` - Test targets and build rules
 
 **Production Code (Minimal Changes):**
 - `src/ucentral-client/proto.c` - Added TEST_STATIC macro (2 lines changed)
@@ -219,8 +219,8 @@ The testing framework was added with minimal impact to production code:
 7. `tests/MAINTENANCE.md` - Maintenance procedures
 8. `tests/config-parser/Makefile` - Test build system
 9. `tests/tools/` - Property database generation tools
-8. `TESTING_FRAMEWORK.md` - This file (documentation index)
-9. `TEST_CONFIG_PARSER_DESIGN.md` - Test framework architecture and design
+10. `TESTING_FRAMEWORK.md` - Documentation index (in repository root)
+11. `TEST_CONFIG_PARSER_DESIGN.md` - Test framework architecture and design (in repository root)
 
 ### Modified Files
 1. `src/ucentral-client/proto.c` - Added TEST_STATIC macro pattern (2 lines)
@@ -242,7 +242,7 @@ The testing framework was added with minimal impact to production code:
 2. `src/ucentral-client/include/router-utils.h` - Added extern declarations
    - Exposed necessary functions for test stubs
 
-3. `src/ucentral-client/Makefile` - Added test targets
+3. `tests/config-parser/Makefile` - Test build system
    ```makefile
    test-config-parser:    # Build parser test tool
    test-config:           # Run parser tests
@@ -269,7 +269,7 @@ The testing framework was added with minimal impact to production code:
 vi src/ucentral-client/proto.c
 
 # 2. Run tests
-cd src/ucentral-client
+cd tests/config-parser
 make test-config-full
 
 # 3. Review property tracking report
@@ -289,7 +289,7 @@ make test-config-full
 ### Before Committing
 ```bash
 # Ensure all tests pass
-cd src/ucentral-client
+cd tests/config-parser
 make clean
 make test-config-full
 
@@ -305,10 +305,10 @@ test-configurations:
   script:
     - make build-host-env
     - docker exec ucentral_client_build_env bash -c
-        "cd /root/ols-nos/src/ucentral-client && make test-config-full"
+        "cd /root/ols-nos/tests/config-parser && make test-config-full"
   artifacts:
     paths:
-      - src/ucentral-client/test-results.txt
+      - tests/config-parser/test-results.txt
 ```
 
 ## Property Database Management
