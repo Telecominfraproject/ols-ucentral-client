@@ -124,3 +124,56 @@ bash ./partition_script.sh ./
 Once certificates are installed and partition is created, rebooting the device is required.
 After reboot and uCentral start, service creates <TCA> volume upon start based on physical partition
 (by-label provided by udev - /dev/disk/by-label/ONIE-TIP-CA-CERT) automatically.
+
+# Testing
+
+The repository includes a comprehensive testing framework for configuration validation:
+
+## Running Tests
+
+**Quick Start:**
+```bash
+# Using the test runner script (recommended)
+./run-config-tests.sh
+
+# Generate HTML report
+./run-config-tests.sh html
+
+# Or run tests directly in the tests directory
+cd tests/config-parser
+make test-config-full
+```
+
+**Docker-based Testing (recommended for consistency):**
+```bash
+# Run in Docker environment
+docker exec ucentral_client_build_env bash -c \
+  "cd /root/ols-nos/tests/config-parser && make test-config-full"
+```
+
+## Test Framework
+
+The testing framework validates configurations through two layers:
+
+1. **Schema Validation** - JSON structure validation against uCentral schema
+2. **Parser Testing** - Actual C parser implementation testing with property tracking
+
+Tests are organized in the `tests/` directory:
+- `tests/config-parser/` - Configuration parser tests
+- `tests/schema/` - Schema validation
+- `tests/tools/` - Property database generation tools
+- `tests/unit/` - Unit tests
+
+## Documentation
+
+- **[TESTING_FRAMEWORK.md](TESTING_FRAMEWORK.md)** - Testing overview and quick reference
+- **[tests/README.md](tests/README.md)** - Complete testing documentation
+- **[tests/config-parser/TEST_CONFIG_README.md](tests/config-parser/TEST_CONFIG_README.md)** - Detailed testing guide
+- **[tests/MAINTENANCE.md](tests/MAINTENANCE.md)** - Schema and property database maintenance
+
+## Test Configuration
+
+Test configurations are located in `config-samples/`:
+- 21 positive test configurations covering various features
+- 4 negative test configurations for error handling validation
+- JSON schema: `config-samples/ucentral.schema.pretty.json`

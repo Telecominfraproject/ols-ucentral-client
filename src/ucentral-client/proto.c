@@ -15,6 +15,27 @@
 #define CONFIGURE_STATUS_PARTIALLY_APPLIED 1
 #define CONFIGURE_STATUS_APPLIED 0
 
+/*
+ * Test Framework Support - Conditional Function Visibility
+ *
+ * RATIONALE: Allows cfg_parse() to be tested in isolation by the test framework
+ * in tests/config-parser/. When UCENTRAL_TESTING is defined during test builds,
+ * TEST_STATIC expands to empty (making functions visible). In production builds,
+ * TEST_STATIC expands to 'static' (keeping functions private).
+ *
+ * PRODUCTION IMPACT: Zero impact. Production builds never define UCENTRAL_TESTING,
+ * so TEST_STATIC always expands to 'static', maintaining identical behavior to
+ * original code. No changes to ABI, performance, or runtime behavior.
+ *
+ * TEST USAGE: Test builds compile with -DUCENTRAL_TESTING flag, making cfg_parse()
+ * callable from test code in tests/config-parser/test-config-parser.c
+ */
+#ifdef UCENTRAL_TESTING
+#define TEST_STATIC /* empty - makes static functions visible to tests */
+#else
+#define TEST_STATIC static
+#endif
+
 struct blob {
 	cJSON *obj;
 	char *rendered_string;
@@ -2055,7 +2076,7 @@ static int cfg_unit_parse(cJSON *unit, struct plat_cfg *cfg)
 	return 0;
 }
 
-static struct plat_cfg * cfg_parse(cJSON *config)
+TEST_STATIC struct plat_cfg * cfg_parse(cJSON *config)
 {
 	struct plat_ports_list *port_node = NULL;
 	struct plat_ports_list *ports = NULL;

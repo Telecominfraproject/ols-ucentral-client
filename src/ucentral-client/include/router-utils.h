@@ -2,11 +2,12 @@
 
 #include <netinet/in.h>
 
+/* Fixed: Changed 'key' to proper struct definition with semicolon */
 struct ucentral_router_fib_key {
 	/* TODO vrf */
 	struct in_addr prefix;
 	int prefix_len;
-} key;
+};
 
 struct ucentral_router_fib_info { /* Destination info */
 	enum {
@@ -92,3 +93,4 @@ int ucentral_router_fib_info_cmp(const struct ucentral_router_fib_info *a,
 	     (DIFF) > 0 ? ++(IOLD) : 0, \
 	     (DIFF) < 0 ? ++(INEW) : 0 \
 	)
+

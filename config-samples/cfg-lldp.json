@@ -1,0 +1,581 @@
+{
+    "strict": false,
+    "uuid": 1765383961,
+    "unit":
+    {
+        "hostname": "MJH-4150",
+        "leds-active": true,
+        "random-password": false,
+        "usage-threshold": 95
+    },
+    "ethernet":
+    [
+        {
+            "select-ports":
+            [
+                "Ethernet23"
+            ],
+            "speed": 1000,
+            "duplex": "full",
+            "enabled": true,
+            "poe":
+            {
+                "admin-mode": true
+            },
+            "lacp-config":
+            {
+                "lacp-enable": false,
+                "lacp-role": "actor",
+                "lacp-mode": "passive",
+                "lacp-port-admin-key": 1,
+                "lacp-port-priority": 32768,
+                "lacp-system-priority": 32768,
+                "lacp-timeout": "long"
+            },
+            "lldp-interface-config":
+            {
+                "lldp-admin-status": "rx-tx",
+                "lldp-basic-tlv-mgmt-ip-v4": true,
+                "lldp-basic-tlv-mgmt-ip-v6": true,
+                "lldp-basic-tlv-port-descr": true,
+                "lldp-basic-tlv-sys-capab": true,
+                "lldp-basic-tlv-sys-descr": true,
+                "lldp-basic-tlv-sys-name": true,
+                "lldp-dot1-tlv-proto-ident": true,
+                "lldp-dot1-tlv-proto-vid": true,
+                "lldp-dot1-tlv-pvid": true,
+                "lldp-dot1-tlv-vlan-name": true,
+                "lldp-dot3-tlv-link-agg": true,
+                "lldp-dot3-tlv-mac-phy": true,
+                "lldp-dot3-tlv-max-frame": true,
+                "lldp-dot3-tlv-poe": true,
+                "lldp-med-location-civic-addr":
+                {
+                    "lldp-med-location-civic-addr-admin-status": true,
+                    "lldp-med-location-civic-country-code": "CA",
+                    "lldp-med-location-civic-device-type": 1,
+                    "lldp-med-location-civic-ca":
+                    [
+                        {
+                            "lldp-med-location-civic-ca-type": 29,
+                            "lldp-med-location-civic-ca-value": "Mike-WFH"
+                        }
+                    ]
+                },
+                "lldp-med-notification": true,
+                "lldp-med-tlv-ext-poe": true,
+                "lldp-med-tlv-inventory": true,
+                "lldp-med-tlv-location": true,
+                "lldp-med-tlv-med-cap": true,
+                "lldp-med-tlv-network-policy": true,
+                "lldp-notification": true
+            },
+            "dhcp-snoop-port":
+            {
+                "dhcp-snoop-port-trust": true,
+                "dhcp-snoop-port-client-limit": 16,
+                "dhcp-snoop-port-circuit-id": "1-5c17834a98a0-24"
+            },
+            "edge-port": false
+        },
+        {
+            "select-ports":
+            [
+                "Ethernet2"
+            ],
+            "speed": 1000,
+            "duplex": "full",
+            "enabled": true,
+            "poe":
+            {
+                "admin-mode": true
+            },
+            "lacp-config":
+            {
+                "lacp-enable": false,
+                "lacp-role": "actor",
+                "lacp-mode": "passive",
+                "lacp-port-admin-key": 1,
+                "lacp-port-priority": 32768,
+                "lacp-system-priority": 32768,
+                "lacp-timeout": "long"
+            },
+            "lldp-interface-config":
+            {
+                "lldp-admin-status": "rx-tx",
+                "lldp-basic-tlv-mgmt-ip-v4": true,
+                "lldp-basic-tlv-mgmt-ip-v6": true,
+                "lldp-basic-tlv-port-descr": true,
+                "lldp-basic-tlv-sys-capab": true,
+                "lldp-basic-tlv-sys-descr": true,
+                "lldp-basic-tlv-sys-name": true,
+                "lldp-dot1-tlv-proto-ident": true,
+                "lldp-dot1-tlv-proto-vid": true,
+                "lldp-dot1-tlv-pvid": true,
+                "lldp-dot1-tlv-vlan-name": true,
+                "lldp-dot3-tlv-link-agg": true,
+                "lldp-dot3-tlv-mac-phy": true,
+                "lldp-dot3-tlv-max-frame": true,
+                "lldp-dot3-tlv-poe": true,
+                "lldp-med-location-civic-addr":
+                {
+                    "lldp-med-location-civic-addr-admin-status": true,
+                    "lldp-med-location-civic-country-code": "CA",
+                    "lldp-med-location-civic-device-type": 1,
+                    "lldp-med-location-civic-ca":
+                    [
+                        {
+                            "lldp-med-location-civic-ca-type": 29,
+                            "lldp-med-location-civic-ca-value": "Mike-WFH"
+                        }
+                    ]
+                },
+                "lldp-med-notification": true,
+                "lldp-med-tlv-ext-poe": true,
+                "lldp-med-tlv-inventory": true,
+                "lldp-med-tlv-location": true,
+                "lldp-med-tlv-med-cap": true,
+                "lldp-med-tlv-network-policy": true,
+                "lldp-notification": true
+            },
+            "dhcp-snoop-port":
+            {
+                "dhcp-snoop-port-trust": true,
+                "dhcp-snoop-port-client-limit": 16,
+                "dhcp-snoop-port-circuit-id": "1-5c17834a98a0-3"
+            },
+            "edge-port": false
+        },
+        {
+            "select-ports":
+            [
+                "Ethernet24",
+                "Ethernet25",
+                "Ethernet26",
+                "Ethernet27"
+            ],
+            "speed": 10000,
+            "duplex": "full",
+            "enabled": true,
+            "dhcp-snoop-port":
+            {
+                "dhcp-snoop-port-trust": true
+            },
+            "edge-port": false
+        },
+        {
+            "select-ports":
+            [
+                "Ethernet0"
+            ],
+            "speed": 1000,
+            "duplex": "full",
+            "enabled": true,
+            "poe":
+            {
+                "admin-mode": true
+            },
+            "lacp-config":
+            {
+                "lacp-enable": false,
+                "lacp-role": "actor",
+                "lacp-mode": "passive",
+                "lacp-port-admin-key": 1,
+                "lacp-port-priority": 32768,
+                "lacp-system-priority": 32768,
+                "lacp-timeout": "long"
+            },
+            "lldp-interface-config":
+            {
+                "lldp-admin-status": "rx-tx",
+                "lldp-basic-tlv-mgmt-ip-v4": true,
+                "lldp-basic-tlv-mgmt-ip-v6": true,
+                "lldp-basic-tlv-port-descr": true,
+                "lldp-basic-tlv-sys-capab": true,
+                "lldp-basic-tlv-sys-descr": true,
+                "lldp-basic-tlv-sys-name": true,
+                "lldp-dot1-tlv-proto-ident": true,
+                "lldp-dot1-tlv-proto-vid": true,
+                "lldp-dot1-tlv-pvid": true,
+                "lldp-dot1-tlv-vlan-name": true,
+                "lldp-dot3-tlv-link-agg": true,
+                "lldp-dot3-tlv-mac-phy": true,
+                "lldp-dot3-tlv-max-frame": true,
+                "lldp-dot3-tlv-poe": true,
+                "lldp-med-location-civic-addr":
+                {
+                    "lldp-med-location-civic-addr-admin-status": true,
+                    "lldp-med-location-civic-country-code": "CA",
+                    "lldp-med-location-civic-device-type": 1,
+                    "lldp-med-location-civic-ca":
+                    [
+                        {
+                            "lldp-med-location-civic-ca-type": 29,
+                            "lldp-med-location-civic-ca-value": "Mike-WFH"
+                        }
+                    ]
+                },
+                "lldp-med-notification": true,
+                "lldp-med-tlv-ext-poe": true,
+                "lldp-med-tlv-inventory": true,
+                "lldp-med-tlv-location": true,
+                "lldp-med-tlv-med-cap": true,
+                "lldp-med-tlv-network-policy": true,
+                "lldp-notification": true
+            },
+            "dhcp-snoop-port":
+            {
+                "dhcp-snoop-port-trust": true,
+                "dhcp-snoop-port-client-limit": 16,
+                "dhcp-snoop-port-circuit-id": "1-5c17834a98a0-1"
+            },
+            "edge-port": false
+        },
+        {
+            "select-ports":
+            [
+                "Ethernet4"
+            ],
+            "speed": 1000,
+            "duplex": "full",
+            "enabled": true,
+            "poe":
+            {
+                "admin-mode": true
+            },
+            "lacp-config":
+            {
+                "lacp-enable": false,
+                "lacp-role": "actor",
+                "lacp-mode": "passive",
+                "lacp-port-admin-key": 1,
+                "lacp-port-priority": 32768,
+                "lacp-system-priority": 32768,
+                "lacp-timeout": "long"
+            },
+            "lldp-interface-config":
+            {
+                "lldp-admin-status": "rx-tx",
+                "lldp-basic-tlv-mgmt-ip-v4": true,
+                "lldp-basic-tlv-mgmt-ip-v6": true,
+                "lldp-basic-tlv-port-descr": true,
+                "lldp-basic-tlv-sys-capab": true,
+                "lldp-basic-tlv-sys-descr": true,
+                "lldp-basic-tlv-sys-name": true,
+                "lldp-dot1-tlv-proto-ident": true,
+                "lldp-dot1-tlv-proto-vid": true,
+                "lldp-dot1-tlv-pvid": true,
+                "lldp-dot1-tlv-vlan-name": true,
+                "lldp-dot3-tlv-link-agg": true,
+                "lldp-dot3-tlv-mac-phy": true,
+                "lldp-dot3-tlv-max-frame": true,
+                "lldp-dot3-tlv-poe": true,
+                "lldp-med-location-civic-addr":
+                {
+                    "lldp-med-location-civic-addr-admin-status": true,
+                    "lldp-med-location-civic-country-code": "CA",
+                    "lldp-med-location-civic-device-type": 1,
+                    "lldp-med-location-civic-ca":
+                    [
+                        {
+                            "lldp-med-location-civic-ca-type": 29,
+                            "lldp-med-location-civic-ca-value": "Mike-WFH"
+                        }
+                    ]
+                },
+                "lldp-med-notification": true,
+                "lldp-med-tlv-ext-poe": true,
+                "lldp-med-tlv-inventory": true,
+                "lldp-med-tlv-location": true,
+                "lldp-med-tlv-med-cap": true,
+                "lldp-med-tlv-network-policy": true,
+                "lldp-notification": true
+            },
+            "dhcp-snoop-port":
+            {
+                "dhcp-snoop-port-trust": true,
+                "dhcp-snoop-port-client-limit": 16,
+                "dhcp-snoop-port-circuit-id": "1-5c17834a98a0-5"
+            },
+            "edge-port": false
+        },
+        {
+            "select-ports":
+            [
+                "Ethernet1",
+                "Ethernet3"
+            ],
+            "speed": 1000,
+            "duplex": "full",
+            "enabled": true,
+            "poe":
+            {
+                "admin-mode": true
+            },
+            "lacp-config":
+            {
+                "lacp-enable": false,
+                "lacp-role": "actor",
+                "lacp-mode": "passive",
+                "lacp-port-admin-key": 1,
+                "lacp-port-priority": 32768,
+                "lacp-system-priority": 32768,
+                "lacp-timeout": "long"
+            },
+            "edge-port": false
+        },
+        {
+            "select-ports":
+            [
+                "Ethernet5",
+                "Ethernet7",
+                "Ethernet8",
+                "Ethernet9",
+                "Ethernet10",
+                "Ethernet11",
+                "Ethernet12",
+                "Ethernet13",
+                "Ethernet14",
+                "Ethernet15",
+                "Ethernet16",
+                "Ethernet17",
+                "Ethernet18",
+                "Ethernet19",
+                "Ethernet20",
+                "Ethernet21",
+                "Ethernet22"
+            ],
+            "speed": 1000,
+            "duplex": "full",
+            "enabled": true,
+            "poe":
+            {
+                "admin-mode": true
+            },
+            "dhcp-snoop-port":
+            {
+                "dhcp-snoop-port-trust": true
+            },
+            "edge-port": false
+        },
+        {
+            "select-ports":
+            [
+                "Ethernet6"
+            ],
+            "speed": 1000,
+            "duplex": "full",
+            "enabled": true,
+            "poe":
+            {
+                "admin-mode": true
+            },
+            "lacp-config":
+            {
+                "lacp-enable": false,
+                "lacp-role": "actor",
+                "lacp-mode": "passive",
+                "lacp-port-admin-key": 1,
+                "lacp-port-priority": 32768,
+                "lacp-system-priority": 32768,
+                "lacp-timeout": "long"
+            },
+            "lldp-interface-config":
+            {
+                "lldp-admin-status": "rx-tx",
+                "lldp-basic-tlv-mgmt-ip-v4": true,
+                "lldp-basic-tlv-mgmt-ip-v6": true,
+                "lldp-basic-tlv-port-descr": true,
+                "lldp-basic-tlv-sys-capab": true,
+                "lldp-basic-tlv-sys-descr": true,
+                "lldp-basic-tlv-sys-name": true,
+                "lldp-dot1-tlv-proto-ident": true,
+                "lldp-dot1-tlv-proto-vid": true,
+                "lldp-dot1-tlv-pvid": true,
+                "lldp-dot1-tlv-vlan-name": true,
+                "lldp-dot3-tlv-link-agg": true,
+                "lldp-dot3-tlv-mac-phy": true,
+                "lldp-dot3-tlv-max-frame": true,
+                "lldp-dot3-tlv-poe": true,
+                "lldp-med-location-civic-addr":
+                {
+                    "lldp-med-location-civic-addr-admin-status": true,
+                    "lldp-med-location-civic-country-code": "CA",
+                    "lldp-med-location-civic-device-type": 1,
+                    "lldp-med-location-civic-ca":
+                    [
+                        {
+                            "lldp-med-location-civic-ca-type": 29,
+                            "lldp-med-location-civic-ca-value": "Mike-WFH"
+                        }
+                    ]
+                },
+                "lldp-med-notification": true,
+                "lldp-med-tlv-ext-poe": true,
+                "lldp-med-tlv-inventory": true,
+                "lldp-med-tlv-location": true,
+                "lldp-med-tlv-med-cap": true,
+                "lldp-med-tlv-network-policy": true,
+                "lldp-notification": true
+            },
+            "dhcp-snoop-port":
+            {
+                "dhcp-snoop-port-trust": true,
+                "dhcp-snoop-port-client-limit": 16,
+                "dhcp-snoop-port-circuit-id": "1-5c17834a98a0-7"
+            },
+            "edge-port": false
+        }
+    ],
+    "switch":
+    {
+        "loop-detection":
+        {
+            "protocol": "stp",
+            "instances":
+            [
+                {
+                    "enabled": true,
+                    "priority": 32768,
+                    "forward_delay": 15,
+                    "hello_time": 2,
+                    "max_age": 20
+                }
+            ]
+        },
+        "trunk-balance-method": "src-dst-mac",
+        "jumbo-frames": false,
+        "dhcp-snooping":
+        {
+            "dhcp-snoop-enable": true,
+            "dhcp-snoop-rate-limit": 1000,
+            "dhcp-snoop-mac-verify": true,
+            "dhcp-snoop-inf-opt-82": true,
+            "dhcp-snoop-inf-opt-encode-subopt": true,
+            "dhcp-snoop-inf-opt-remoteid": "5c17834a98a0",
+            "dhcp-snoop-inf-opt-policy": "drop"
+        },
+        "lldp-global-config":
+        {
+            "lldp-enable": true,
+            "lldp-holdtime-multiplier": 3,
+            "lldp-med-fast-start-count": 5,
+            "lldp-refresh-interval": 60,
+            "lldp-reinit-delay": 5,
+            "lldp-tx-delay": 5,
+            "lldp-notification-interval": 10
+        },
+        "mc-lag": false,
+        "arp-inspect":
+        {
+            "ip-arp-inspect": false
+        }
+    },
+    "interfaces":
+    [
+        {
+            "name": "VLAN1",
+            "role": "upstream",
+            "services":
+            [
+                "lldp",
+                "ssh"
+            ],
+            "vlan":
+            {
+                "id": 1,
+                "proto": "802.1q"
+            },
+            "ethernet":
+            [
+                {
+                    "select-ports":
+                    [
+                        "Ethernet0",
+                        "Ethernet1",
+                        "Ethernet2",
+                        "Ethernet3",
+                        "Ethernet4",
+                        "Ethernet5",
+                        "Ethernet6",
+                        "Ethernet7",
+                        "Ethernet8",
+                        "Ethernet9",
+                        "Ethernet10",
+                        "Ethernet11",
+                        "Ethernet12",
+                        "Ethernet13",
+                        "Ethernet14",
+                        "Ethernet15",
+                        "Ethernet16",
+                        "Ethernet17",
+                        "Ethernet18",
+                        "Ethernet19",
+                        "Ethernet20",
+                        "Ethernet21",
+                        "Ethernet22",
+                        "Ethernet23",
+                        "Ethernet24",
+                        "Ethernet25",
+                        "Ethernet26",
+                        "Ethernet27"
+                    ],
+                    "vlan-tag": "un-tagged",
+                    "pvid": true
+                }
+            ],
+            "ipv4":
+            {
+                "addressing": "dynamic",
+                "send-hostname": true,
+                "dhcp-snoop-vlan-enable": true
+            }
+        }
+    ],
+    "services":
+    {
+        "lldp":
+        {
+            "describe": "MJH-4150",
+            "location": "Mike-WFH"
+        },
+        "ssh":
+        {
+            "port": 22,
+            "password-authentication": true,
+            "enable": true
+        },
+        "log":
+        {
+            "host": "192.168.2.38",
+            "port": 514,
+            "proto": "udp",
+            "size": 1000,
+            "priority": 7
+        },
+        "snmp":
+        {
+            "enabled": true
+        }
+    },
+    "metrics":
+    {
+        "statistics":
+        {
+            "interval": 60,
+            "types":
+            [
+                "lldp",
+                "clients"
+            ]
+        },
+        "health":
+        {
+            "interval": 60,
+            "dhcp-local": true,
+            "dhcp-remote": false,
+            "dns-local": true,
+            "dns-remote": true
+        }
+    }
+}

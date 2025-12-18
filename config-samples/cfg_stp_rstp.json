@@ -1,0 +1,165 @@
+{
+    "ethernet": [
+        {
+            "duplex": "full",
+            "enabled": true,
+            "poe": {
+                "admin-mode": false,
+                "power-limit": 12345
+            },
+            "select-ports": [
+                "Ethernet1",
+                "Ethernet2"
+            ],
+            "speed": 1000
+        }
+    ],
+    "interfaces": [
+        {
+            "ethernet": [
+                {
+                    "pvid": true,
+                    "select-ports": [
+                        "Ethernet1"
+                    ],
+                    "vlan-tag": "un-tagged"
+                }
+            ],
+            "ipv4": {
+                "addressing": "static",
+                "dhcp": {
+                    "circuit-id-format": "{VLAN-ID}",
+                    "relay-server": "192.168.5.1"
+                },
+                "subnet": [
+                    {
+                        "prefix": "192.168.2.254/24"
+                    }
+                ]
+            },
+            "name": "vlan_2",
+            "vlan": {
+                "id": 2
+            }
+        },
+        {
+            "ethernet": [
+                {
+                    "pvid": true,
+                    "select-ports": [
+                        "Ethernet2"
+                    ],
+                    "vlan-tag": "un-tagged"
+                }
+            ],
+            "ipv4": {
+                "addressing": "static",
+                "dhcp": {
+                    "circuit-id-format": "{VLAN-ID}",
+                    "relay-server": "192.168.5.1"
+                },
+                "subnet": [
+                    {
+                        "prefix": "192.168.3.254/24"
+                    }
+                ]
+            },
+            "name": "vlan_3",
+            "vlan": {
+                "id": 3
+            }
+        },
+        {
+            "ethernet": [
+                {
+                    "pvid": true,
+                    "select-ports": [
+                        "Ethernet4"
+                    ],
+                    "vlan-tag": "un-tagged"
+                }
+            ],
+            "ipv4": {
+                "addressing": "static",
+                "subnet": [
+                    {
+                        "prefix": "192.168.5.254/24"
+                    }
+                ]
+            },
+            "name": "vlan_5",
+            "vlan": {
+                "id": 5
+            }
+        },
+        {
+            "ethernet": [
+                {
+                    "select-ports": [
+                        "Ethernet8",
+                        "Ethernet9"
+                    ],
+                    "vlan-tag": "un-tagged"
+                }
+            ],
+            "ipv4": {
+                "addressing": "dynamic"
+            },
+            "name": "vlan_1234",
+            "vlan": {
+                "id": 1234
+            }
+        }
+    ],
+    "metrics": {
+        "dhcp-snooping": {
+            "filters": [
+                "ack",
+                "discover",
+                "offer",
+                "request",
+                "solicit",
+                "reply",
+                "renew"
+            ]
+        },
+        "health": {
+            "interval": 600
+        },
+        "statistics": {
+            "interval": 1200,
+            "types": []
+        }
+    },
+    "services": {
+        "http": {
+            "enable": true
+        },
+        "ssh": {
+            "enable": true
+        },
+        "telnet": {
+            "enable": true
+        }
+    },
+    "switch": {
+        "loop-detection": {
+            "instances": [
+                {
+                    "enabled": true,
+                    "forward_delay": 15,
+                    "hello_time": 3,
+                    "id": 20,
+                    "max_age": 20,
+                    "priority": 32768
+                }
+            ],
+            "protocol": "rstp"
+        }
+    },
+    "unit": {
+        "leds-active": true,
+        "usage-threshold": 95
+    },
+    "uuid": 1713842091
+}

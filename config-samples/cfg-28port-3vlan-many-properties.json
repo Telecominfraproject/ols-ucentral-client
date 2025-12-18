@@ -1,0 +1,2410 @@
+{
+  "strict": false,
+  "uuid": 46,
+  "public_ip_lookup": "address.example.org",
+  "unit": {
+    "name": "",
+    "hostname": "install.example.org",
+    "location": "",
+    "timezone": "UTC",
+    "leds-active": true,
+    "random-password": false,
+    "system-password": "",
+    "beacon-advertisement": {
+      "device-name": false,
+      "device-serial": true,
+      "network-id": 735
+    },
+    "poe": {
+      "power-management": "class",
+      "usage-threshold": 90.0
+    },
+    "multicast": {
+      "igmp-snooping-enable": true,
+      "mld-snooping-enable": true,
+      "unknown-multicast-flood-control": false,
+      "querier-enable": false
+    }
+  },
+  "globals": {
+    "ipv4-network": "192.168.0.0/16",
+    "ipv6-network": "fdca:1234:4567::/48",
+    "ipv4-blackhole": [
+      {
+        "prefix": "192.168.1.0/24",
+        "vrf": 470
+      },
+      {
+        "prefix": "192.168.1.0/24",
+        "vrf": 197
+      },
+      {
+        "prefix": "192.168.1.0/24",
+        "vrf": 307
+      }
+    ],
+    "ipv4-unreachable": [
+      {
+        "prefix": "192.168.1.0/24",
+        "vrf": 359
+      },
+      {
+        "prefix": "192.168.1.0/24",
+        "vrf": 474
+      },
+      {
+        "prefix": "192.168.1.0/24",
+        "vrf": 235
+      }
+    ]
+  },
+  "ethernet": [
+    {
+      "select-ports": [
+        "Ethernet0",
+        "Ethernet1",
+        "Ethernet2"
+      ],
+      "name": "cloud_uplink_port",
+      "speed": 5000,
+      "duplex": "half",
+      "enabled": true,
+      "services": [
+        "quality-of-service",
+        "quality-of-service",
+        "quality-of-service"
+      ],
+      "poe": {
+        "admin-mode": false,
+        "do-reset": false,
+        "detection": "2pt-dot3af+legacy",
+        "power-limit": 99900,
+        "priority": "high"
+      },
+      "ieee8021x": {
+        "is-authenticator": false,
+        "authentication-mode": "force-unauthorized",
+        "host-mode": "single-host",
+        "guest-vlan": 3360,
+        "unauthenticated-vlan": 3891,
+        "mac-address-bypass": true,
+        "mac-address-bypass-timeout-minutes": 580
+      },
+      "trunk-group": 29,
+      "lacp-config": {
+        "lacp-enable": false,
+        "lacp-role": "partner",
+        "lacp-mode": "active",
+        "lacp-port-admin-key": 1,
+        "lacp-port-priority": 32768,
+        "lacp-system-priority": 32768,
+        "lacp-pchan-admin-key": 9547,
+        "lacp-timeout": "short"
+      },
+      "lldp-interface-config": {
+        "lldp-admin-status": "rx-tx",
+        "lldp-basic-tlv-mgmt-ip-v4": true,
+        "lldp-basic-tlv-mgmt-ip-v6": false,
+        "lldp-basic-tlv-port-descr": true,
+        "lldp-basic-tlv-sys-capab": true,
+        "lldp-basic-tlv-sys-descr": true,
+        "lldp-basic-tlv-sys-name": true,
+        "lldp-dot1-tlv-proto-ident": true,
+        "lldp-dot1-tlv-proto-vid": true,
+        "lldp-dot1-tlv-pvid": true,
+        "lldp-dot1-tlv-vlan-name": true,
+        "lldp-dot3-tlv-link-agg": true,
+        "lldp-dot3-tlv-mac-phy": true,
+        "lldp-dot3-tlv-max-frame": true,
+        "lldp-dot3-tlv-poe": true,
+        "lldp-med-location-civic-addr": {
+          "lldp-med-location-civic-addr-admin-status": false,
+          "lldp-med-location-civic-country-code": "",
+          "lldp-med-location-civic-device-type": 767,
+          "lldp-med-location-civic-ca": [
+            {
+              "lldp-med-location-civic-ca-type": 23,
+              "lldp-med-location-civic-ca-value": "internal"
+            },
+            {
+              "lldp-med-location-civic-ca-type": 86,
+              "lldp-med-location-civic-ca-value": "language"
+            },
+            {
+              "lldp-med-location-civic-ca-type": 148,
+              "lldp-med-location-civic-ca-value": "syntax"
+            }
+          ]
+        },
+        "lldp-med-notification": false,
+        "lldp-med-tlv-ext-poe": true,
+        "lldp-med-tlv-inventory": true,
+        "lldp-med-tlv-location": true,
+        "lldp-med-tlv-med-cap": true,
+        "lldp-med-tlv-network-policy": true,
+        "lldp-notification": false
+      },
+      "ip-arp-inspect-port": {
+        "rate-limit-pps": 28309,
+        "trusted": true
+      },
+      "rate-limit-port": {
+        "ingress-kbps": 212125662,
+        "egress-kbps": 769172078
+      },
+      "ip-source-guard-port": {
+        "rule": "sip-mac",
+        "mode": "acl",
+        "max-binding": 36378
+      },
+      "acl": [
+        {
+          "acl-inf-policy-preference": 1,
+          "acl-inf-policy-ingress": "blacklisted-macs",
+          "acl-inf-counters-ingress": false,
+          "acl-inf-policy-egress": "blacklisted-macs",
+          "acl-inf-counters-egress": false
+        },
+        {
+          "acl-inf-policy-preference": 1,
+          "acl-inf-policy-ingress": "blacklisted-macs",
+          "acl-inf-counters-ingress": false,
+          "acl-inf-policy-egress": "blacklisted-macs",
+          "acl-inf-counters-egress": false
+        },
+        {
+          "acl-inf-policy-preference": 1,
+          "acl-inf-policy-ingress": "blacklisted-macs",
+          "acl-inf-counters-ingress": false,
+          "acl-inf-policy-egress": "blacklisted-macs",
+          "acl-inf-counters-egress": false
+        }
+      ],
+      "voice-vlan-intf-config": {
+        "voice-vlan-intf-mode": "auto",
+        "voice-vlan-intf-priority": 6,
+        "voice-vlan-intf-detect-voice": "oui",
+        "voice-vlan-intf-security": false
+      },
+      "dhcp-snoop-port": {
+        "dhcp-snoop-port-trust": false,
+        "dhcp-snoop-port-client-limit": 316,
+        "dhcp-snoop-port-circuit-id": "central"
+      },
+      "bpdu-guard": {
+        "enabled": true,
+        "auto-recovery-secs": 300
+      },
+      "edge-port": false,
+      "storm-control": {
+        "broadcast-pps": 0,
+        "multicast-pps": 0,
+        "unknown-unicast-pps": 0
+      }
+    },
+    {
+      "select-ports": [
+        "Ethernet3",
+        "Ethernet4",
+        "Ethernet5"
+      ],
+      "name": "cloud_uplink_port",
+      "speed": 10000,
+      "duplex": "half",
+      "enabled": true,
+      "services": [
+        "quality-of-service",
+        "quality-of-service",
+        "quality-of-service"
+      ],
+      "poe": {
+        "admin-mode": false,
+        "do-reset": false,
+        "detection": "dot3bt+legacy",
+        "power-limit": 99900,
+        "priority": "medium"
+      },
+      "ieee8021x": {
+        "is-authenticator": false,
+        "authentication-mode": "force-unauthorized",
+        "host-mode": "multi-auth",
+        "guest-vlan": 999,
+        "unauthenticated-vlan": 127,
+        "mac-address-bypass": false,
+        "mac-address-bypass-timeout-minutes": 217
+      },
+      "trunk-group": 62,
+      "lacp-config": {
+        "lacp-enable": false,
+        "lacp-role": "partner",
+        "lacp-mode": "active",
+        "lacp-port-admin-key": 1,
+        "lacp-port-priority": 32768,
+        "lacp-system-priority": 32768,
+        "lacp-pchan-admin-key": 58799,
+        "lacp-timeout": "short"
+      },
+      "lldp-interface-config": {
+        "lldp-admin-status": "rx",
+        "lldp-basic-tlv-mgmt-ip-v4": true,
+        "lldp-basic-tlv-mgmt-ip-v6": false,
+        "lldp-basic-tlv-port-descr": true,
+        "lldp-basic-tlv-sys-capab": true,
+        "lldp-basic-tlv-sys-descr": true,
+        "lldp-basic-tlv-sys-name": true,
+        "lldp-dot1-tlv-proto-ident": true,
+        "lldp-dot1-tlv-proto-vid": true,
+        "lldp-dot1-tlv-pvid": true,
+        "lldp-dot1-tlv-vlan-name": true,
+        "lldp-dot3-tlv-link-agg": true,
+        "lldp-dot3-tlv-mac-phy": true,
+        "lldp-dot3-tlv-max-frame": true,
+        "lldp-dot3-tlv-poe": true,
+        "lldp-med-location-civic-addr": {
+          "lldp-med-location-civic-addr-admin-status": false,
+          "lldp-med-location-civic-country-code": "",
+          "lldp-med-location-civic-device-type": 521,
+          "lldp-med-location-civic-ca": [
+            {
+              "lldp-med-location-civic-ca-type": 229,
+              "lldp-med-location-civic-ca-value": "link"
+            },
+            {
+              "lldp-med-location-civic-ca-type": 200,
+              "lldp-med-location-civic-ca-value": "address"
+            },
+            {
+              "lldp-med-location-civic-ca-type": 6,
+              "lldp-med-location-civic-ca-value": "parameter"
+            }
+          ]
+        },
+        "lldp-med-notification": false,
+        "lldp-med-tlv-ext-poe": true,
+        "lldp-med-tlv-inventory": true,
+        "lldp-med-tlv-location": true,
+        "lldp-med-tlv-med-cap": true,
+        "lldp-med-tlv-network-policy": true,
+        "lldp-notification": false
+      },
+      "ip-arp-inspect-port": {
+        "rate-limit-pps": 6499,
+        "trusted": false
+      },
+      "rate-limit-port": {
+        "ingress-kbps": 154208145,
+        "egress-kbps": 848998375
+      },
+      "ip-source-guard-port": {
+        "rule": "sip",
+        "mode": "acl",
+        "max-binding": 742
+      },
+      "acl": [
+        {
+          "acl-inf-policy-preference": 1,
+          "acl-inf-policy-ingress": "blacklisted-macs",
+          "acl-inf-counters-ingress": false,
+          "acl-inf-policy-egress": "blacklisted-macs",
+          "acl-inf-counters-egress": false
+        },
+        {
+          "acl-inf-policy-preference": 1,
+          "acl-inf-policy-ingress": "blacklisted-macs",
+          "acl-inf-counters-ingress": false,
+          "acl-inf-policy-egress": "blacklisted-macs",
+          "acl-inf-counters-egress": false
+        },
+        {
+          "acl-inf-policy-preference": 1,
+          "acl-inf-policy-ingress": "blacklisted-macs",
+          "acl-inf-counters-ingress": false,
+          "acl-inf-policy-egress": "blacklisted-macs",
+          "acl-inf-counters-egress": false
+        }
+      ],
+      "voice-vlan-intf-config": {
+        "voice-vlan-intf-mode": "manual",
+        "voice-vlan-intf-priority": 6,
+        "voice-vlan-intf-detect-voice": "oui",
+        "voice-vlan-intf-security": false
+      },
+      "dhcp-snoop-port": {
+        "dhcp-snoop-port-trust": false,
+        "dhcp-snoop-port-client-limit": 137,
+        "dhcp-snoop-port-circuit-id": "click"
+      },
+      "bpdu-guard": {
+        "enabled": false,
+        "auto-recovery-secs": 300
+      },
+      "edge-port": false,
+      "storm-control": {
+        "broadcast-pps": 0,
+        "multicast-pps": 0,
+        "unknown-unicast-pps": 0
+      }
+    },
+    {
+      "select-ports": [
+        "Ethernet6",
+        "Ethernet7",
+        "Ethernet8"
+      ],
+      "name": "cloud_uplink_port",
+      "speed": 10,
+      "duplex": "half",
+      "enabled": true,
+      "services": [
+        "quality-of-service",
+        "quality-of-service",
+        "quality-of-service"
+      ],
+      "poe": {
+        "admin-mode": false,
+        "do-reset": true,
+        "detection": "4pt-dot3af+legacy",
+        "power-limit": 99900,
+        "priority": "low"
+      },
+      "ieee8021x": {
+        "is-authenticator": false,
+        "authentication-mode": "force-authorized",
+        "host-mode": "multi-auth",
+        "guest-vlan": 2602,
+        "unauthenticated-vlan": 911,
+        "mac-address-bypass": true,
+        "mac-address-bypass-timeout-minutes": 729
+      },
+      "trunk-group": 23,
+      "lacp-config": {
+        "lacp-enable": false,
+        "lacp-role": "partner",
+        "lacp-mode": "active",
+        "lacp-port-admin-key": 1,
+        "lacp-port-priority": 32768,
+        "lacp-system-priority": 32768,
+        "lacp-pchan-admin-key": 30030,
+        "lacp-timeout": "short"
+      },
+      "lldp-interface-config": {
+        "lldp-admin-status": "rx-tx",
+        "lldp-basic-tlv-mgmt-ip-v4": true,
+        "lldp-basic-tlv-mgmt-ip-v6": false,
+        "lldp-basic-tlv-port-descr": true,
+        "lldp-basic-tlv-sys-capab": true,
+        "lldp-basic-tlv-sys-descr": true,
+        "lldp-basic-tlv-sys-name": true,
+        "lldp-dot1-tlv-proto-ident": true,
+        "lldp-dot1-tlv-proto-vid": true,
+        "lldp-dot1-tlv-pvid": true,
+        "lldp-dot1-tlv-vlan-name": true,
+        "lldp-dot3-tlv-link-agg": true,
+        "lldp-dot3-tlv-mac-phy": true,
+        "lldp-dot3-tlv-max-frame": true,
+        "lldp-dot3-tlv-poe": true,
+        "lldp-med-location-civic-addr": {
+          "lldp-med-location-civic-addr-admin-status": false,
+          "lldp-med-location-civic-country-code": "",
+          "lldp-med-location-civic-device-type": 725,
+          "lldp-med-location-civic-ca": [
+            {
+              "lldp-med-location-civic-ca-type": 176,
+              "lldp-med-location-civic-ca-value": "channel"
+            },
+            {
+              "lldp-med-location-civic-ca-type": 193,
+              "lldp-med-location-civic-ca-value": "optical"
+            },
+            {
+              "lldp-med-location-civic-ca-type": 9,
+              "lldp-med-location-civic-ca-value": "bookmark"
+            }
+          ]
+        },
+        "lldp-med-notification": false,
+        "lldp-med-tlv-ext-poe": true,
+        "lldp-med-tlv-inventory": true,
+        "lldp-med-tlv-location": true,
+        "lldp-med-tlv-med-cap": true,
+        "lldp-med-tlv-network-policy": true,
+        "lldp-notification": false
+      },
+      "ip-arp-inspect-port": {
+        "rate-limit-pps": 58558,
+        "trusted": true
+      },
+      "rate-limit-port": {
+        "ingress-kbps": 63651741,
+        "egress-kbps": 253620524
+      },
+      "ip-source-guard-port": {
+        "rule": "sip-mac",
+        "mode": "mac",
+        "max-binding": 27718
+      },
+      "acl": [
+        {
+          "acl-inf-policy-preference": 1,
+          "acl-inf-policy-ingress": "blacklisted-macs",
+          "acl-inf-counters-ingress": false,
+          "acl-inf-policy-egress": "blacklisted-macs",
+          "acl-inf-counters-egress": false
+        },
+        {
+          "acl-inf-policy-preference": 1,
+          "acl-inf-policy-ingress": "blacklisted-macs",
+          "acl-inf-counters-ingress": false,
+          "acl-inf-policy-egress": "blacklisted-macs",
+          "acl-inf-counters-egress": false
+        },
+        {
+          "acl-inf-policy-preference": 1,
+          "acl-inf-policy-ingress": "blacklisted-macs",
+          "acl-inf-counters-ingress": false,
+          "acl-inf-policy-egress": "blacklisted-macs",
+          "acl-inf-counters-egress": false
+        }
+      ],
+      "voice-vlan-intf-config": {
+        "voice-vlan-intf-mode": "none",
+        "voice-vlan-intf-priority": 6,
+        "voice-vlan-intf-detect-voice": "lldp",
+        "voice-vlan-intf-security": false
+      },
+      "dhcp-snoop-port": {
+        "dhcp-snoop-port-trust": false,
+        "dhcp-snoop-port-client-limit": 364,
+        "dhcp-snoop-port-circuit-id": "baseline"
+      },
+      "bpdu-guard": {
+        "enabled": true,
+        "auto-recovery-secs": 300
+      },
+      "edge-port": false,
+      "storm-control": {
+        "broadcast-pps": 0,
+        "multicast-pps": 0,
+        "unknown-unicast-pps": 0
+      }
+    }
+  ],
+  "switch": {
+    "port-mirror": [
+      {
+        "monitor-ports": [
+          "",
+          "",
+          ""
+        ],
+        "analysis-port": ""
+      },
+      {
+        "monitor-ports": [
+          "",
+          "",
+          ""
+        ],
+        "analysis-port": ""
+      },
+      {
+        "monitor-ports": [
+          "",
+          "",
+          ""
+        ],
+        "analysis-port": ""
+      }
+    ],
+    "loop-detection": {
+      "protocol": "mstp",
+      "roles": [
+        "upstream",
+        "downstream"
+      ],
+      "bridge-prio": 32768,
+      "forward-delay-secs": 115,
+      "hello-time-secs": 56,
+      "max-age-secs": 540,
+      "pathcost-method": "long",
+      "bpdu-flooding": "to-all",
+      "bpdu-tx-limit": 947,
+      "root-guard": false,
+      "mst-region": {
+        "name": "dense",
+        "revision": 5358
+      },
+      "instances": [
+        {
+          "id": 549,
+          "enabled": true,
+          "priority": 32768,
+          "forward-delay": 15,
+          "hello-time": 2,
+          "max-age": 20,
+          "path-cost": 734,
+          "vlan-start": 400,
+          "vlan-end": 722
+        },
+        {
+          "id": 473,
+          "enabled": true,
+          "priority": 32768,
+          "forward-delay": 15,
+          "hello-time": 2,
+          "max-age": 20,
+          "path-cost": 151,
+          "vlan-start": 886,
+          "vlan-end": 374
+        },
+        {
+          "id": 329,
+          "enabled": true,
+          "priority": 32768,
+          "forward-delay": 15,
+          "hello-time": 2,
+          "max-age": 20,
+          "path-cost": 425,
+          "vlan-start": 859,
+          "vlan-end": 811
+        }
+      ]
+    },
+    "ieee8021x": {
+      "auth-control-enable": false,
+      "radius": [
+        {
+          "server-host": "somehost.com",
+          "server-authentication-port": 15745,
+          "server-key": "somepassword",
+          "server-priority": 63
+        },
+        {
+          "server-host": "somehost.com",
+          "server-authentication-port": 51215,
+          "server-key": "somepassword",
+          "server-priority": 22
+        },
+        {
+          "server-host": "somehost.com",
+          "server-authentication-port": 27511,
+          "server-key": "somepassword",
+          "server-priority": 29
+        }
+      ],
+      "dynamic-authorization": {
+        "auth-type": "all",
+        "bounce-port-ignore": false,
+        "disable-port-ignore": false,
+        "ignore-server-key": false,
+        "ignore-session-key": false,
+        "server-key": "",
+        "client": [
+          {
+            "address": "",
+            "server-key": ""
+          },
+          {
+            "address": "",
+            "server-key": ""
+          },
+          {
+            "address": "",
+            "server-key": ""
+          }
+        ]
+      }
+    },
+    "port-isolation": {
+      "sessions": [
+        {
+          "id": 785,
+          "uplink": {
+            "interface-list": [
+              "",
+              "",
+              ""
+            ]
+          },
+          "downlink": {
+            "interface-list": [
+              "",
+              "",
+              ""
+            ]
+          }
+        },
+        {
+          "id": 392,
+          "uplink": {
+            "interface-list": [
+              "",
+              "",
+              ""
+            ]
+          },
+          "downlink": {
+            "interface-list": [
+              "",
+              "",
+              ""
+            ]
+          }
+        },
+        {
+          "id": 671,
+          "uplink": {
+            "interface-list": [
+              "",
+              "",
+              ""
+            ]
+          },
+          "downlink": {
+            "interface-list": [
+              "",
+              "",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    "trunk-balance-method": "src-ip",
+    "jumbo-frames": false,
+    "dhcp-snooping": {
+      "dhcp-snoop-enable": false,
+      "dhcp-snoop-rate-limit": 1610,
+      "dhcp-snoop-mac-verify": false,
+      "dhcp-snoop-inf-opt-82": false,
+      "dhcp-snoop-inf-opt-encode-subopt": false,
+      "dhcp-snoop-inf-opt-remoteid": "view",
+      "dhcp-snoop-inf-opt-policy": "replace"
+    },
+    "mvr-config": {
+      "mvr-enable": false,
+      "mvr-proxy-query-intvl": 125,
+      "mvr-proxy-switching": false,
+      "mvr-robustness-val": 2,
+      "mvr-source-port-mode": "dynamic"
+    },
+    "mvr-domain-config": [
+      {
+        "mvr-domain-id": 1,
+        "mvr-domain-enable": false,
+        "mvr-domain-vlan-id": 1,
+        "mvr-domain-upstream-sip": "192.168.0.5"
+      },
+      {
+        "mvr-domain-id": 1,
+        "mvr-domain-enable": false,
+        "mvr-domain-vlan-id": 1,
+        "mvr-domain-upstream-sip": "192.168.0.5"
+      },
+      {
+        "mvr-domain-id": 1,
+        "mvr-domain-enable": false,
+        "mvr-domain-vlan-id": 1,
+        "mvr-domain-upstream-sip": "192.168.0.5"
+      }
+    ],
+    "mvr-group-config": [
+      {
+        "mvr-group-name": "XLCXUeKPo",
+        "mvr-group-range-start": "192.168.254.72",
+        "mvr-group-range-end": "172.22.190.207",
+        "mvr-group-assoc-domain": [
+          1,
+          4,
+          8
+        ]
+      },
+      {
+        "mvr-group-name": "ctQQICMrBfk",
+        "mvr-group-range-start": "172.27.169.155",
+        "mvr-group-range-end": "192.168.223.127",
+        "mvr-group-assoc-domain": [
+          3,
+          9,
+          6
+        ]
+      },
+      {
+        "mvr-group-name": "wITdeHo",
+        "mvr-group-range-start": "10.71.120.154",
+        "mvr-group-range-end": "192.168.84.197",
+        "mvr-group-assoc-domain": [
+          8,
+          1,
+          5
+        ]
+      }
+    ],
+    "lldp-global-config": {
+      "lldp-enable": true,
+      "lldp-holdtime-multiplier": 4,
+      "lldp-med-fast-start-count": 4,
+      "lldp-refresh-interval": 30,
+      "lldp-reinit-delay": 2,
+      "lldp-tx-delay": 525,
+      "lldp-notification-interval": 5
+    },
+    "mc-lag": false,
+    "mclag-config": {
+      "global-gateway-mac": "02:fe:52:04:30:73",
+      "mclag-domains": [
+        {
+          "mclag-domain": 1,
+          "gateway-mac": "02:43:a7:48:cf:40",
+          "source-ip": "192.168.0.5",
+          "peer-ip": "192.168.0.5",
+          "system-mac-address": "02:33:b9:b6:72:4d",
+          "keepalive-interval": 30,
+          "session-timeout": 50,
+          "peer-link": {
+            "link-type": "trunk-group",
+            "port-id": "Ethernet2",
+            "trunk-id": 12
+          },
+          "mclag-group": [
+            {
+              "group-id": 30,
+              "members": [
+                "Ethernet0",
+                "Ethernet0",
+                "Ethernet0"
+              ],
+              "lacp-config": {
+                "lacp-enable": true,
+                "lacp-role": "partner",
+                "lacp-timeout": "short"
+              }
+            },
+            {
+              "group-id": 98,
+              "members": [
+                "Ethernet1",
+                "Ethernet1",
+                "Ethernet0"
+              ],
+              "lacp-config": {
+                "lacp-enable": true,
+                "lacp-role": "partner",
+                "lacp-timeout": "short"
+              }
+            },
+            {
+              "group-id": 44,
+              "members": [
+                "Ethernet0",
+                "Ethernet1",
+                "Ethernet0"
+              ],
+              "lacp-config": {
+                "lacp-enable": true,
+                "lacp-role": "actor",
+                "lacp-timeout": "long"
+              }
+            }
+          ],
+          "system-priority": 32768,
+          "dual-active-detection": true
+        },
+        {
+          "mclag-domain": 1,
+          "gateway-mac": "02:e9:ba:a3:4b:37",
+          "source-ip": "192.168.0.5",
+          "peer-ip": "192.168.0.5",
+          "system-mac-address": "02:a8:5d:66:f8:6d",
+          "keepalive-interval": 30,
+          "session-timeout": 50,
+          "peer-link": {
+            "link-type": "trunk-group",
+            "port-id": "Ethernet1",
+            "trunk-id": 28
+          },
+          "mclag-group": [
+            {
+              "group-id": 79,
+              "members": [
+                "Ethernet0",
+                "Ethernet1",
+                "Ethernet0"
+              ],
+              "lacp-config": {
+                "lacp-enable": true,
+                "lacp-role": "actor",
+                "lacp-timeout": "long"
+              }
+            },
+            {
+              "group-id": 38,
+              "members": [
+                "Ethernet0",
+                "Ethernet0",
+                "Ethernet0"
+              ],
+              "lacp-config": {
+                "lacp-enable": true,
+                "lacp-role": "actor",
+                "lacp-timeout": "short"
+              }
+            },
+            {
+              "group-id": 110,
+              "members": [
+                "Ethernet0",
+                "Ethernet0",
+                "Ethernet1"
+              ],
+              "lacp-config": {
+                "lacp-enable": true,
+                "lacp-role": "partner",
+                "lacp-timeout": "short"
+              }
+            }
+          ],
+          "system-priority": 32768,
+          "dual-active-detection": true
+        },
+        {
+          "mclag-domain": 1,
+          "gateway-mac": "02:0f:aa:15:e1:0b",
+          "source-ip": "192.168.0.5",
+          "peer-ip": "192.168.0.5",
+          "system-mac-address": "02:c1:a6:29:5e:76",
+          "keepalive-interval": 30,
+          "session-timeout": 50,
+          "peer-link": {
+            "link-type": "port",
+            "port-id": "Ethernet1",
+            "trunk-id": 49
+          },
+          "mclag-group": [
+            {
+              "group-id": 39,
+              "members": [
+                "Ethernet0",
+                "Ethernet0",
+                "Ethernet0"
+              ],
+              "lacp-config": {
+                "lacp-enable": true,
+                "lacp-role": "partner",
+                "lacp-timeout": "short"
+              }
+            },
+            {
+              "group-id": 67,
+              "members": [
+                "Ethernet0",
+                "Ethernet0",
+                "Ethernet0"
+              ],
+              "lacp-config": {
+                "lacp-enable": true,
+                "lacp-role": "partner",
+                "lacp-timeout": "long"
+              }
+            },
+            {
+              "group-id": 98,
+              "members": [
+                "Ethernet1",
+                "Ethernet1",
+                "Ethernet1"
+              ],
+              "lacp-config": {
+                "lacp-enable": true,
+                "lacp-role": "partner",
+                "lacp-timeout": "short"
+              }
+            }
+          ],
+          "system-priority": 32768,
+          "dual-active-detection": true
+        }
+      ]
+    },
+    "voice-vlan-config": {
+      "voice-vlan-id": 3963,
+      "voice-vlan-ageing-time": 1440,
+      "voice-vlan-oui-config": [
+        {
+          "voice-vlan-oui-mac": "02:b8:91:8f:1b:ec",
+          "voice-vlan-oui-mask": "02:e0:d0:d2:62:4f",
+          "voice-vlan-oui-description": "A VoIP Phone"
+        },
+        {
+          "voice-vlan-oui-mac": "02:b1:af:8f:7f:ca",
+          "voice-vlan-oui-mask": "02:67:9c:ab:21:50",
+          "voice-vlan-oui-description": "A VoIP Phone"
+        },
+        {
+          "voice-vlan-oui-mac": "02:f0:ee:0e:61:32",
+          "voice-vlan-oui-mask": "02:c8:4d:38:e4:e9",
+          "voice-vlan-oui-description": "A VoIP Phone"
+        }
+      ]
+    },
+    "intrusion-detection-access-lockout": {
+      "lockout-attempt-count": 879,
+      "lockout-period-seconds": 702
+    },
+    "arp-inspect": {
+      "ip-arp-inspect": false,
+      "validate-dst-mac": true,
+      "validate-ip": false,
+      "validate-allow-zeros": true,
+      "validate-src-mac": false
+    },
+    "ip-source-guard": {
+      "bindings": [
+        {
+          "binding-mode": "acl",
+          "binding-mac": "02:0f:25:33:14:3c",
+          "binding-vlans": 67,
+          "binding-ip": "172.26.69.71",
+          "binding-port": ""
+        },
+        {
+          "binding-mode": "mac",
+          "binding-mac": "02:c5:6b:db:ee:68",
+          "binding-vlans": 480,
+          "binding-ip": "10.166.94.190",
+          "binding-port": ""
+        },
+        {
+          "binding-mode": "acl",
+          "binding-mac": "02:c0:25:cb:67:cc",
+          "binding-vlans": 863,
+          "binding-ip": "172.26.181.181",
+          "binding-port": ""
+        }
+      ]
+    },
+    "rt-events": {
+      "port-status": {
+        "enabled": false,
+        "sub-events": {
+          "wired.carrier-down": false,
+          "wired.carrier-up": false
+        }
+      },
+      "module": {
+        "enabled": false,
+        "sub-events": {
+          "module.plugout": false,
+          "module.plugin": false
+        }
+      },
+      "stp": {
+        "enabled": false,
+        "sub-events": {
+          "stp.loop-detected": false,
+          "stp.loop-cleared": false,
+          "stp.state-change": false
+        }
+      },
+      "rstp": {
+        "enabled": false,
+        "sub-events": {
+          "rstp.loop-detected": false,
+          "rstp.loop-cleared": false,
+          "rstp.state-change": false
+        }
+      },
+      "fw-upgrade": {
+        "enabled": false,
+        "sub-events": {
+          "upg.download-start": false,
+          "upg.download-in-progress": false,
+          "upg.download-failed": false,
+          "upg.validation-start": false,
+          "upg.validation-success": false,
+          "upg.validation-failed": false,
+          "upg.backup-current-firmware": false,
+          "upg.install-start": false,
+          "upg.install-failed": false,
+          "upg.reboot-start": false,
+          "upg.success": false
+        }
+      },
+      "dhcp-snooping": {
+        "enabled": false,
+        "sub-events": {
+          "dhcp-snooping.violation-detected": false,
+          "dhcp-snooping.violation-cleared": false
+        }
+      }
+    },
+    "acl": [
+      {
+        "acl-name": "free",
+        "acl-type": "arp",
+        "acl-rules": {}
+      },
+      {
+        "acl-name": "run",
+        "acl-type": "arp",
+        "acl-rules": {}
+      },
+      {
+        "acl-name": "customer",
+        "acl-type": "ipv4",
+        "acl-rules": {}
+      }
+    ],
+    "dns": [
+      "",
+      "",
+      ""
+    ]
+  },
+  "interfaces": [
+    {
+      "vlan": {
+        "id": 1938,
+        "range-start": 466,
+        "range-end": 1851,
+        "proto": "802.1ad",
+        "stp-instance": 751
+      },
+      "name": "VLAN1938",
+      "role": "downstream",
+      "isolate-hosts": true,
+      "metric": 3966280391,
+      "mtu": 1385,
+      "services": [
+        "lldp",
+        "ssh",
+        "lldp"
+      ],
+      "vlan-awareness": {
+        "first": 748,
+        "last": 432
+      },
+      "bridge": {
+        "mtu": 1500,
+        "tx-queue-len": 5000,
+        "isolate-ports": false
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet9",
+            "Ethernet10",
+            "Ethernet11"
+          ],
+          "multicast": true,
+          "learning": true,
+          "isolate": false,
+          "macaddr": "02:fe:71:ab:d2:ee",
+          "reverse-path-filter": false,
+          "vlan-tag": "un-tagged"
+        },
+        {
+          "select-ports": [
+            "Ethernet12",
+            "Ethernet13",
+            "Ethernet14"
+          ],
+          "multicast": true,
+          "learning": true,
+          "isolate": false,
+          "macaddr": "02:cb:ee:1d:86:3c",
+          "reverse-path-filter": false,
+          "vlan-tag": "un-tagged"
+        },
+        {
+          "select-ports": [
+            "Ethernet15",
+            "Ethernet16",
+            "Ethernet17"
+          ],
+          "multicast": true,
+          "learning": true,
+          "isolate": false,
+          "macaddr": "02:0a:8a:94:e1:81",
+          "reverse-path-filter": false,
+          "vlan-tag": "tagged"
+        }
+      ],
+      "ipv4": {
+        "addressing": "none",
+        "subnet": [
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 584
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 733
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 549
+          }
+        ],
+        "gateway": [
+          {
+            "prefix": "192.168.1.0/24",
+            "nexthop": "192.168.1.1",
+            "vrf": 516,
+            "metric": 266.73391206237443
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "nexthop": "192.168.1.1",
+            "vrf": 623,
+            "metric": 223.91684544848533
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "nexthop": "192.168.1.1",
+            "vrf": 859,
+            "metric": 187.0599785012689
+          }
+        ],
+        "broadcast": [
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 509
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 302
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 152
+          }
+        ],
+        "multicast": {
+          "unknown-multicast-flood-control": true,
+          "igmp": {
+            "snooping-enable": true,
+            "version": 2,
+            "querier-enable": false,
+            "fast-leave-enable": false,
+            "query-interval": 1000,
+            "last-member-query-interval": 1000,
+            "max-response-time": 10,
+            "static-mcast-groups": [
+              {
+                "egress-ports": [
+                  "",
+                  "",
+                  ""
+                ],
+                "address": "225.0.0.1"
+              },
+              {
+                "egress-ports": [
+                  "",
+                  "",
+                  ""
+                ],
+                "address": "225.0.0.1"
+              },
+              {
+                "egress-ports": [
+                  "",
+                  "",
+                  ""
+                ],
+                "address": "225.0.0.1"
+              }
+            ]
+          },
+          "mvr": {
+            "mvr-intf-mvr-role": "receiver",
+            "mvr-intf-immed-leave": "none",
+            "mvr-intf-assoc-domain": 9
+          }
+        },
+        "send-hostname": true,
+        "use-dns": [
+          "4.4.4.4",
+          "4.4.4.4",
+          "8.8.8.8"
+        ],
+        "dhcp-snoop-vlan-enable": false,
+        "ip-arp-inspect-vlan": {
+          "vlan-enable": true,
+          "vlan-acl-rule": "interface",
+          "vlan-acl-nodhcp-bindings": false
+        },
+        "dhcp": {
+          "lease-first": 10,
+          "lease-count": 100,
+          "lease-time": "6h",
+          "relay-server": "192.168.117.62",
+          "circuit-id-format": ""
+        },
+        "dhcp-leases": [
+          {
+            "macaddr": "00:11:22:33:44:55",
+            "static-lease-offset": 10,
+            "lease-time": "6h",
+            "publish-hostname": true
+          },
+          {
+            "macaddr": "00:11:22:33:44:55",
+            "static-lease-offset": 10,
+            "lease-time": "6h",
+            "publish-hostname": true
+          },
+          {
+            "macaddr": "00:11:22:33:44:55",
+            "static-lease-offset": 10,
+            "lease-time": "6h",
+            "publish-hostname": true
+          }
+        ],
+        "port-forward": [
+          {
+            "protocol": "tcp",
+            "external-port": 32181,
+            "internal-address": "172.18.33.226",
+            "internal-port": 59133
+          },
+          {
+            "protocol": "any",
+            "external-port": "7712",
+            "internal-address": "10.89.220.34",
+            "internal-port": 63454
+          },
+          {
+            "protocol": "tcp",
+            "external-port": 8040,
+            "internal-address": "192.168.128.193",
+            "internal-port": "23213-24249"
+          }
+        ]
+      },
+      "ipv6": {
+        "addressing": "static",
+        "subnet": "auto/64",
+        "gateway": "2001:db8:123:456::1",
+        "prefix-size": 19,
+        "dhcpv6": {
+          "mode": "relay",
+          "announce-dns": [
+            "2001:db8:adc2:c32c:53b:d299:997e:bd7e",
+            "2001:db8:b7f7:5e31:afde:a76a:c58b:ec66",
+            "2001:db8:fd26:46b8:af74:1fef:a341:2fd7"
+          ],
+          "filter-prefix": "::/0"
+        },
+        "port-forward": [
+          {
+            "protocol": "udp",
+            "external-port": 47294,
+            "internal-address": "2001:db8:49f7:5929:115e:ccb6:80ee:1c58",
+            "internal-port": 35077
+          },
+          {
+            "protocol": "any",
+            "external-port": "4353",
+            "internal-address": "2001:db8:9759:6d96:1ff9:92e:6237:c15c",
+            "internal-port": "30040"
+          },
+          {
+            "protocol": "tcp",
+            "external-port": 32224,
+            "internal-address": "2001:db8:4ba7:2b55:2280:6807:3046:a7a2",
+            "internal-port": "5447-40644"
+          }
+        ],
+        "traffic-allow": [
+          {
+            "protocol": "any",
+            "source-address": "::/0",
+            "source-ports": [
+              "52958",
+              42165,
+              "44993-50282"
+            ],
+            "destination-address": "2001:db8:74f4:c54a:3591:cb30:6220:343c",
+            "destination-ports": [
+              "28456-30778",
+              48573,
+              61641
+            ]
+          },
+          {
+            "protocol": "any",
+            "source-address": "::/0",
+            "source-ports": [
+              5598,
+              35765,
+              "41864-63249"
+            ],
+            "destination-address": "2001:db8:6c92:d2ed:5fc1:b2a8:a9cd:270b",
+            "destination-ports": [
+              2544,
+              "14442-58482",
+              "31974"
+            ]
+          },
+          {
+            "protocol": "any",
+            "source-address": "::/0",
+            "source-ports": [
+              "34984",
+              "11851-48565",
+              1797
+            ],
+            "destination-address": "2001:db8:ebc7:c027:2297:8fec:36ea:c000",
+            "destination-ports": [
+              44517,
+              52264,
+              "9309-49685"
+            ]
+          }
+        ]
+      },
+      "broad-band": {
+        "protocol": "wwan",
+        "modem-type": "mbim",
+        "access-point-name": "",
+        "authentication-type": "pap-chap",
+        "pin-code": "",
+        "user-name": "",
+        "password": "",
+        "packet-data-protocol": "dual-stack"
+      },
+      "tunnel": {
+        "proto": "gre",
+        "peer-address": "192.168.215.173",
+        "dhcp-healthcheck": false,
+        "dont-fragment": false
+      }
+    },
+    {
+      "vlan": {
+        "id": 422,
+        "range-start": 1794,
+        "range-end": 2906,
+        "proto": "802.1q",
+        "stp-instance": 905
+      },
+      "name": "VLAN422",
+      "role": "downstream",
+      "isolate-hosts": false,
+      "metric": 1367296909,
+      "mtu": 1384,
+      "services": [
+        "ssh",
+        "ssh",
+        "ssh"
+      ],
+      "vlan-awareness": {
+        "first": 587,
+        "last": 152
+      },
+      "bridge": {
+        "mtu": 1500,
+        "tx-queue-len": 5000,
+        "isolate-ports": false
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet18",
+            "Ethernet19",
+            "Ethernet20"
+          ],
+          "multicast": true,
+          "learning": true,
+          "isolate": false,
+          "macaddr": "02:66:25:f9:67:64",
+          "reverse-path-filter": false,
+          "vlan-tag": "tagged"
+        },
+        {
+          "select-ports": [
+            "Ethernet21",
+            "Ethernet22",
+            "Ethernet23"
+          ],
+          "multicast": true,
+          "learning": true,
+          "isolate": false,
+          "macaddr": "02:fe:93:c6:03:48",
+          "reverse-path-filter": false,
+          "vlan-tag": "tagged"
+        },
+        {
+          "select-ports": [
+            "Ethernet24",
+            "Ethernet25",
+            "Ethernet26"
+          ],
+          "multicast": true,
+          "learning": true,
+          "isolate": false,
+          "macaddr": "02:bb:e7:5c:6a:ca",
+          "reverse-path-filter": false,
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "ipv4": {
+        "addressing": "static",
+        "subnet": [
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 385
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 418
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 310
+          }
+        ],
+        "gateway": [
+          {
+            "prefix": "192.168.1.0/24",
+            "nexthop": "192.168.1.1",
+            "vrf": 841,
+            "metric": 989.0403452799243
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "nexthop": "192.168.1.1",
+            "vrf": 944,
+            "metric": 416.7380238547539
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "nexthop": "192.168.1.1",
+            "vrf": 937,
+            "metric": 598.5277373727969
+          }
+        ],
+        "broadcast": [
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 676
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 58
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 397
+          }
+        ],
+        "multicast": {
+          "unknown-multicast-flood-control": true,
+          "igmp": {
+            "snooping-enable": true,
+            "version": 3,
+            "querier-enable": false,
+            "fast-leave-enable": false,
+            "query-interval": 1000,
+            "last-member-query-interval": 1000,
+            "max-response-time": 10,
+            "static-mcast-groups": [
+              {
+                "egress-ports": [
+                  "",
+                  "",
+                  ""
+                ],
+                "address": "225.0.0.1"
+              },
+              {
+                "egress-ports": [
+                  "",
+                  "",
+                  ""
+                ],
+                "address": "225.0.0.1"
+              },
+              {
+                "egress-ports": [
+                  "",
+                  "",
+                  ""
+                ],
+                "address": "225.0.0.1"
+              }
+            ]
+          },
+          "mvr": {
+            "mvr-intf-mvr-role": "none",
+            "mvr-intf-immed-leave": "by-host-ip",
+            "mvr-intf-assoc-domain": 4
+          }
+        },
+        "send-hostname": true,
+        "use-dns": [
+          "8.8.8.8",
+          "4.4.4.4",
+          "4.4.4.4"
+        ],
+        "dhcp-snoop-vlan-enable": false,
+        "ip-arp-inspect-vlan": {
+          "vlan-enable": false,
+          "vlan-acl-rule": "central",
+          "vlan-acl-nodhcp-bindings": false
+        },
+        "dhcp": {
+          "lease-first": 10,
+          "lease-count": 100,
+          "lease-time": "6h",
+          "relay-server": "172.16.113.124",
+          "circuit-id-format": ""
+        },
+        "dhcp-leases": [
+          {
+            "macaddr": "00:11:22:33:44:55",
+            "static-lease-offset": 10,
+            "lease-time": "6h",
+            "publish-hostname": true
+          },
+          {
+            "macaddr": "00:11:22:33:44:55",
+            "static-lease-offset": 10,
+            "lease-time": "6h",
+            "publish-hostname": true
+          },
+          {
+            "macaddr": "00:11:22:33:44:55",
+            "static-lease-offset": 10,
+            "lease-time": "6h",
+            "publish-hostname": true
+          }
+        ],
+        "port-forward": [
+          {
+            "protocol": "any",
+            "external-port": "6501",
+            "internal-address": "192.168.27.247",
+            "internal-port": "39090"
+          },
+          {
+            "protocol": "udp",
+            "external-port": 16562,
+            "internal-address": "10.101.210.163",
+            "internal-port": "24533-64545"
+          },
+          {
+            "protocol": "any",
+            "external-port": "39798-50676",
+            "internal-address": "192.168.26.199",
+            "internal-port": "15687-60493"
+          }
+        ]
+      },
+      "ipv6": {
+        "addressing": "static",
+        "subnet": "auto/64",
+        "gateway": "2001:db8:123:456::1",
+        "prefix-size": 64,
+        "dhcpv6": {
+          "mode": "hybrid",
+          "announce-dns": [
+            "2001:db8:abdd:3dba:30dc:6cf9:20f6:50ef",
+            "2001:db8:9066:7c18:33ce:5414:8206:4ad7",
+            "2001:db8:af32:cad:20f4:98b9:82e6:8a50"
+          ],
+          "filter-prefix": "::/0"
+        },
+        "port-forward": [
+          {
+            "protocol": "udp",
+            "external-port": 2769,
+            "internal-address": "2001:db8:e320:884f:6ad7:57b0:48cd:cd9e",
+            "internal-port": "5471"
+          },
+          {
+            "protocol": "tcp",
+            "external-port": 38666,
+            "internal-address": "2001:db8:506:9cff:c2f6:42a4:dc0c:579b",
+            "internal-port": 36142
+          },
+          {
+            "protocol": "tcp",
+            "external-port": "11179-26580",
+            "internal-address": "2001:db8:6c12:db97:731d:4fbe:cb6b:b8fa",
+            "internal-port": 55978
+          }
+        ],
+        "traffic-allow": [
+          {
+            "protocol": "any",
+            "source-address": "::/0",
+            "source-ports": [
+              "47484-55618",
+              51918,
+              "563"
+            ],
+            "destination-address": "2001:db8:3292:3041:ffb9:41c:d707:7d66",
+            "destination-ports": [
+              "62424",
+              19784,
+              60527
+            ]
+          },
+          {
+            "protocol": "any",
+            "source-address": "::/0",
+            "source-ports": [
+              2016,
+              "51671",
+              22928
+            ],
+            "destination-address": "2001:db8:57e2:1e9a:3564:8b3c:a7c9:aa54",
+            "destination-ports": [
+              "37-62036",
+              "42229-51778",
+              9520
+            ]
+          },
+          {
+            "protocol": "any",
+            "source-address": "::/0",
+            "source-ports": [
+              "39624",
+              "26438",
+              "21842"
+            ],
+            "destination-address": "2001:db8:c060:53dc:b8c2:cd14:1260:9f98",
+            "destination-ports": [
+              22703,
+              "53258",
+              24274
+            ]
+          }
+        ]
+      },
+      "broad-band": {
+        "protocol": "pppoe",
+        "user-name": "",
+        "password": ""
+      },
+      "tunnel": {
+        "proto": "l2tp",
+        "server": "10.254.71.249",
+        "user-name": "",
+        "password": ""
+      }
+    },
+    {
+      "vlan": {
+        "id": 2829,
+        "range-start": 1056,
+        "range-end": 3022,
+        "proto": "802.1q",
+        "stp-instance": 128
+      },
+      "name": "VLAN2829",
+      "role": "downstream",
+      "isolate-hosts": false,
+      "metric": 755918220,
+      "mtu": 1409,
+      "services": [
+        "lldp",
+        "lldp",
+        "ssh"
+      ],
+      "vlan-awareness": {
+        "first": 900,
+        "last": 384
+      },
+      "bridge": {
+        "mtu": 1500,
+        "tx-queue-len": 5000,
+        "isolate-ports": false
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet27",
+            "Ethernet11",
+            "Ethernet3"
+          ],
+          "multicast": true,
+          "learning": true,
+          "isolate": false,
+          "macaddr": "02:6e:9a:4d:42:8f",
+          "reverse-path-filter": false,
+          "vlan-tag": "un-tagged"
+        },
+        {
+          "select-ports": [
+            "Ethernet13",
+            "Ethernet3",
+            "Ethernet15"
+          ],
+          "multicast": true,
+          "learning": true,
+          "isolate": false,
+          "macaddr": "02:88:11:7f:0e:1d",
+          "reverse-path-filter": false,
+          "vlan-tag": "un-tagged"
+        },
+        {
+          "select-ports": [
+            "Ethernet11",
+            "Ethernet2",
+            "Ethernet10"
+          ],
+          "multicast": true,
+          "learning": true,
+          "isolate": false,
+          "macaddr": "02:3c:95:0c:b9:ef",
+          "reverse-path-filter": false,
+          "vlan-tag": "tagged"
+        }
+      ],
+      "ipv4": {
+        "addressing": "none",
+        "subnet": [
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 354
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 207
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 989
+          }
+        ],
+        "gateway": [
+          {
+            "prefix": "192.168.1.0/24",
+            "nexthop": "192.168.1.1",
+            "vrf": 909,
+            "metric": 650.5450522908415
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "nexthop": "192.168.1.1",
+            "vrf": 655,
+            "metric": 287.25073850688455
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "nexthop": "192.168.1.1",
+            "vrf": 895,
+            "metric": 247.188015282229
+          }
+        ],
+        "broadcast": [
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 398
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 4
+          },
+          {
+            "prefix": "192.168.1.0/24",
+            "vrf": 29
+          }
+        ],
+        "multicast": {
+          "unknown-multicast-flood-control": true,
+          "igmp": {
+            "snooping-enable": true,
+            "version": 1,
+            "querier-enable": false,
+            "fast-leave-enable": false,
+            "query-interval": 1000,
+            "last-member-query-interval": 1000,
+            "max-response-time": 10,
+            "static-mcast-groups": [
+              {
+                "egress-ports": [
+                  "",
+                  "",
+                  ""
+                ],
+                "address": "225.0.0.1"
+              },
+              {
+                "egress-ports": [
+                  "",
+                  "",
+                  ""
+                ],
+                "address": "225.0.0.1"
+              },
+              {
+                "egress-ports": [
+                  "",
+                  "",
+                  ""
+                ],
+                "address": "225.0.0.1"
+              }
+            ]
+          },
+          "mvr": {
+            "mvr-intf-mvr-role": "source",
+            "mvr-intf-immed-leave": "none",
+            "mvr-intf-assoc-domain": 2
+          }
+        },
+        "send-hostname": true,
+        "use-dns": [
+          "8.8.8.8",
+          "4.4.4.4",
+          "8.8.8.8"
+        ],
+        "dhcp-snoop-vlan-enable": false,
+        "ip-arp-inspect-vlan": {
+          "vlan-enable": true,
+          "vlan-acl-rule": "compile",
+          "vlan-acl-nodhcp-bindings": false
+        },
+        "dhcp": {
+          "lease-first": 10,
+          "lease-count": 100,
+          "lease-time": "6h",
+          "relay-server": "172.21.235.228",
+          "circuit-id-format": ""
+        },
+        "dhcp-leases": [
+          {
+            "macaddr": "00:11:22:33:44:55",
+            "static-lease-offset": 10,
+            "lease-time": "6h",
+            "publish-hostname": true
+          },
+          {
+            "macaddr": "00:11:22:33:44:55",
+            "static-lease-offset": 10,
+            "lease-time": "6h",
+            "publish-hostname": true
+          },
+          {
+            "macaddr": "00:11:22:33:44:55",
+            "static-lease-offset": 10,
+            "lease-time": "6h",
+            "publish-hostname": true
+          }
+        ],
+        "port-forward": [
+          {
+            "protocol": "any",
+            "external-port": 60151,
+            "internal-address": "10.124.185.224",
+            "internal-port": 6150
+          },
+          {
+            "protocol": "tcp",
+            "external-port": "36429-62898",
+            "internal-address": "10.97.231.155",
+            "internal-port": "21774"
+          },
+          {
+            "protocol": "any",
+            "external-port": "8343-44866",
+            "internal-address": "192.168.28.8",
+            "internal-port": 10250
+          }
+        ]
+      },
+      "ipv6": {
+        "addressing": "dynamic",
+        "subnet": "auto/64",
+        "gateway": "2001:db8:123:456::1",
+        "prefix-size": 9,
+        "dhcpv6": {
+          "mode": "stateless",
+          "announce-dns": [
+            "2001:db8:4916:848f:40e5:4ee1:3c6a:b5fe",
+            "2001:db8:a18:ced9:d3eb:8751:51a2:6242",
+            "2001:db8:de71:7444:a275:380c:9275:535e"
+          ],
+          "filter-prefix": "::/0"
+        },
+        "port-forward": [
+          {
+            "protocol": "udp",
+            "external-port": 38452,
+            "internal-address": "2001:db8:8f26:311:42ee:b417:759:7265",
+            "internal-port": "17663-60320"
+          },
+          {
+            "protocol": "udp",
+            "external-port": 6501,
+            "internal-address": "2001:db8:772:9590:e933:d97f:45a0:fbde",
+            "internal-port": "27557"
+          },
+          {
+            "protocol": "tcp",
+            "external-port": "19032-45331",
+            "internal-address": "2001:db8:1b9:8906:b714:17d8:7898:e454",
+            "internal-port": "26730-44070"
+          }
+        ],
+        "traffic-allow": [
+          {
+            "protocol": "any",
+            "source-address": "::/0",
+            "source-ports": [
+              "20679",
+              59607,
+              "23140"
+            ],
+            "destination-address": "2001:db8:3e47:9778:2782:d244:3d91:924a",
+            "destination-ports": [
+              "14727-64257",
+              11117,
+              "59355"
+            ]
+          },
+          {
+            "protocol": "any",
+            "source-address": "::/0",
+            "source-ports": [
+              35300,
+              "53494",
+              35435
+            ],
+            "destination-address": "2001:db8:d34a:829f:4cf4:b263:486b:fdeb",
+            "destination-ports": [
+              29123,
+              "33814-49772",
+              48326
+            ]
+          },
+          {
+            "protocol": "any",
+            "source-address": "::/0",
+            "source-ports": [
+              63656,
+              "36638",
+              64771
+            ],
+            "destination-address": "2001:db8:3d55:e2fd:8a3b:90d8:37fd:a2ec",
+            "destination-ports": [
+              "58830",
+              15644,
+              42557
+            ]
+          }
+        ]
+      },
+      "broad-band": {
+        "protocol": "pppoe",
+        "user-name": "",
+        "password": ""
+      },
+      "tunnel": {
+        "proto": "gre",
+        "peer-address": "192.168.12.18",
+        "dhcp-healthcheck": false,
+        "dont-fragment": false
+      }
+    }
+  ],
+  "services": {
+    "lldp": {
+      "describe": "uCentral Access Point",
+      "location": "uCentral Network"
+    },
+    "ssh": {
+      "port": 22,
+      "authorized-keys": [
+        "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBP/JpJ/KHtKKImzISBDwLO0/EwytIr4pGZQXcP6GCSHchLMyfjf147KNlF9gC+3FibzqKH02EiQspVhRgfuK6y0= alice@home",
+        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC0ghdSd2D2y08TFowZLMZn3x1/Djw3BkNsIeHt/Z+RaXwvfV1NQAnNdaOngMT/3uf5jZtYxhpl+dbZtRhoUPRvKflKBeFHYBqjZVzD3r4ns2Ofm2UpHlbdOpMuy9oeTSCeF0IKZZ6szpkvSirQogeP2fe9KRkzQpiza6YxxaJlWw== user@example",
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ4FDjyCsg+1Mh2C5G7ibR3z0Kw1dU57kfXebLRwS6CL bob@work"
+      ],
+      "password-authentication": true,
+      "enable": true
+    },
+    "ntp": {
+      "servers": [
+        "result.example.org",
+        "2001:db8:ab52:f001:9ddc:1df3:f497:cbb5",
+        "172.23.5.120"
+      ],
+      "local-server": true
+    },
+    "mdns": {
+      "enable": false
+    },
+    "rtty": {
+      "host": "192.168.1.10",
+      "port": 5912,
+      "token": "01234567890123456789012345678901",
+      "mutual-tls": true
+    },
+    "log": {
+      "host": "192.168.1.10",
+      "port": 2000,
+      "proto": "tcp",
+      "size": 1000,
+      "priority": 7
+    },
+    "http": {
+      "http-port": 80,
+      "enable": true
+    },
+    "igmp": {
+      "enable": false
+    },
+    "radius-proxy": {
+      "proxy-secret": "secret",
+      "realms": [
+        {
+          "protocol": "radsec",
+          "realm": [
+            "*",
+            "*",
+            "*"
+          ],
+          "auto-discover": false,
+          "host": "192.168.1.10",
+          "port": 2083,
+          "secret": "",
+          "use-local-certificates": false,
+          "ca-certificate": "",
+          "certificate": "",
+          "private-key": "",
+          "private-key-password": ""
+        },
+        {
+          "protocol": "radsec",
+          "realm": [
+            "*",
+            "*",
+            "*"
+          ],
+          "auto-discover": false,
+          "host": "192.168.1.10",
+          "port": 2083,
+          "secret": "",
+          "use-local-certificates": false,
+          "ca-certificate": "",
+          "certificate": "",
+          "private-key": "",
+          "private-key-password": ""
+        },
+        {
+          "protocol": "radsec",
+          "realm": [
+            "*",
+            "*",
+            "*"
+          ],
+          "auto-discover": false,
+          "host": "192.168.1.10",
+          "port": 2083,
+          "secret": "",
+          "use-local-certificates": false,
+          "ca-certificate": "",
+          "certificate": "",
+          "private-key": "",
+          "private-key-password": ""
+        }
+      ]
+    },
+    "online-check": {
+      "ping-hosts": [
+        "192.168.1.10",
+        "192.168.1.10",
+        "192.168.1.10"
+      ],
+      "download-hosts": [
+        "www.example.org",
+        "www.example.org",
+        "www.example.org"
+      ],
+      "check-interval": 60.0,
+      "check-threshold": 1.0,
+      "action": [
+        "leds"
+      ]
+    },
+    "data-plane": {
+      "ingress-filters": [
+        {
+          "name": "",
+          "program": "YnVpbGQtbmF0dXJhbC1kZXZlbG9wLWNlbnRyYWwtY3JpdGljYWwtY29tcGlsZS1wb3J0YWw="
+        },
+        {
+          "name": "",
+          "program": "cG9zdC1jb3Jwb3JhdGUtY3VzdG9tZXItZ2VuZXJhdGUtaXRlbS1zeXN0ZW0tYm9va21hcms="
+        },
+        {
+          "name": "",
+          "program": "aW50ZXJuYWwtZGlhbG9ndWUtY29oZXJlbnQtcmVzb3VyY2UtY2VudHJhbC1tZXRyaWNz"
+        }
+      ]
+    },
+    "quality-of-service": {
+      "select-ports": [
+        "Ethernet19",
+        "Ethernet0",
+        "Ethernet5"
+      ],
+      "bandwidth-up": 0,
+      "bandwidth-down": 0,
+      "bulk-detection": {
+        "dscp": "EF",
+        "packets-per-second": 0.0
+      },
+      "services": [
+        "",
+        "",
+        ""
+      ],
+      "classifier": [
+        {
+          "dscp": "AF13",
+          "ports": [
+            {
+              "protocol": "any",
+              "port": 686,
+              "range-end": 127,
+              "reclassify": true
+            },
+            {
+              "protocol": "any",
+              "port": 728,
+              "range-end": 177,
+              "reclassify": true
+            },
+            {
+              "protocol": "udp",
+              "port": 147,
+              "range-end": 552,
+              "reclassify": true
+            }
+          ],
+          "dns": [
+            {
+              "fqdn": "baseline.example.org",
+              "suffix-matching": true,
+              "reclassify": true
+            },
+            {
+              "fqdn": "log-task.example.org",
+              "suffix-matching": true,
+              "reclassify": true
+            },
+            {
+              "fqdn": "result.example.org",
+              "suffix-matching": true,
+              "reclassify": true
+            }
+          ]
+        },
+        {
+          "dscp": "AF11",
+          "ports": [
+            {
+              "protocol": "any",
+              "port": 765,
+              "range-end": 809,
+              "reclassify": true
+            },
+            {
+              "protocol": "tcp",
+              "port": 424,
+              "range-end": 713,
+              "reclassify": true
+            },
+            {
+              "protocol": "tcp",
+              "port": 617,
+              "range-end": 527,
+              "reclassify": true
+            }
+          ],
+          "dns": [
+            {
+              "fqdn": "progressive.example.org",
+              "suffix-matching": true,
+              "reclassify": true
+            },
+            {
+              "fqdn": "primary.example.org",
+              "suffix-matching": true,
+              "reclassify": true
+            },
+            {
+              "fqdn": "address.example.org",
+              "suffix-matching": true,
+              "reclassify": true
+            }
+          ]
+        },
+        {
+          "dscp": "CS2",
+          "ports": [
+            {
+              "protocol": "any",
+              "port": 89,
+              "range-end": 145,
+              "reclassify": true
+            },
+            {
+              "protocol": "any",
+              "port": 825,
+              "range-end": 930,
+              "reclassify": true
+            },
+            {
+              "protocol": "udp",
+              "port": 439,
+              "range-end": 86,
+              "reclassify": true
+            }
+          ],
+          "dns": [
+            {
+              "fqdn": "populate.example.org",
+              "suffix-matching": true,
+              "reclassify": true
+            },
+            {
+              "fqdn": "initiative.example.org",
+              "suffix-matching": true,
+              "reclassify": true
+            },
+            {
+              "fqdn": "deploy.example.org",
+              "suffix-matching": true,
+              "reclassify": true
+            }
+          ]
+        }
+      ]
+    },
+    "wireguard-overlay": {
+      "proto": "wireguard-overlay",
+      "private-key": "",
+      "peer-port": 3456,
+      "peer-exchange-port": 3458,
+      "root-node": {
+        "key": "",
+        "endpoint": "2001:db8:4b3c:3304:19a6:da60:2f20:5f82",
+        "ipaddr": [
+          "172.22.147.210",
+          "10.227.27.121",
+          "192.168.5.37"
+        ]
+      },
+      "hosts": [
+        {
+          "name": "",
+          "key": "",
+          "endpoint": "172.25.21.38",
+          "subnet": [
+            "192.168.74.175/27",
+            "172.31.215.130/9",
+            "2001:db8:ac52:2feb:fc99:36cd:bb32:a675/43"
+          ],
+          "ipaddr": [
+            "2001:db8:3299:feaf:6f49:2c8b:1f2c:9ebf",
+            "2001:db8:1a1e:5760:ca42:4d56:7a85:2bf1",
+            "172.29.11.74"
+          ]
+        },
+        {
+          "name": "",
+          "key": "",
+          "endpoint": "2001:db8:e6d9:71c5:e9f4:f5cd:241b:d398",
+          "subnet": [
+            "172.17.77.156/25",
+            "2001:db8:584f:e29e:5a60:23bc:a2aa:ecd3/60",
+            "192.168.32.61/7"
+          ],
+          "ipaddr": [
+            "2001:db8:f96b:960:9e82:45a3:6f02:f2b3",
+            "2001:db8:e0a9:375b:3d94:76f7:5e83:dc62",
+            "172.31.160.87"
+          ]
+        },
+        {
+          "name": "",
+          "key": "",
+          "endpoint": "192.168.198.242",
+          "subnet": [
+            "2001:db8:f91:e8bf:76b7:23af:b9fe:24c/119",
+            "2001:db8:8ea3:41d2:9b17:657a:5921:d68a/42",
+            "2001:db8:6359:3fde:5613:b14f:650f:94eb/73"
+          ],
+          "ipaddr": [
+            "10.78.103.244",
+            "192.168.19.122",
+            "10.220.215.153"
+          ]
+        }
+      ],
+      "vxlan": {
+        "port": 4789,
+        "mtu": 1420,
+        "isolate": true
+      }
+    },
+    "gps": {
+      "adjust-time": false,
+      "baud-rate": 9600
+    },
+    "telnet": {
+      "enable": true
+    },
+    "https": {
+      "https-port": 443,
+      "enable": false
+    }
+  },
+  "metrics": {
+    "statistics": {
+      "interval": 605,
+      "types": [
+        "lldp",
+        "clients"
+      ],
+      "wired-clients-max-num": 260
+    },
+    "health": {
+      "interval": 368,
+      "dhcp-local": true,
+      "dhcp-remote": false,
+      "dns-local": true,
+      "dns-remote": true
+    },
+    "dhcp-snooping": {
+      "filters": [
+        "request",
+        "reply",
+        "solicit"
+      ]
+    },
+    "telemetry": {
+      "interval": 717,
+      "types": [
+        "health.dhcp",
+        "client.key-mismatch",
+        "health.dns"
+      ]
+    },
+    "realtime": {
+      "types": [
+        "client.join",
+        "unit",
+        "wired.carrier-down"
+      ]
+    }
+  },
+  "third-party": {}
+}

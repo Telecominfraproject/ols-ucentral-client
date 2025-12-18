@@ -4177,7 +4177,8 @@ config_port_ieee8021x_apply(uint16_t port_id, struct plat_port *port_cfg)
 	cached_port->ieee8021x.control_mode = ctrl_mode;
 	cached_port->ieee8021x.guest_vid = port_cfg->ieee8021x.guest_vid;
 	cached_port->ieee8021x.auth_fail_vid = port_cfg->ieee8021x.auth_fail_vid;
-	cached_port->ieee8021x.host_mode = port_cfg->ieee8021x.host_mode;
+	/* Fixed: Use local variable host_mode instead of incorrect port_cfg->ieee8021x.host_mode */
+	cached_port->ieee8021x.host_mode = host_mode;
 
 	return 0;
 }

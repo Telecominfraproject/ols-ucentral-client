@@ -20,9 +20,9 @@ build-host-env:
 		docker build --file Dockerfile --tag ${IMG_ID}:${IMG_TAG} docker
 	@echo Docker build done;
 	@echo Saving docker img to local archive...;
-	if [ ! -f output/docker-ucentral-client-build-env-${IMG_TAG}.gz ] ; then
+	if [ ! -f output/docker-ucentral-client-build-env-${IMG_TAG}.gz ] ; then \
 		docker save ${IMG_ID}:${IMG_TAG} | gzip -c -  > \
-			output/docker-ucentral-client-build-env-${IMG_TAG}.gz;
+			output/docker-ucentral-client-build-env-${IMG_TAG}.gz; \
 	fi
 	@echo Docker save done...;
 
@@ -54,8 +54,8 @@ build-ucentral-app: run-host-env
 	docker cp ${CONTAINER_NAME}:/root/ucentral-external-libs/ols-ucentral-schema/schema.json src/docker/ || true
 	docker container stop ${CONTAINER_NAME} > /dev/null 2>&1 || true;
 	docker container rm ${CONTAINER_NAME} > /dev/null 2>&1 || true;
-	if [ -f version.json ]; then
-	    cp version.json src/docker/
+	if [ -f version.json ]; then \
+	    cp version.json src/docker/; \
 	fi
 
 build-ucentral-docker-img: build-ucentral-app
@@ -66,8 +66,8 @@ build-ucentral-docker-img: build-ucentral-app
 	OLDIMG=$$(docker images --format "{{.ID}}" ucentral-client:latest)
 	docker build --file docker/Dockerfile --tag ucentral-client:latest docker
 	NEWIMG=$$(docker images --format "{{.ID}}" ucentral-client:latest)
-	if [ -n "$$OLDIMG" ] && [ ! "$$OLDIMG" = "$$NEWIMG" ]; then
-		docker image rm $$OLDIMG
+	if [ -n "$$OLDIMG" ] && [ ! "$$OLDIMG" = "$$NEWIMG" ]; then \
+		docker image rm $$OLDIMG; \
 	fi
 	docker save ucentral-client:latest |gzip -c -  > docker-ucentral-client.gz
 	popd

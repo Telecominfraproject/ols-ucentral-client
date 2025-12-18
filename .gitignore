@@ -5,3 +5,9 @@ src/docker/ucentral-client
 *.orig
 *.rej
 docker/*
+
+# Test artifacts and generated files
+tests/config-parser/test-config-parser
+tests/config-parser/test-report.*
+tests/config-parser/test-results.txt
+output/

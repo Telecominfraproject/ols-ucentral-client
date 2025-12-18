@@ -1,4 +1,4 @@
-FROM debian:buster
+FROM debian:bullseye
 LABEL Description="Ucentral client (Build) environment"
 
 ARG HOME /root
@@ -27,7 +27,9 @@ RUN apt-get update -q -y  && apt-get -q -y --no-install-recommends install \
 	libtool \
 	pkg-config \
 	libjsoncpp-dev \
-        unzip
+        unzip \
+        python3 \
+        python3-jsonschema
 
 RUN git config --global http.sslverify false
 RUN git clone https://github.com/DaveGamble/cJSON.git ${HOME}/ucentral-external-libs/cJSON/

@@ -2,14 +2,12 @@
   "ethernet": [
     {
       "duplex": "full",
-      "enabled": false,
+      "enabled": true,
       "speed": 1000,
       "select-ports": [
-        "Ethernet*"
+        "Ethernet1"
       ]
     }
   ],
-  "interfaces": [],
-  "services": {},
   "uuid": 1
 }

@@ -1,0 +1,96 @@
+{
+    "ethernet": [
+        {
+            "duplex": "full",
+            "enabled": true,
+            "select-ports": [
+                "Ethernet*"
+            ],
+            "speed": 1000
+        }
+    ],
+    "interfaces": [
+        {
+            "ethernet": [
+                {
+                    "select-ports": [
+                        "Ethernet*"
+                    ],
+                    "vlan-tag": "un-tagged"
+                }
+            ],
+            "ipv4": {
+                "addressing": "dynamic"
+            },
+            "name": "VLAN1",
+            "vlan": {
+                "id": 1
+            }
+        },
+        {
+            "ethernet": [
+                {
+                    "select-ports": [
+                        "Ethernet1"
+                    ],
+                    "vlan-tag": "un-tagged"
+                }
+            ],
+            "ipv4": {
+                "voice-vlan-intf-config": {
+                    "voice-vlan-intf-detect-voice": "lldp",
+                    "voice-vlan-intf-mode": "auto",
+                    "voice-vlan-intf-priority": 3,
+                    "voice-vlan-intf-security": true
+                }
+            }
+        }
+    ],
+    "metrics": {
+        "health": {
+            "interval": 300
+        },
+        "statistics": {
+            "interval": 300,
+            "types": []
+        }
+    },
+    "services": {
+        "http": {
+            "enable": true
+        },
+        "https": {
+            "enable": true
+        },
+        "ssh": {
+            "enable": false
+        },
+        "telnet": {
+            "enable": false
+        }
+    },
+    "switch": {
+        "voice-vlan-config": {
+            "voice-vlan-ageing-time": 1440,
+            "voice-vlan-enable": true,
+            "voice-vlan-id": 100,
+            "voice-vlan-oui-config": [
+                {
+                    "voice-vlan-oui-description": "Cisco VoIP Phone",
+                    "voice-vlan-oui-mac": "00:1B:44:11:3A:B7",
+                    "voice-vlan-oui-mask": "FF:FF:FF:00:00:00"
+                },
+                {
+                    "voice-vlan-oui-description": "Polycom VoIP Phone",
+                    "voice-vlan-oui-mac": "00:0E:8F:12:34:56",
+                    "voice-vlan-oui-mask": "FF:FF:FF:00:00:00"
+                }
+            ]
+        }
+    },
+    "unit": {
+        "leds-active": true,
+        "usage-threshold": 90
+    },
+    "uuid": 1730796040
+}
