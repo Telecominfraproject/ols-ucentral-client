@@ -186,7 +186,7 @@ Additional properties are not allowed ('unknown_field' was unexpected)
 
 ## See Also
 
-- [TEST_CONFIG_README.md](TEST_CONFIG_README.md) - Configuration parser testing guide
+- [TEST_CONFIG_README.md](../config-parser/TEST_CONFIG_README.md) - Configuration parser testing guide
 - [ucentral.schema.pretty.json](../../config-samples/ucentral.schema.pretty.json) - Official uCentral schema
 
 ## License
