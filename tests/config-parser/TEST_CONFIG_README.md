@@ -1015,7 +1015,6 @@ grep "parser_function" test-config-parser.c | sort | uniq
 - **../../config-samples/ucentral.schema.pretty.json** - Official uCentral JSON schema
 - **include/ucentral-platform.h** - Platform API and plat_cfg structure definitions
 - **proto.c** - Configuration parser implementation
-- **CLAUDE.md** - Project overview and build instructions
 
 ## License
 

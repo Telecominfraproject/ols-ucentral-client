@@ -51,12 +51,6 @@ This testing framework includes multiple documentation files, each serving a spe
 
 ### Supporting Documentation
 
-5. **[CLAUDE.md](CLAUDE.md)** - Project overview and AI assistant guidance
-   - Build system architecture
-   - Platform abstraction layer
-   - Testing framework integration
-   - References to all test-related files
-
 ## Quick Reference
 
 ### Running Tests
@@ -415,7 +409,6 @@ When updating the testing framework:
    - New features → TEST_CONFIG_README.md
    - Schema changes → MAINTENANCE.md + SCHEMA_VALIDATOR_README.md
    - Property database changes → MAINTENANCE.md + TEST_CONFIG_README.md
-   - Build changes → CLAUDE.md
 
 2. **Keep version information current:**
    - Update compatibility matrices
@@ -447,5 +440,4 @@ BSD-3-Clause (same as parent project)
 - **TEST_CONFIG_PARSER_DESIGN.md** - Test framework architecture and design
 - **SCHEMA_VALIDATOR_README.md** - Schema validator documentation
 - **MAINTENANCE.md** - Update procedures and troubleshooting
-- **CLAUDE.md** - Project overview and build system
 - **ols-ucentral-schema repository** - Official schema source
