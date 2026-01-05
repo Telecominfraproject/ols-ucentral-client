@@ -138,6 +138,9 @@ struct test_result {
 static struct test_result *test_results_head = NULL;
 static struct test_result *test_results_tail = NULL;
 
+/* Global flag to control progress/debug output (disabled for HTML/JSON/JUnit formats) */
+static int show_progress = 1;
+
 /* Logging callback to capture errors from cfg_parse() */
 static void test_log_callback(const char *msg, int severity)
 {
@@ -1800,10 +1803,12 @@ static int test_directory(const char *dirpath)
         return -1;
     }
 
-    printf("========================================\n");
-    printf("Configuration Parser Test Suite\n");
-    printf("========================================\n");
-    printf("Scanning: %s\n", dirpath);
+    if (show_progress) {
+        printf("========================================\n");
+        printf("Configuration Parser Test Suite\n");
+        printf("========================================\n");
+        printf("Scanning: %s\n", dirpath);
+    }
 
     while ((entry = readdir(dir)) != NULL) {
         size_t len = strlen(entry->d_name);
@@ -2231,7 +2236,7 @@ static void output_html_report(void)
         }
 
         /* Add platform execution flow section (platform mode only) */
-        if (result->platform_apply_called && result->platform_trace[0]) {
+        if (result->platform_apply_called) {
             printf("      <tr><td colspan=\"6\" style=\"padding:20px 40px;\">\n");
             printf("        <details>\n");
             printf("          <summary style=\"cursor:pointer; color:#764BA2; font-weight:600;\">🔧 Platform Execution Flow</summary>\n");
@@ -2245,8 +2250,9 @@ static void output_html_report(void)
             }
 
             /* Parse and display platform function calls */
-            printf("            <div style=\"margin-top:15px;\"><strong>Platform functions called:</strong></div>\n");
-            printf("            <ol style=\"font-family:monospace; font-size:12px; line-height:1.8; margin:10px 0; padding-left:30px;\">\n");
+            if (result->platform_trace[0]) {
+                printf("            <div style=\"margin-top:15px;\"><strong>Platform functions called:</strong></div>\n");
+                printf("            <ol style=\"font-family:monospace; font-size:12px; line-height:1.8; margin:10px 0; padding-left:30px;\">\n");
 
             char *trace_copy = strdup(result->platform_trace);
             char *line = strtok(trace_copy, "\n");
@@ -2275,6 +2281,10 @@ static void output_html_report(void)
 
             if (call_count > 0) {
                 printf("            <div style=\"margin-top:10px; color:#666; font-size:12px;\">ℹ️ Total platform functions called: %d</div>\n", call_count);
+            }
+            } else {
+                /* No trace available */
+                printf("            <div style=\"margin-top:10px; color:#666; font-size:13px;\">ℹ️ No platform trace captured (silent execution)</div>\n");
             }
 
             printf("          </div>\n");
@@ -3189,6 +3199,18 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    /* For non-human formats, disable progress output and suppress stderr (mock/debug output) */
+    int saved_stderr = -1;
+    if (output_format != OUTPUT_HUMAN) {
+        show_progress = 0;  /* Disable progress messages */
+        saved_stderr = dup(STDERR_FILENO);
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0) {
+            dup2(devnull, STDERR_FILENO);
+            close(devnull);
+        }
+    }
+
     /* Register logging callback to capture errors from cfg_parse() */
     uc_log_send_cb_register(test_log_callback);
 
@@ -3227,10 +3249,12 @@ int main(int argc, char *argv[])
             filename[sizeof(filename) - 1] = '\0';
         }
 
-        printf("========================================\n");
-        printf("Configuration Parser Test Suite\n");
-        printf("========================================\n");
-        printf("Testing single file: %s\n\n", config_dir);
+        if (show_progress) {
+            printf("========================================\n");
+            printf("Configuration Parser Test Suite\n");
+            printf("========================================\n");
+            printf("Testing single file: %s\n\n", config_dir);
+        }
 
         test_config_file(dirpath, filename);
     } else if (S_ISDIR(path_stat.st_mode)) {
@@ -3242,6 +3266,12 @@ int main(int argc, char *argv[])
     } else {
         fprintf(stderr, "ERROR: %s is neither a file nor a directory\n", config_dir);
         return 1;
+    }
+
+    /* Restore stderr before output (so error messages can be seen if needed) */
+    if (saved_stderr >= 0) {
+        dup2(saved_stderr, STDERR_FILENO);
+        close(saved_stderr);
     }
 
     /* Output results based on format */

@@ -42,14 +42,61 @@ def extract_json_key(property_path: str) -> str:
     return key
 
 def find_function_containing_line(source_lines: list, target_line: int) -> Optional[str]:
-    """Find which function contains a given line number."""
+    """
+    Find which function contains a given line number.
+
+    Searches backward from target line to find the nearest function definition.
+    Handles multiple function definition styles:
+        static int function_name(params)                    # Single line
+        static int                                          # Return type on one line
+        function_name(params)                               # Function name on next line
+    """
     for i in range(target_line - 1, -1, -1):
-        line = source_lines[i]
-        # Look for function definition patterns
-        match = re.search(r'^\s*(static\s+)?(\w+\s+)+(\w+)\s*\([^)]*\)\s*{?\s*$', line)
-        if match:
-            func_name = match.group(3)
-            return func_name
+        line_raw = source_lines[i]
+        line = line_raw.strip()
+
+        # Skip empty lines
+        if not line:
+            continue
+
+        # IMPORTANT: Function definitions must start at column 0 (or only whitespace before)
+        # This excludes indented function calls inside function bodies
+
+        # Pattern 1: Function name with opening paren on its own line (line 2 of split definition)
+        # Example: "cfg_ethernet_ieee8021x_parse(cJSON *ieee8021x, struct plat_port *port)"
+        # Must be at column 0 (no leading whitespace in original line)
+        if line_raw[0] not in (' ', '\t'):
+            match = re.match(r'^([a-z_][a-z0-9_]*)\s*\(', line, re.IGNORECASE)
+            if match:
+                func_name = match.group(1)
+                # Check if previous line has return type (static int, void, etc.)
+                if i > 0:
+                    prev_line = source_lines[i - 1].strip()
+                    # If previous line looks like a return type, this is a function definition
+                    # Examples: "static int", "void", "static char *", "struct foo"
+                    if re.match(r'^(static\s+)?(\w+\s*\**\s*)+$', prev_line):
+                        # Make sure it's not followed by semicolon (declaration)
+                        # Check next few lines for opening brace or statements
+                        for j in range(i + 1, min(i + 5, len(source_lines))):
+                            next_line = source_lines[j].strip()
+                            if next_line == '{' or (next_line and not next_line.endswith(';')):
+                                return func_name
+                            if next_line.endswith(';'):
+                                break  # It's a declaration
+
+            # Pattern 2: Complete function definition on one line
+            # Example: "static int cfg_ethernet_poe_parse(cJSON *poe,"
+            match = re.match(r'^(static\s+)?(\w+\s+\**)+([a-z_][a-z0-9_]*)\s*\(', line, re.IGNORECASE)
+            if match:
+                func_name = match.group(3)
+                # Check it's not followed by a semicolon (declaration)
+                for j in range(i + 1, min(i + 10, len(source_lines))):
+                    next_line = source_lines[j].strip()
+                    if ')' in next_line:
+                        if next_line.endswith(';') or (j + 1 < len(source_lines) and source_lines[j + 1].strip() == ';'):
+                            break  # It's a declaration
+                        return func_name
+
     return None
 
 def find_property_in_source(source_file: Path, property_path: str) -> Tuple[Optional[int], Optional[str]]:
@@ -170,7 +217,7 @@ def main():
         f.write(f" * whether implemented or not. Properties with line_number=0\n")
         f.write(f" * are in the schema but not yet implemented in the code.\n")
         f.write(f" */\n\n")
-        f.write(f"static const struct property_metadata property_database[] = {{\n")
+        f.write(f"static const struct property_metadata base_property_database[] = {{\n")
 
         for entry in database_entries:
             f.write(entry + "\n")
