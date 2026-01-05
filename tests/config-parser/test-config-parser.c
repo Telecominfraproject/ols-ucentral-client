@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <fcntl.h>
 
 #undef NDEBUG
 #include <assert.h>
@@ -78,7 +79,8 @@ enum property_status {
     PROP_INVALID,         /* Property present but value is invalid/out of bounds */
     PROP_INCOMPLETE,      /* Property partially configured (missing sub-fields) */
     PROP_UNKNOWN,         /* Property status needs verification (not yet classified) */
-    PROP_SYSTEM           /* System-generated field (not user-configurable) */
+    PROP_SYSTEM,          /* System-generated field (not user-configurable) */
+    PROP_CONTAINER        /* Container element (object or array) - not actionable */
 };
 
 /* Property validation result */
@@ -108,6 +110,7 @@ struct test_result {
     int properties_incomplete;
     int properties_unknown;
     int properties_system;
+    int properties_container;
     struct property_validation *property_validations;
 
     /* Feature presence tracking */
@@ -123,6 +126,11 @@ struct test_result {
     int has_lacp;
     int has_dhcp_snooping;
     int has_loop_detection;
+
+    /* Platform execution flow tracking (platform mode only) */
+    int platform_apply_called;
+    int platform_apply_result;
+    char platform_trace[4096];  /* Captured stderr from platform functions */
 
     struct test_result *next;
 };
@@ -211,6 +219,9 @@ static void add_property_validation(struct test_result *result, const char *path
             break;
         case PROP_SYSTEM:
             result->properties_system++;
+            break;
+        case PROP_CONTAINER:
+            result->properties_container++;
             break;
     }
 }
@@ -857,641 +868,16 @@ struct property_metadata {
 
 
 
+/* Include property databases */
+#include "property-database-base.c"
 
-/* Property database: 628 entries mapping JSON paths to parsing status and source location */
-static const struct property_metadata property_database[] = {
-    {"ethernet", PROP_SYSTEM, "proto.c", "cfg_port_interface_parse", 1240, "Container object (not a leaf value)"},
-    {"ethernet[]", PROP_SYSTEM, "proto.c", "cfg_port_interface_parse", 1240, "Array container"},
-    {"ethernet[].acl", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].acl[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].acl[].acl-inf-counters-egress", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].acl[].acl-inf-counters-ingress", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].acl[].acl-inf-policy-egress", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].acl[].acl-inf-policy-ingress", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].acl[].acl-inf-policy-preference", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].bpdu-guard", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].bpdu-guard.auto-recovery-secs", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].bpdu-guard.enabled", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1119, ""},
-    {"ethernet[].dhcp-snoop-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].dhcp-snoop-port.dhcp-snoop-port-circuit-id", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].dhcp-snoop-port.dhcp-snoop-port-client-limit", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].dhcp-snoop-port.dhcp-snoop-port-trust", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].duplex", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1120, ""},
-    {"ethernet[].edge-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].enabled", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1119, ""},
-    {"ethernet[].ieee8021x", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1140, ""},
-    {"ethernet[].ieee8021x.authentication-mode", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 904, ""},
-    {"ethernet[].ieee8021x.guest-vlan", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 906, ""},
-    {"ethernet[].ieee8021x.host-mode", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 905, ""},
-    {"ethernet[].ieee8021x.is-authenticator", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 903, ""},
-    {"ethernet[].ieee8021x.mac-address-bypass", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].ieee8021x.mac-address-bypass-timeout-minutes", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].ieee8021x.unauthenticated-vlan", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 907, ""},
-    {"ethernet[].ip-arp-inspect-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].ip-arp-inspect-port.rate-limit-pps", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].ip-arp-inspect-port.trusted", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].ip-source-guard-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].ip-source-guard-port.max-binding", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].ip-source-guard-port.mode", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].ip-source-guard-port.rule", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lacp-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lacp-config.lacp-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lacp-config.lacp-mode", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lacp-config.lacp-pchan-admin-key", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lacp-config.lacp-port-admin-key", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lacp-config.lacp-port-priority", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lacp-config.lacp-role", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lacp-config.lacp-system-priority", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lacp-config.lacp-timeout", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-admin-status", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-basic-tlv-mgmt-ip-v4", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-basic-tlv-mgmt-ip-v6", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-basic-tlv-port-descr", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-basic-tlv-sys-capab", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-basic-tlv-sys-descr", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-basic-tlv-sys-name", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-dot1-tlv-proto-ident", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-dot1-tlv-proto-vid", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-dot1-tlv-pvid", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-dot1-tlv-vlan-name", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-dot3-tlv-link-agg", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-dot3-tlv-mac-phy", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-dot3-tlv-max-frame", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-dot3-tlv-poe", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-location-civic-addr", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-location-civic-addr.lldp-med-location-civic-addr-admin-status", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-location-civic-addr.lldp-med-location-civic-ca", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-location-civic-addr.lldp-med-location-civic-ca[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-location-civic-addr.lldp-med-location-civic-ca[].lldp-med-location-civic-ca-type", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-location-civic-addr.lldp-med-location-civic-ca[].lldp-med-location-civic-ca-value", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-location-civic-addr.lldp-med-location-civic-country-code", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-location-civic-addr.lldp-med-location-civic-device-type", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-notification", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-tlv-ext-poe", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-tlv-inventory", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-tlv-location", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-tlv-med-cap", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-med-tlv-network-policy", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].lldp-interface-config.lldp-notification", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].name", PROP_CONFIGURED, "proto.c", "curl_upload_diagnostic_form", 2697, ""},
-    {"ethernet[].poe", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1128, ""},
-    {"ethernet[].poe.admin-mode", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 849, ""},
-    {"ethernet[].poe.detection", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 851, ""},
-    {"ethernet[].poe.do-reset", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 850, ""},
-    {"ethernet[].poe.power-limit", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 852, ""},
-    {"ethernet[].poe.priority", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 853, ""},
-    {"ethernet[].rate-limit-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].rate-limit-port.egress-kbps", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].rate-limit-port.ingress-kbps", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].select-ports", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1118, ""},
-    {"ethernet[].select-ports[]", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1118, ""},
-    {"ethernet[].services", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2092, ""},
-    {"ethernet[].services[]", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2092, ""},
-    {"ethernet[].speed", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1121, ""},
-    {"ethernet[].storm-control", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].storm-control.broadcast-pps", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].storm-control.multicast-pps", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].storm-control.unknown-unicast-pps", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].trunk-group", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].voice-vlan-intf-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].voice-vlan-intf-config.voice-vlan-intf-detect-voice", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].voice-vlan-intf-config.voice-vlan-intf-mode", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].voice-vlan-intf-config.voice-vlan-intf-priority", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"ethernet[].voice-vlan-intf-config.voice-vlan-intf-security", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"globals", PROP_SYSTEM, "proto.c", "cfg_process_prefixes", 1865, "Container object (not a leaf value)"},
-    {"globals.ipv4-blackhole", PROP_CONFIGURED, "proto.c", "cfg_process_prefixes", 1867, ""},
-    {"globals.ipv4-blackhole[]", PROP_CONFIGURED, "proto.c", "cfg_process_prefixes", 1867, ""},
-    {"globals.ipv4-blackhole[].prefix", PROP_CONFIGURED, "proto.c", "__cfg_interface_parse_ipv4", 1208, ""},
-    {"globals.ipv4-blackhole[].vrf", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"globals.ipv4-network", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"globals.ipv4-unreachable", PROP_CONFIGURED, "proto.c", "cfg_process_prefixes", 1880, ""},
-    {"globals.ipv4-unreachable[]", PROP_CONFIGURED, "proto.c", "cfg_process_prefixes", 1880, ""},
-    {"globals.ipv4-unreachable[].prefix", PROP_CONFIGURED, "proto.c", "__cfg_interface_parse_ipv4", 1208, ""},
-    {"globals.ipv4-unreachable[].vrf", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"globals.ipv6-network", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces", PROP_SYSTEM, "proto.c", "cfg_process_prefixes", 1893, "Container object (not a leaf value)"},
-    {"interfaces[]", PROP_SYSTEM, "proto.c", "cfg_process_prefixes", 1893, "Array container"},
-    {"interfaces[].bridge", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].bridge.isolate-ports", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].bridge.mtu", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].bridge.tx-queue-len", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].broad-band", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].broad-band.access-point-name", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].broad-band.authentication-type", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].broad-band.modem-type", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].broad-band.packet-data-protocol", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].broad-band.password", PROP_CONFIGURED, "proto.c", "readJsonFile", 483, ""},
-    {"interfaces[].broad-band.pin-code", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].broad-band.protocol", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1773, ""},
-    {"interfaces[].broad-band.user-name", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ethernet", PROP_CONFIGURED, "proto.c", "cfg_port_interface_parse", 1240, ""},
-    {"interfaces[].ethernet[]", PROP_CONFIGURED, "proto.c", "cfg_port_interface_parse", 1240, ""},
-    {"interfaces[].ethernet[].isolate", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ethernet[].learning", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ethernet[].macaddr", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ethernet[].multicast", PROP_CONFIGURED, "proto.c", "cfg_vlan_interface_parse", 1472, ""},
-    {"interfaces[].ethernet[].pvid", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ethernet[].reverse-path-filter", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ethernet[].select-ports", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1118, ""},
-    {"interfaces[].ethernet[].select-ports[]", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1118, ""},
-    {"interfaces[].ethernet[].vlan-tag", PROP_CONFIGURED, "proto.c", "cfg_vlan_interface_parse", 1428, ""},
-    {"interfaces[].ipv4", PROP_CONFIGURED, "proto.c", "cfg_port_interface_parse", 1254, ""},
-    {"interfaces[].ipv4.addressing", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.broadcast", PROP_CONFIGURED, "proto.c", "cfg_process_prefixes", 1922, ""},
-    {"interfaces[].ipv4.broadcast[]", PROP_CONFIGURED, "proto.c", "cfg_process_prefixes", 1922, ""},
-    {"interfaces[].ipv4.broadcast[].prefix", PROP_CONFIGURED, "proto.c", "__cfg_interface_parse_ipv4", 1208, ""},
-    {"interfaces[].ipv4.broadcast[].vrf", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp", PROP_CONFIGURED, "proto.c", "cfg_vlan_interface_parse", 1481, ""},
-    {"interfaces[].ipv4.dhcp-leases", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp-leases[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp-leases[].lease-time", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp-leases[].macaddr", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp-leases[].publish-hostname", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp-leases[].static-lease-offset", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp-snoop-vlan-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp.circuit-id-format", PROP_CONFIGURED, "proto.c", "cfg_vlan_interface_parse", 1486, ""},
-    {"interfaces[].ipv4.dhcp.lease-count", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp.lease-first", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp.lease-time", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.dhcp.relay-server", PROP_CONFIGURED, "proto.c", "cfg_vlan_interface_parse", 1485, ""},
-    {"interfaces[].ipv4.gateway", PROP_CONFIGURED, "proto.c", "cfg_process_prefixes", 1901, ""},
-    {"interfaces[].ipv4.gateway[]", PROP_CONFIGURED, "proto.c", "cfg_process_prefixes", 1901, ""},
-    {"interfaces[].ipv4.gateway[].metric", PROP_CONFIGURED, "proto.c", "state_fill_default_gateway", 3814, ""},
-    {"interfaces[].ipv4.gateway[].nexthop", PROP_CONFIGURED, "proto.c", "cfg_process_prefixes", 1913, ""},
-    {"interfaces[].ipv4.gateway[].prefix", PROP_CONFIGURED, "proto.c", "__cfg_interface_parse_ipv4", 1208, ""},
-    {"interfaces[].ipv4.gateway[].vrf", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.ip-arp-inspect-vlan", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.ip-arp-inspect-vlan.vlan-acl-nodhcp-bindings", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.ip-arp-inspect-vlan.vlan-acl-rule", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.ip-arp-inspect-vlan.vlan-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.multicast", PROP_CONFIGURED, "proto.c", "cfg_vlan_interface_parse", 1472, ""},
-    {"interfaces[].ipv4.multicast.igmp", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1292, ""},
-    {"interfaces[].ipv4.multicast.igmp.fast-leave-enable", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1316, ""},
-    {"interfaces[].ipv4.multicast.igmp.last-member-query-interval", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1320, ""},
-    {"interfaces[].ipv4.multicast.igmp.max-response-time", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1322, ""},
-    {"interfaces[].ipv4.multicast.igmp.querier-enable", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1314, ""},
-    {"interfaces[].ipv4.multicast.igmp.query-interval", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1318, ""},
-    {"interfaces[].ipv4.multicast.igmp.snooping-enable", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1312, ""},
-    {"interfaces[].ipv4.multicast.igmp.static-mcast-groups", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1325, ""},
-    {"interfaces[].ipv4.multicast.igmp.static-mcast-groups[]", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1325, ""},
-    {"interfaces[].ipv4.multicast.igmp.static-mcast-groups[].address", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1337, ""},
-    {"interfaces[].ipv4.multicast.igmp.static-mcast-groups[].egress-ports", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1338, ""},
-    {"interfaces[].ipv4.multicast.igmp.static-mcast-groups[].egress-ports[]", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1338, ""},
-    {"interfaces[].ipv4.multicast.igmp.version", PROP_CONFIGURED, "proto.c", "readJsonFile", 494, ""},
-    {"interfaces[].ipv4.multicast.mvr", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.multicast.mvr.mvr-intf-assoc-domain", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.multicast.mvr.mvr-intf-immed-leave", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.multicast.mvr.mvr-intf-mvr-role", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.multicast.unknown-multicast-flood-control", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2056, ""},
-    {"interfaces[].ipv4.port-forward", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.port-forward[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.port-forward[].external-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.port-forward[].internal-address", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.port-forward[].internal-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.port-forward[].protocol", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1773, ""},
-    {"interfaces[].ipv4.send-hostname", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.subnet", PROP_CONFIGURED, "proto.c", "cfg_port_interface_parse", 1261, ""},
-    {"interfaces[].ipv4.subnet[]", PROP_CONFIGURED, "proto.c", "cfg_port_interface_parse", 1261, ""},
-    {"interfaces[].ipv4.subnet[].prefix", PROP_CONFIGURED, "proto.c", "__cfg_interface_parse_ipv4", 1208, ""},
-    {"interfaces[].ipv4.subnet[].vrf", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.use-dns", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv4.use-dns[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.addressing", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.dhcpv6", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.dhcpv6.announce-dns", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.dhcpv6.announce-dns[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.dhcpv6.filter-prefix", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.dhcpv6.mode", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.gateway", PROP_CONFIGURED, "proto.c", "cfg_process_prefixes", 1901, ""},
-    {"interfaces[].ipv6.port-forward", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.port-forward[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.port-forward[].external-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.port-forward[].internal-address", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.port-forward[].internal-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.port-forward[].protocol", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1773, ""},
-    {"interfaces[].ipv6.prefix-size", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.subnet", PROP_CONFIGURED, "proto.c", "cfg_port_interface_parse", 1261, ""},
-    {"interfaces[].ipv6.traffic-allow", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.traffic-allow[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.traffic-allow[].destination-address", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.traffic-allow[].destination-ports", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.traffic-allow[].destination-ports[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.traffic-allow[].protocol", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1773, ""},
-    {"interfaces[].ipv6.traffic-allow[].source-address", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.traffic-allow[].source-ports", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].ipv6.traffic-allow[].source-ports[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].isolate-hosts", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].metric", PROP_CONFIGURED, "proto.c", "state_fill_default_gateway", 3814, ""},
-    {"interfaces[].mtu", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].name", PROP_CONFIGURED, "proto.c", "curl_upload_diagnostic_form", 2697, ""},
-    {"interfaces[].role", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].services", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2092, ""},
-    {"interfaces[].services[]", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2092, ""},
-    {"interfaces[].tunnel", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].tunnel.dhcp-healthcheck", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].tunnel.dont-fragment", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].tunnel.peer-address", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].tunnel.proto", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1532, ""},
-    {"interfaces[].vlan", PROP_CONFIGURED, "proto.c", "cfg_interface2vid", 1184, ""},
-    {"interfaces[].vlan-awareness", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].vlan-awareness.first", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].vlan-awareness.last", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].vlan.id", PROP_CONFIGURED, "proto.c", "__put_port_list", 317, ""},
-    {"interfaces[].vlan.proto", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1532, ""},
-    {"interfaces[].vlan.range-end", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].vlan.range-start", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"interfaces[].vlan.stp-instance", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"metrics", PROP_SYSTEM, "proto.c", "cfg_unit_parse", 2099, "Container object (not a leaf value)"},
-    {"metrics.dhcp-snooping", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"metrics.dhcp-snooping.filters", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"metrics.dhcp-snooping.filters[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"metrics.health", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 2013, ""},
-    {"metrics.health.dhcp-local", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"metrics.health.dhcp-remote", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"metrics.health.dns-local", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"metrics.health.dns-remote", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"metrics.health.interval", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1975, ""},
-    {"metrics.realtime", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"metrics.realtime.types", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1976, ""},
-    {"metrics.realtime.types[]", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1976, ""},
-    {"metrics.statistics", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1974, ""},
-    {"metrics.statistics.interval", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1975, ""},
-    {"metrics.statistics.types", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1976, ""},
-    {"metrics.statistics.types[]", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1976, ""},
-    {"metrics.statistics.wired-clients-max-num", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1977, ""},
-    {"metrics.telemetry", PROP_CONFIGURED, "proto.c", "state_fill", 4076, ""},
-    {"metrics.telemetry.interval", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1975, ""},
-    {"metrics.telemetry.types", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1976, ""},
-    {"metrics.telemetry.types[]", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1976, ""},
-    {"public_ip_lookup", PROP_SYSTEM, "proto.c", "cfg_unit_parse", 2212, ""},
-    {"services", PROP_SYSTEM, "proto.c", "cfg_unit_parse", 2092, "Container object (not a leaf value)"},
-    {"services.data-plane", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.data-plane.ingress-filters", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.data-plane.ingress-filters[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.data-plane.ingress-filters[].name", PROP_CONFIGURED, "proto.c", "curl_upload_diagnostic_form", 2697, ""},
-    {"services.data-plane.ingress-filters[].program", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.gps", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.gps.adjust-time", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.gps.baud-rate", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.http", PROP_CONFIGURED, "proto.c", "cfg_services_parse", 1650, ""},
-    {"services.http.enable", PROP_CONFIGURED, "proto.c", "cfg_services_parse", 1625, ""},
-    {"services.http.http-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.https", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.https.enable", PROP_CONFIGURED, "proto.c", "cfg_services_parse", 1625, ""},
-    {"services.https.https-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.igmp", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1292, ""},
-    {"services.igmp.enable", PROP_CONFIGURED, "proto.c", "cfg_services_parse", 1625, ""},
-    {"services.lldp", PROP_CONFIGURED, "proto.c", "cfg_metrics_parse", 1990, ""},
-    {"services.lldp.describe", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.lldp.location", PROP_CONFIGURED, "proto.c", "state_fill_interfaces_data", 3333, ""},
-    {"services.log", PROP_CONFIGURED, "proto.c", "result_send_blob", 387, ""},
-    {"services.log.host", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1531, ""},
-    {"services.log.port", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1528, ""},
-    {"services.log.priority", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 853, ""},
-    {"services.log.proto", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1532, ""},
-    {"services.log.size", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1530, ""},
-    {"services.mdns", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.mdns.enable", PROP_CONFIGURED, "proto.c", "cfg_services_parse", 1625, ""},
-    {"services.ntp", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.ntp.local-server", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.ntp.servers", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.ntp.servers[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.online-check", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.online-check.action", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.online-check.action[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.online-check.check-interval", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.online-check.check-threshold", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.online-check.download-hosts", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.online-check.download-hosts[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.online-check.ping-hosts", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.online-check.ping-hosts[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.bandwidth-down", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.bandwidth-up", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.bulk-detection", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.bulk-detection.dscp", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.bulk-detection.packets-per-second", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[].dns", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[].dns[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[].dns[].fqdn", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[].dns[].reclassify", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[].dns[].suffix-matching", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[].dscp", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[].ports", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[].ports[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[].ports[].port", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1528, ""},
-    {"services.quality-of-service.classifier[].ports[].protocol", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1773, ""},
-    {"services.quality-of-service.classifier[].ports[].range-end", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.classifier[].ports[].reclassify", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.quality-of-service.select-ports", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1118, ""},
-    {"services.quality-of-service.select-ports[]", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1118, ""},
-    {"services.quality-of-service.services", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2092, ""},
-    {"services.quality-of-service.services[]", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2092, ""},
-    {"services.radius-proxy", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.proxy-secret", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms[].auto-discover", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms[].ca-certificate", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms[].certificate", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms[].host", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1531, ""},
-    {"services.radius-proxy.realms[].port", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1528, ""},
-    {"services.radius-proxy.realms[].private-key", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms[].private-key-password", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms[].protocol", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1773, ""},
-    {"services.radius-proxy.realms[].realm", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms[].realm[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms[].secret", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.radius-proxy.realms[].use-local-certificates", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.rtty", PROP_CONFIGURED, "proto.c", "state_fill", 4184, ""},
-    {"services.rtty.host", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1531, ""},
-    {"services.rtty.mutual-tls", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.rtty.port", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1528, ""},
-    {"services.rtty.token", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2446, ""},
-    {"services.snmp", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.snmp.enable", PROP_CONFIGURED, "proto.c", "cfg_services_parse", 1625, ""},
-    {"services.snmp.enabled", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1119, ""},
-    {"services.ssh", PROP_CONFIGURED, "proto.c", "cfg_services_parse", 1618, ""},
-    {"services.ssh.authorized-keys", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.ssh.authorized-keys[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.ssh.enable", PROP_CONFIGURED, "proto.c", "cfg_services_parse", 1625, ""},
-    {"services.ssh.password-authentication", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.ssh.port", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1528, ""},
-    {"services.telnet", PROP_CONFIGURED, "proto.c", "cfg_services_parse", 1634, ""},
-    {"services.telnet.enable", PROP_CONFIGURED, "proto.c", "cfg_services_parse", 1625, ""},
-    {"services.wireguard-overlay", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.hosts", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.hosts[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.hosts[].endpoint", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.hosts[].ipaddr", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.hosts[].ipaddr[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.hosts[].key", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.hosts[].name", PROP_CONFIGURED, "proto.c", "curl_upload_diagnostic_form", 2697, ""},
-    {"services.wireguard-overlay.hosts[].subnet", PROP_CONFIGURED, "proto.c", "cfg_port_interface_parse", 1261, ""},
-    {"services.wireguard-overlay.hosts[].subnet[]", PROP_CONFIGURED, "proto.c", "cfg_port_interface_parse", 1261, ""},
-    {"services.wireguard-overlay.peer-exchange-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.peer-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.private-key", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.proto", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1532, ""},
-    {"services.wireguard-overlay.root-node", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.root-node.endpoint", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.root-node.ipaddr", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.root-node.ipaddr[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.root-node.key", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.vxlan", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.vxlan.isolate", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.vxlan.mtu", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"services.wireguard-overlay.vxlan.port", PROP_CONFIGURED, "proto.c", "cfg_service_log_parse", 1528, ""},
-    {"strict", PROP_SYSTEM, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch", PROP_SYSTEM, "proto.c", "readJsonFile", 511, "Container object (not a leaf value)"},
-    {"switch.acl", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-name", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-cos", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-cos-bitmask", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-dest-macaddress", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-dest-macbitmask", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-ethertype", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-ethertype-bitmask", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-packet-format", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-rule-action", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-source-macaddress", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-source-macbitmask", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-vid-bitmask", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-rules.acl[].acl-vlanid", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.acl[].acl-type", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.arp-inspect", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.arp-inspect.ip-arp-inspect", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.arp-inspect.validate-allow-zeros", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.arp-inspect.validate-dst-mac", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.arp-inspect.validate-ip", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.arp-inspect.validate-src-mac", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.dhcp-snooping", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.dhcp-snooping.dhcp-snoop-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.dhcp-snooping.dhcp-snoop-inf-opt-82", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.dhcp-snooping.dhcp-snoop-inf-opt-encode-subopt", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.dhcp-snooping.dhcp-snoop-inf-opt-policy", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.dhcp-snooping.dhcp-snoop-inf-opt-remoteid", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.dhcp-snooping.dhcp-snoop-mac-verify", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.dhcp-snooping.dhcp-snoop-rate-limit", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.dns", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.dns[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ieee8021x", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1140, ""},
-    {"switch.ieee8021x.auth-control-enable", PROP_CONFIGURED, "proto.c", "cfg_switch_ieee8021x_parse", 1682, ""},
-    {"switch.ieee8021x.dynamic-authorization", PROP_CONFIGURED, "proto.c", "state_fill_lldp_peers", 3709, ""},
-    {"switch.ieee8021x.dynamic-authorization.auth-type", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ieee8021x.dynamic-authorization.bounce-port-ignore", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ieee8021x.dynamic-authorization.client", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ieee8021x.dynamic-authorization.client[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ieee8021x.dynamic-authorization.client[].address", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1337, ""},
-    {"switch.ieee8021x.dynamic-authorization.client[].server-key", PROP_CONFIGURED, "proto.c", "cfg_switch_ieee8021x_parse", 1706, ""},
-    {"switch.ieee8021x.dynamic-authorization.disable-port-ignore", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ieee8021x.dynamic-authorization.ignore-server-key", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ieee8021x.dynamic-authorization.ignore-session-key", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ieee8021x.dynamic-authorization.server-key", PROP_CONFIGURED, "proto.c", "cfg_switch_ieee8021x_parse", 1706, ""},
-    {"switch.ieee8021x.radius", PROP_CONFIGURED, "proto.c", "cfg_switch_ieee8021x_parse", 1687, ""},
-    {"switch.ieee8021x.radius[]", PROP_CONFIGURED, "proto.c", "cfg_switch_ieee8021x_parse", 1687, ""},
-    {"switch.ieee8021x.radius[].server-authentication-port", PROP_CONFIGURED, "proto.c", "cfg_switch_ieee8021x_parse", 1705, ""},
-    {"switch.ieee8021x.radius[].server-host", PROP_CONFIGURED, "proto.c", "cfg_switch_ieee8021x_parse", 1704, ""},
-    {"switch.ieee8021x.radius[].server-key", PROP_CONFIGURED, "proto.c", "cfg_switch_ieee8021x_parse", 1706, ""},
-    {"switch.ieee8021x.radius[].server-priority", PROP_CONFIGURED, "proto.c", "cfg_switch_ieee8021x_parse", 1707, ""},
-    {"switch.intrusion-detection-access-lockout", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.intrusion-detection-access-lockout.lockout-attempt-count", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.intrusion-detection-access-lockout.lockout-period-seconds", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ip-source-guard", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ip-source-guard.bindings", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ip-source-guard.bindings[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ip-source-guard.bindings[].binding-ip", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ip-source-guard.bindings[].binding-mac", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ip-source-guard.bindings[].binding-mode", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ip-source-guard.bindings[].binding-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.ip-source-guard.bindings[].binding-vlans", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.jumbo-frames", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.lldp-global-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.lldp-global-config.lldp-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.lldp-global-config.lldp-holdtime-multiplier", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.lldp-global-config.lldp-med-fast-start-count", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.lldp-global-config.lldp-notification-interval", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.lldp-global-config.lldp-refresh-interval", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.lldp-global-config.lldp-reinit-delay", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.lldp-global-config.lldp-tx-delay", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1772, ""},
-    {"switch.loop-detection.bpdu-flooding", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.bpdu-tx-limit", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.bridge-prio", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.forward-delay-secs", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.hello-time-secs", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.instances", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1789, ""},
-    {"switch.loop-detection.instances[]", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1789, ""},
-    {"switch.loop-detection.instances[].enabled", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1119, ""},
-    {"switch.loop-detection.instances[].forward-delay", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.instances[].forward_delay", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1800, ""},
-    {"switch.loop-detection.instances[].hello-time", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.instances[].hello_time", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1803, ""},
-    {"switch.loop-detection.instances[].id", PROP_CONFIGURED, "proto.c", "__put_port_list", 317, ""},
-    {"switch.loop-detection.instances[].max-age", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.instances[].max_age", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1806, ""},
-    {"switch.loop-detection.instances[].path-cost", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.instances[].priority", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 853, ""},
-    {"switch.loop-detection.instances[].vlan-end", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.instances[].vlan-start", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.max-age-secs", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.mst-region", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.mst-region.name", PROP_CONFIGURED, "proto.c", "curl_upload_diagnostic_form", 2697, ""},
-    {"switch.loop-detection.mst-region.revision", PROP_CONFIGURED, "proto.c", "state_fill_transceiver_info", 3170, ""},
-    {"switch.loop-detection.pathcost-method", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.protocol", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1773, ""},
-    {"switch.loop-detection.roles", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.roles[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.loop-detection.root-guard", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mc-lag", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.global-gateway-mac", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].dual-active-detection", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].gateway-mac", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].keepalive-interval", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].mclag-domain", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].mclag-group", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].mclag-group[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].mclag-group[].group-id", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].mclag-group[].lacp-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].mclag-group[].lacp-config.lacp-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].mclag-group[].lacp-config.lacp-role", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].mclag-group[].lacp-config.lacp-timeout", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].mclag-group[].members", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].mclag-group[].members[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].peer-ip", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].peer-link", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].peer-link.link-type", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].peer-link.port-id", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].peer-link.trunk-id", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].session-timeout", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].source-ip", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].system-mac-address", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mclag-config.mclag-domains[].system-priority", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-config.mvr-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-config.mvr-proxy-query-intvl", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-config.mvr-proxy-switching", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-config.mvr-robustness-val", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-config.mvr-source-port-mode", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-domain-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-domain-config[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-domain-config[].mvr-domain-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-domain-config[].mvr-domain-id", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-domain-config[].mvr-domain-upstream-sip", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-domain-config[].mvr-domain-vlan-id", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-group-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-group-config[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-group-config[].mvr-group-assoc-domain", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-group-config[].mvr-group-assoc-domain[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-group-config[].mvr-group-name", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-group-config[].mvr-group-range-end", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.mvr-group-config[].mvr-group-range-start", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.port-isolation", PROP_CONFIGURED, "proto.c", "cfg_switch_parse", 1825, ""},
-    {"switch.port-isolation.sessions", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 1020, ""},
-    {"switch.port-isolation.sessions[]", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 1020, ""},
-    {"switch.port-isolation.sessions[].downlink", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 1068, ""},
-    {"switch.port-isolation.sessions[].downlink.interface-list", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 981, ""},
-    {"switch.port-isolation.sessions[].downlink.interface-list[]", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 981, ""},
-    {"switch.port-isolation.sessions[].id", PROP_CONFIGURED, "proto.c", "__put_port_list", 317, ""},
-    {"switch.port-isolation.sessions[].uplink", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 1062, ""},
-    {"switch.port-isolation.sessions[].uplink.interface-list", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 981, ""},
-    {"switch.port-isolation.sessions[].uplink.interface-list[]", PROP_CONFIGURED, "proto.c", "cfg_ethernet_poe_parse", 981, ""},
-    {"switch.port-mirror", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.port-mirror[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.port-mirror[].analysis-port", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.port-mirror[].monitor-ports", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.port-mirror[].monitor-ports[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.dhcp-snooping", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.dhcp-snooping.enabled", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1119, ""},
-    {"switch.rt-events.dhcp-snooping.sub-events", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.dhcp-snooping.sub-events.dhcp-snooping.violation-cleared", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.dhcp-snooping.sub-events.dhcp-snooping.violation-detected", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.enabled", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1119, ""},
-    {"switch.rt-events.fw-upgrade.sub-events", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.backup-current-firmware", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.download-failed", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.download-in-progress", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.download-start", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.install-failed", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.install-start", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.reboot-start", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.success", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2570, ""},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.validation-failed", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.validation-start", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.fw-upgrade.sub-events.upg.validation-success", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.module", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.module.enabled", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1119, ""},
-    {"switch.rt-events.module.sub-events", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.module.sub-events.module.plugin", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.module.sub-events.module.plugout", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.port-status", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.port-status.enabled", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1119, ""},
-    {"switch.rt-events.port-status.sub-events", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.port-status.sub-events.wired.carrier-down", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.port-status.sub-events.wired.carrier-up", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.rstp", PROP_CONFIGURED, "proto.c", "proto_stp_mode_to_num", 200, ""},
-    {"switch.rt-events.rstp.enabled", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1119, ""},
-    {"switch.rt-events.rstp.sub-events", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.rstp.sub-events.rstp.loop-cleared", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.rstp.sub-events.rstp.loop-detected", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.rstp.sub-events.rstp.state-change", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.stp", PROP_CONFIGURED, "proto.c", "proto_stp_mode_to_num", 199, ""},
-    {"switch.rt-events.stp.enabled", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1119, ""},
-    {"switch.rt-events.stp.sub-events", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.stp.sub-events.stp.loop-cleared", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.stp.sub-events.stp.loop-detected", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.rt-events.stp.sub-events.stp.state-change", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.trunk-balance-method", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.voice-vlan-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.voice-vlan-config.voice-vlan-ageing-time", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.voice-vlan-config.voice-vlan-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.voice-vlan-config.voice-vlan-id", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.voice-vlan-config.voice-vlan-oui-config", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.voice-vlan-config.voice-vlan-oui-config[]", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.voice-vlan-config.voice-vlan-oui-config[].voice-vlan-oui-description", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.voice-vlan-config.voice-vlan-oui-config[].voice-vlan-oui-mac", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"switch.voice-vlan-config.voice-vlan-oui-config[].voice-vlan-oui-mask", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"third-party", PROP_SYSTEM, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit", PROP_SYSTEM, "proto.c", "cfg_unit_parse", 2103, "Container object (not a leaf value)"},
-    {"unit.beacon-advertisement", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit.beacon-advertisement.device-name", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit.beacon-advertisement.device-serial", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit.beacon-advertisement.network-id", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit.hostname", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit.leds-active", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit.location", PROP_CONFIGURED, "proto.c", "state_fill_interfaces_data", 3333, ""},
-    {"unit.multicast", PROP_CONFIGURED, "proto.c", "cfg_vlan_interface_parse", 1472, ""},
-    {"unit.multicast.igmp-snooping-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit.multicast.mld-snooping-enable", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit.multicast.querier-enable", PROP_CONFIGURED, "proto.c", "__cfg_vlan_interface_parse_multicast", 1314, ""},
-    {"unit.multicast.unknown-multicast-flood-control", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2056, ""},
-    {"unit.name", PROP_CONFIGURED, "proto.c", "curl_upload_diagnostic_form", 2697, ""},
-    {"unit.poe", PROP_CONFIGURED, "proto.c", "cfg_ethernet_parse", 1128, ""},
-    {"unit.poe.power-management", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2035, ""},
-    {"unit.poe.usage-threshold", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2036, ""},
-    {"unit.power-management", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2035, ""},
-    {"unit.random-password", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit.system-password", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2050, ""},
-    {"unit.timezone", PROP_CONFIGURED, "proto.c", "cfg_parse", 0, "Property not found in proto.c (may be platform-specific or unimplemented)"},
-    {"unit.usage-threshold", PROP_CONFIGURED, "proto.c", "cfg_unit_parse", 2036, ""},
-    {"uuid", PROP_SYSTEM, "proto.c", "__put_port_list", 326, ""},
-    /* Sentinel */
-    {NULL, PROP_CONFIGURED, NULL, NULL, 0, NULL}
-};
+#ifdef USE_PLATFORM_BRCM_SONIC
+#include "property-database-platform-brcm-sonic.c"
+#endif
 
+#ifdef USE_PLATFORM_EXAMPLE
+#include "property-database-platform-example.c"
+#endif
 
 
 
@@ -1501,12 +887,25 @@ static const struct property_metadata property_database[] = {
  * Look up property metadata from database
  * Supports wildcard matching for array indices: ethernet[].speed matches ethernet[0].speed
  */
-static const struct property_metadata *lookup_property_metadata(const char *path)
+/**
+ * Lookup property metadata with dual tracking support
+ *
+ * Searches both base (proto.c) and platform databases to show complete property flow.
+ * Returns base match if found, and stores platform match in output parameter.
+ */
+static const struct property_metadata *lookup_property_metadata(const char *path,
+                                                                 const struct property_metadata **platform_out)
 {
     int i;
     char normalized_path[256];
     const char *p;
     char *n;
+    const struct property_metadata *base_match = NULL;
+    const struct property_metadata *platform_match = NULL;
+
+    if (platform_out) {
+        *platform_out = NULL;
+    }
 
     /* Normalize path: replace [N] with [] for matching */
     p = path;
@@ -1527,11 +926,44 @@ static const struct property_metadata *lookup_property_metadata(const char *path
     }
     *n = '\0';
 
-    /* Look up in database */
-    for (i = 0; property_database[i].path != NULL; i++) {
-        if (strcmp(normalized_path, property_database[i].path) == 0) {
-            return &property_database[i];
+    /* Search base database (proto.c) */
+    for (i = 0; base_property_database[i].path != NULL; i++) {
+        if (strcmp(normalized_path, base_property_database[i].path) == 0) {
+            base_match = &base_property_database[i];
+            break;
         }
+    }
+
+#ifdef USE_PLATFORM_BRCM_SONIC
+    /* Search platform database (brcm-sonic) */
+    for (i = 0; platform_property_database_brcm_sonic[i].path != NULL; i++) {
+        if (strcmp(normalized_path, platform_property_database_brcm_sonic[i].path) == 0) {
+            platform_match = &platform_property_database_brcm_sonic[i];
+            break;
+        }
+    }
+#endif
+
+#ifdef USE_PLATFORM_EXAMPLE
+    /* Search platform database (example) */
+    for (i = 0; platform_property_database_example[i].path != NULL; i++) {
+        if (strcmp(normalized_path, platform_property_database_example[i].path) == 0) {
+            platform_match = &platform_property_database_example[i];
+            break;
+        }
+    }
+#endif
+
+    /* Store platform match for caller */
+    if (platform_out) {
+        *platform_out = platform_match;
+    }
+
+    /* Return base match, or platform if no base found */
+    if (base_match) {
+        return base_match;
+    } else if (platform_match) {
+        return platform_match;
     }
 
     return NULL;
@@ -1612,12 +1044,15 @@ static void scan_json_tree_recursive(const cJSON *node, const char *base_path,
                 /* Format the value for display */
                 format_json_value(child, value_str, sizeof(value_str));
 
-                /* Look up metadata for this property */
-                metadata = lookup_property_metadata(child_path);
+                /* Look up metadata for this property (with dual tracking) */
+                const struct property_metadata *platform_metadata = NULL;
+                metadata = lookup_property_metadata(child_path, &platform_metadata);
 
                 if (metadata) {
                     /* Known property - report with metadata */
-                    char source[192];
+                    char source[256];
+
+                    /* Build base source location */
                     if (metadata->line_number > 0) {
                         snprintf(source, sizeof(source), "%s:%s():line %d",
                                 metadata->source_file, metadata->source_function, metadata->line_number);
@@ -1625,14 +1060,44 @@ static void scan_json_tree_recursive(const cJSON *node, const char *base_path,
                         snprintf(source, sizeof(source), "%s:%s()",
                                 metadata->source_file, metadata->source_function);
                     }
+
+                    /* If platform also processes this property, append platform location */
+                    if (platform_metadata && platform_metadata != metadata) {
+                        char platform_part[128];
+                        if (platform_metadata->line_number > 0) {
+                            snprintf(platform_part, sizeof(platform_part), " → %s:%s():line %d",
+                                    platform_metadata->source_file, platform_metadata->source_function,
+                                    platform_metadata->line_number);
+                        } else {
+                            snprintf(platform_part, sizeof(platform_part), " → %s:%s()",
+                                    platform_metadata->source_file, platform_metadata->source_function);
+                        }
+                        strncat(source, platform_part, sizeof(source) - strlen(source) - 1);
+                    }
+
                     add_property_validation(result, child_path, metadata->status,
                                           value_str, metadata->notes, source);
                 } else {
-                    /* Unknown property - may not be in database yet */
-                    add_property_validation(result, child_path, PROP_IGNORED,
-                                          value_str,
-                                          "Not in property database (may be unprocessed or undocumented)",
-                                          "Unknown");
+                    /* Property not in database - distinguish between containers and leaf properties */
+                    if (cJSON_IsObject(child)) {
+                        /* Container object - this is expected, properties inside will be processed */
+                        add_property_validation(result, child_path, PROP_CONTAINER,
+                                              value_str,
+                                              "Container object",
+                                              "Container");
+                    } else if (cJSON_IsArray(child)) {
+                        /* Array container - this is expected, elements inside will be processed */
+                        add_property_validation(result, child_path, PROP_CONTAINER,
+                                              value_str,
+                                              "Array container",
+                                              "Container");
+                    } else {
+                        /* Leaf property not in database - may be unprocessed or undocumented */
+                        add_property_validation(result, child_path, PROP_IGNORED,
+                                              value_str,
+                                              "Not in property database (may be unprocessed or undocumented)",
+                                              "Unknown");
+                    }
                 }
 
                 /* Recurse into child if it's an object or array */
@@ -1687,34 +1152,104 @@ static void print_property_analysis(const struct test_result *result)
 
     printf("\n  🔍 DETAILED PROPERTY ANALYSIS:\n");
 
-    /* Print configured properties */
+    /* Print configured properties - separated by base vs platform */
     if (result->properties_configured > 0) {
-        printf("     ✓ Successfully Configured: %d propert%s\n",
-               result->properties_configured,
-               result->properties_configured == 1 ? "y" : "ies");
-
-        int shown = 0;
+        /* Count base vs platform properties */
+        int base_count = 0, platform_count = 0;
         for (pv = result->property_validations; pv != NULL; pv = pv->next) {
             if (pv->status == PROP_CONFIGURED) {
-                if (shown < 20) {  /* Show first 20 to avoid clutter */
-                    printf("       - %s", pv->path);
-                    if (pv->value[0]) {
-                        printf(" = %s", pv->value);
-                    }
-                    if (pv->source_location[0]) {
-                        printf(" [%s]", pv->source_location);
-                    }
-                    if (pv->details[0]) {
-                        printf(": %s", pv->details);
-                    }
-                    printf("\n");
-                    shown++;
+                if (pv->source_location[0] && strncmp(pv->source_location, "proto.c", 7) == 0) {
+                    base_count++;
+                } else if (pv->source_location[0] && strstr(pv->source_location, "plat-") != NULL) {
+                    platform_count++;
+                } else {
+                    base_count++;  /* Default to base if unclear */
                 }
             }
         }
-        if (result->properties_configured > 20) {
-            printf("       ... and %d more configured properties\n",
-                   result->properties_configured - 20);
+
+        /* Print base properties */
+        if (base_count > 0) {
+            printf("     ✓ Successfully Configured (Base): %d propert%s\n",
+                   base_count,
+                   base_count == 1 ? "y" : "ies");
+
+            int shown = 0;
+            for (pv = result->property_validations; pv != NULL; pv = pv->next) {
+                if (pv->status == PROP_CONFIGURED) {
+                    int is_base = (pv->source_location[0] && strncmp(pv->source_location, "proto.c", 7) == 0) ||
+                                  (pv->source_location[0] && strstr(pv->source_location, "plat-") == NULL);
+
+                    if (is_base && shown < 20) {  /* Show first 20 to avoid clutter */
+                        printf("       - %s", pv->path);
+                        if (pv->value[0]) {
+                            printf(" = %s", pv->value);
+                        }
+                        if (pv->source_location[0]) {
+                            printf(" [%s]", pv->source_location);
+                        }
+                        if (pv->details[0]) {
+                            printf(": %s", pv->details);
+                        }
+                        printf("\n");
+                        shown++;
+                    }
+                }
+            }
+            if (base_count > 20) {
+                printf("       ... and %d more base properties\n", base_count - 20);
+            }
+        }
+
+        /* Print platform properties */
+        if (platform_count > 0) {
+            printf("     ✓ Successfully Configured (Platform): %d propert%s\n",
+                   platform_count,
+                   platform_count == 1 ? "y" : "ies");
+
+            int shown = 0;
+            for (pv = result->property_validations; pv != NULL; pv = pv->next) {
+                if (pv->status == PROP_CONFIGURED) {
+                    int is_platform = (pv->source_location[0] && strstr(pv->source_location, "plat-") != NULL);
+
+                    if (is_platform && shown < 20) {  /* Show first 20 to avoid clutter */
+                        printf("       - %s", pv->path);
+                        if (pv->value[0]) {
+                            printf(" = %s", pv->value);
+                        }
+                        if (pv->source_location[0]) {
+                            printf(" [%s]", pv->source_location);
+                        }
+                        if (pv->details[0]) {
+                            printf(": %s", pv->details);
+                        }
+                        printf("\n");
+                        shown++;
+                    }
+                }
+            }
+            if (platform_count > 20) {
+                printf("       ... and %d more platform properties\n", platform_count - 20);
+            }
+        }
+    }
+
+    /* Print container elements */
+    if (result->properties_container > 0) {
+        printf("     📦 Container Elements: %d (structural elements containing properties)\n",
+               result->properties_container);
+
+        for (pv = result->property_validations; pv != NULL; pv = pv->next) {
+            if (pv->status == PROP_CONTAINER) {
+                printf("       - %s", pv->path);
+                if (pv->value[0]) {
+                    printf(" = %s", pv->value);
+                }
+                if (pv->details[0]) {
+                    printf(": %s", pv->details);
+                }
+                printf("\n");
+            }
         }
     }
 
@@ -1856,6 +1391,60 @@ static void print_property_analysis(const struct test_result *result)
 }
 
 /**
+ * print_platform_execution_flow - Show platform function calls during config application
+ * @result: Test result containing platform trace
+ *
+ * In platform mode, shows which platform functions were called during plat_config_apply(),
+ * giving vendors visibility into the execution flow even without explicit property tracking.
+ */
+static void print_platform_execution_flow(const struct test_result *result)
+{
+    if (!result->platform_apply_called) {
+        return;  /* Platform apply not called (stub mode or parsing failed) */
+    }
+
+    printf("\n  🔧 PLATFORM EXECUTION FLOW:\n");
+
+    if (result->platform_apply_result == 0) {
+        printf("     ✓ plat_config_apply() succeeded\n");
+    } else {
+        printf("     ✗ plat_config_apply() failed (code: %d)\n", result->platform_apply_result);
+    }
+
+    if (result->platform_trace[0]) {
+        printf("     📋 Platform functions called during configuration:\n\n");
+
+        /* Parse and print platform function calls from trace */
+        char *trace_copy = strdup(result->platform_trace);
+        char *line = strtok(trace_copy, "\n");
+        int call_count = 0;
+
+        while (line != NULL) {
+            /* Filter for platform function calls (e.g., "[MOCK:brcm-sonic] function_name(...)") */
+            if (strstr(line, "[MOCK:") != NULL || strstr(line, "plat_") != NULL) {
+                /* Clean up the line for display */
+                char *func_start = strchr(line, ']');
+                if (func_start) {
+                    func_start += 2;  /* Skip "] " */
+                    printf("        %3d. %s\n", ++call_count, func_start);
+                }
+            }
+            line = strtok(NULL, "\n");
+        }
+
+        free(trace_copy);
+
+        if (call_count == 0) {
+            printf("        (No platform function calls detected)\n");
+        } else {
+            printf("\n     ℹ  Total platform functions called: %d\n", call_count);
+        }
+    } else {
+        printf("     ℹ  No platform trace captured (silent execution)\n");
+    }
+}
+
+/**
  * Scan configuration for unprocessed properties at various levels
  */
 static int scan_for_unprocessed_properties(const cJSON *config)
@@ -1885,7 +1474,7 @@ static int scan_for_unprocessed_properties(const cJSON *config)
     /* switch known properties - only list properties that ARE processed by cfg_parse() */
     static const char *switch_props[] = {
         "ieee8021x", "lldp-global-config", "dhcp-snooping",
-        "rpvstp", "stp",
+        "rpvstp", "stp", "loop-detection", "port-isolation",
         NULL
     };
 
@@ -2088,11 +1677,49 @@ static void test_config_file(const char *dirpath, const char *filename)
         if (!should_fail && output_format == OUTPUT_HUMAN) {
             print_config_processing_summary(cfg, filename, &json_features);
         }
+
+        /* Apply configuration to platform and capture execution flow
+         * This works in both stub and platform modes:
+         * - Stub mode: Calls simple no-op plat_config_apply() stub
+         * - Platform mode: Calls real platform code and captures function calls
+         */
+        if (test_result && !should_fail) {
+            int stderr_pipe[2];
+            int saved_stderr;
+
+            /* Redirect stderr to capture platform function traces */
+            if (pipe(stderr_pipe) == 0) {
+                saved_stderr = dup(STDERR_FILENO);
+                dup2(stderr_pipe[1], STDERR_FILENO);
+                close(stderr_pipe[1]);
+
+                /* Call plat_config_apply() to execute platform code */
+                test_result->platform_apply_called = 1;
+                test_result->platform_apply_result = plat_config_apply(cfg, 12345);
+
+                /* Restore stderr and read captured output */
+                fflush(stderr);
+                dup2(saved_stderr, STDERR_FILENO);
+                close(saved_stderr);
+
+                /* Read platform trace (non-blocking) */
+                fcntl(stderr_pipe[0], F_SETFL, O_NONBLOCK);
+                ssize_t n = read(stderr_pipe[0], test_result->platform_trace,
+                                 sizeof(test_result->platform_trace) - 1);
+                if (n > 0) {
+                    test_result->platform_trace[n] = '\0';
+                } else {
+                    test_result->platform_trace[0] = '\0';
+                }
+                close(stderr_pipe[0]);
+            }
+        }
     }
 
     /* Print detailed property analysis */
     if (test_result && output_format == OUTPUT_HUMAN) {
         print_property_analysis(test_result);
+        print_platform_execution_flow(test_result);
     }
 
     cJSON_Delete(json);
@@ -2277,6 +1904,7 @@ static void output_json_report(void)
                 case PROP_INCOMPLETE: printf("incomplete"); break;
                 case PROP_UNKNOWN: printf("unknown"); break;
                 case PROP_SYSTEM: printf("system"); break;
+                case PROP_CONTAINER: printf("container"); break;
             }
             printf("\",\n");
             if (pv->value[0]) {
@@ -2314,6 +1942,63 @@ static void output_json_report(void)
         }
 
         printf("\n        ]\n");
+        printf("      },\n");
+
+        /* Add platform execution flow (platform mode only) */
+        printf("      \"platform_execution\": {\n");
+        printf("        \"apply_called\": %s,\n", result->platform_apply_called ? "true" : "false");
+        if (result->platform_apply_called) {
+            printf("        \"apply_result\": %d,\n", result->platform_apply_result);
+            printf("        \"apply_status\": \"%s\",\n", result->platform_apply_result == 0 ? "success" : "failed");
+
+            /* Parse platform trace to extract function calls */
+            if (result->platform_trace[0]) {
+                printf("        \"function_calls\": [\n");
+
+                char *trace_copy = strdup(result->platform_trace);
+                char *line = strtok(trace_copy, "\n");
+                int call_count = 0;
+                int first_call = 1;
+
+                while (line != NULL) {
+                    /* Filter for platform function calls */
+                    if (strstr(line, "[MOCK:") != NULL || strstr(line, "plat_") != NULL) {
+                        char *func_start = strchr(line, ']');
+                        if (func_start) {
+                            func_start += 2;  /* Skip "] " */
+                            if (!first_call) {
+                                printf(",\n");
+                            }
+                            first_call = 0;
+                            printf("          \"");
+                            /* Escape special characters in function call */
+                            for (const char *p = func_start; *p; p++) {
+                                if (*p == '"') printf("\\\"");
+                                else if (*p == '\\') printf("\\\\");
+                                else if (*p == '\n') continue;  /* Skip newlines */
+                                else putchar(*p);
+                            }
+                            printf("\"");
+                            call_count++;
+                        }
+                    }
+                    line = strtok(NULL, "\n");
+                }
+
+                free(trace_copy);
+
+                printf("\n        ],\n");
+                printf("        \"total_calls\": %d\n", call_count);
+            } else {
+                printf("        \"function_calls\": [],\n");
+                printf("        \"total_calls\": 0\n");
+            }
+        } else {
+            printf("        \"apply_result\": null,\n");
+            printf("        \"apply_status\": null,\n");
+            printf("        \"function_calls\": [],\n");
+            printf("        \"total_calls\": 0\n");
+        }
         printf("      }\n");
         printf("    }");
     }
@@ -2525,6 +2210,7 @@ static void output_html_report(void)
                     case PROP_UNKNOWN: icon = "?"; color = "#9E9E9E"; break;
                     case PROP_SYSTEM: icon = "ⓘ"; color = "#2196F3"; break;
                     case PROP_MISSING: icon = "⚠"; color = "#ff9800"; break;
+                    case PROP_CONTAINER: icon = "📦"; color = "#9C27B0"; break;
                 }
                 printf("            <li><span style=\"color:%s;\">%s</span> <strong>%s</strong>", color, icon, pv->path);
                 if (pv->value[0]) {
@@ -2540,6 +2226,58 @@ static void output_html_report(void)
             }
 
             printf("          </ul>\n");
+            printf("        </details>\n");
+            printf("      </td></tr>\n");
+        }
+
+        /* Add platform execution flow section (platform mode only) */
+        if (result->platform_apply_called && result->platform_trace[0]) {
+            printf("      <tr><td colspan=\"6\" style=\"padding:20px 40px;\">\n");
+            printf("        <details>\n");
+            printf("          <summary style=\"cursor:pointer; color:#764BA2; font-weight:600;\">🔧 Platform Execution Flow</summary>\n");
+            printf("          <div style=\"margin-top:15px; padding:15px; background:#f8f9fa; border-left:4px solid #764BA2; border-radius:4px;\">\n");
+
+            /* Platform apply result */
+            if (result->platform_apply_result == 0) {
+                printf("            <div style=\"color:#4CAF50; margin-bottom:10px;\">✓ plat_config_apply() succeeded</div>\n");
+            } else {
+                printf("            <div style=\"color:#f44336; margin-bottom:10px;\">✗ plat_config_apply() failed (code: %d)</div>\n", result->platform_apply_result);
+            }
+
+            /* Parse and display platform function calls */
+            printf("            <div style=\"margin-top:15px;\"><strong>Platform functions called:</strong></div>\n");
+            printf("            <ol style=\"font-family:monospace; font-size:12px; line-height:1.8; margin:10px 0; padding-left:30px;\">\n");
+
+            char *trace_copy = strdup(result->platform_trace);
+            char *line = strtok(trace_copy, "\n");
+            int call_count = 0;
+
+            while (line != NULL) {
+                /* Filter for platform function calls */
+                if (strstr(line, "[MOCK:") != NULL || strstr(line, "plat_") != NULL) {
+                    char *func_start = strchr(line, ']');
+                    if (func_start) {
+                        func_start += 2;  /* Skip "] " */
+                        printf("              <li style=\"color:#333;\">%s</li>\n", func_start);
+                        call_count++;
+                    }
+                }
+                line = strtok(NULL, "\n");
+            }
+
+            free(trace_copy);
+
+            if (call_count == 0) {
+                printf("              <li style=\"color:#999;\">(No platform function calls detected)</li>\n");
+            }
+
+            printf("            </ol>\n");
+
+            if (call_count > 0) {
+                printf("            <div style=\"margin-top:10px; color:#666; font-size:12px;\">ℹ️ Total platform functions called: %d</div>\n", call_count);
+            }
+
+            printf("          </div>\n");
             printf("        </details>\n");
             printf("      </td></tr>\n");
         }
@@ -2977,11 +2715,11 @@ static void print_feature_support_summary(void)
                global_stats.total_unprocessed_properties);
         printf("\n");
         printf("  Common unprocessed properties include:\n");
-        printf("    • switch.port-isolation - Port isolation/private VLAN\n");
         printf("    • unit.power-management - System-wide PoE power management\n");
-        printf("    • switch.acl - Access Control Lists (work in progress)\n");
+        printf("    • switch.acl - Access Control Lists (platform-specific)\n");
         printf("    • ethernet[].trunk-group - Trunk aggregation groups\n");
         printf("    • ethernet[].lacp-config - LACP configuration\n");
+        printf("    • metrics.dhcp-snooping - DHCP snooping metrics\n");
         printf("\n");
         printf("  Note: These properties pass schema validation but are not\n");
         printf("  yet fully processed by cfg_parse(). This may indicate:\n");
@@ -3456,6 +3194,12 @@ int main(int argc, char *argv[])
 
     /* Set log level to show errors and warnings */
     uc_log_severity_set(UC_LOG_COMPONENT_PROTO, UC_LOG_SV_WARN);
+
+    /* Initialize platform (required for platform mode, no-op for stub mode) */
+    if (plat_init() != 0) {
+        fprintf(stderr, "ERROR: Platform initialization failed\n");
+        return 1;
+    }
 
     /* Run tests - check if path is a file or directory */
     struct stat path_stat;

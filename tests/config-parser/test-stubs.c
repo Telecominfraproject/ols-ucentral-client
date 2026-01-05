@@ -211,3 +211,9 @@ int plat_event_subscribe(const struct plat_event_callbacks *cbs)
 }
 
 void plat_event_unsubscribe(void) {}
+
+int plat_init(void)
+{
+	fprintf(stderr, "[STUB] plat_init() - platform initialization (stub mode)\n");
+	return 0;
+}

@@ -1,21 +1,243 @@
 # Configuration Testing Framework Maintenance Guide
 
-This document provides procedures for maintaining the configuration testing framework as the software evolves. The framework consists of two main components that require periodic updates:
+This document provides procedures for maintaining the configuration testing framework as the software evolves.
 
-1. **Schema Files** - JSON schema definitions from ols-ucentral-schema repository
-2. **Property Database** - Tracking of parsed properties in test-config-parser.c
+## Overview
+
+**Current Approach (December 2024): Schema-Based Property Database Generation**
+
+The framework uses the **uCentral schema as the single source of truth** for property databases. This ensures complete coverage of all 398 schema properties, whether implemented or not.
+
+### Key Components
+
+1. **Schema Files** - JSON/YAML schema definitions from ols-ucentral-schema repository
+2. **Property Databases** - Generated from schema, tracking implementation status:
+   - `property-database-base.c` - Proto.c parsing (102 found, 296 not implemented)
+   - `property-database-platform-brcm-sonic.c` - Platform application (141 found, 257 not implemented)
+
+### Schema-Based Workflow
+
+```
+ols-ucentral-schema (YAML)
+    ↓
+fetch-schema.sh → ols-ucentral-schema/
+    ↓
+extract-schema-properties.py → 398 properties
+    ↓
+generate-database-from-schema.py → base database
+generate-platform-database-from-schema.py → platform database
+    ↓
+Property databases with line numbers
+```
 
 ## Table of Contents
 
+- [Quick Start: Schema-Based Regeneration](#quick-start-schema-based-regeneration)
 - [Schema Update Procedures](#schema-update-procedures)
-- [Property Database Update Procedures](#property-database-update-procedures)
+- [Property Database Regeneration](#property-database-regeneration)
+- [Adding New Parser Functions](#adding-new-parser-functions)
+- [Platform-Specific Updates](#platform-specific-updates)
 - [Version Synchronization](#version-synchronization)
 - [Testing After Updates](#testing-after-updates)
 - [Troubleshooting](#troubleshooting)
+- [Legacy Approach](#legacy-approach)
+
+---
+
+## Quick Start: Schema-Based Regeneration
+
+**This repository includes default schema files in `config-samples/`**, so you can regenerate property databases immediately without fetching external repositories.
+
+**Complete regeneration of both property databases from scratch:**
+
+```bash
+cd tests/tools
+
+# 1. Obtain schema (use included version OR fetch newer version)
+# Option A: Use included schema (recommended for most cases)
+SCHEMA_SOURCE="../../config-samples/ucentral.schema.pretty.json"
+
+# Option B: Fetch newer schema if needed (optional)
+# ./fetch-schema.sh main
+# SCHEMA_SOURCE="../../ols-ucentral-schema/schema"
+
+# 2. Extract all properties from schema
+# For JSON schema file:
+python3 -c "import json; print('\n'.join(sorted(set(
+    k for d in json.load(open('$SCHEMA_SOURCE'))['properties'].values()
+    for k in d.get('properties', {}).keys()
+))))" | sed 's/\[\]$//' > /tmp/all-schema-properties.txt
+
+# For YAML schema directory (if using ols-ucentral-schema repo):
+# python3 extract-schema-properties.py ../../ols-ucentral-schema/schema ucentral.yml \
+#     2>/dev/null | sed 's/\[\]$//' > /tmp/all-schema-properties.txt
+
+# 3. Generate base database (proto.c)
+python3 generate-database-from-schema.py \
+    ../../src/ucentral-client/proto.c \
+    /tmp/all-schema-properties.txt \
+    /tmp/base-database-new.c
+
+# 4. Fix array name
+sed -i '' 's/property_database\[\]/base_property_database[]/' \
+    /tmp/base-database-new.c
+
+# 5. Generate platform database (plat-gnma.c)
+python3 generate-platform-database-from-schema.py \
+    ../../src/ucentral-client/platform/brcm-sonic/plat-gnma.c \
+    /tmp/all-schema-properties.txt \
+    /tmp/platform-database-new.c
+
+# 6. Install new databases
+cp /tmp/base-database-new.c ../config-parser/property-database-base.c
+cp /tmp/platform-database-new.c ../config-parser/property-database-platform-brcm-sonic.c
+
+# 7. Test in Docker
+docker exec ucentral_client_build_env bash -c \
+    "cd /root/ols-nos/tests/config-parser && make clean && make test-config-full"
+```
+
+**Result:** Both databases regenerated with all schema properties, showing which are implemented (with line numbers) and which are not (line_number=0).
+
+---
+
+## Property Database Regeneration
+
+### When to Regenerate
+
+Regenerate property databases when:
+- **New parser functions added** to proto.c or platform code
+- **Schema updated** with new properties
+- **Parser functions renamed or refactored**
+- **Starting fresh** after major refactoring
+- **Periodic audit** (quarterly recommended)
+
+### Why Schema-Based?
+
+1. **Complete Coverage** - Tracks ALL 398 schema properties
+2. **Single Source of Truth** - Schema defines what's possible
+3. **Shows Gaps** - Properties with line_number=0 are not yet implemented
+4. **Consistent** - Same properties across all platforms
+5. **Maintainable** - Automatic updates when schema changes
+
+### Base Database Generation
+
+Generates `property-database-base.c` from proto.c:
+
+```bash
+cd tests/tools
+
+# Extract schema properties from included JSON file (strip trailing [])
+python3 -c "import json; print('\n'.join(sorted(set(
+    k for d in json.load(open('../../config-samples/ucentral.schema.pretty.json'))['properties'].values()
+    for k in d.get('properties', {}).keys()
+))))" | sed 's/\[\]$//' > /tmp/schema-props.txt
+
+# OR if using YAML from ols-ucentral-schema repository:
+# python3 extract-schema-properties.py \
+#     ../../ols-ucentral-schema/schema ucentral.yml 2>/dev/null | \
+#     sed 's/\[\]$//' > /tmp/schema-props.txt
+
+# Generate database
+python3 generate-database-from-schema.py \
+    ../../src/ucentral-client/proto.c \
+    /tmp/schema-props.txt \
+    /tmp/base-db.c
+
+# Fix array name and install
+sed -i '' 's/property_database\[\]/base_property_database[]/' /tmp/base-db.c
+cp /tmp/base-db.c ../config-parser/property-database-base.c
+```
+
+**What it does:**
+- Searches proto.c for cJSON property access patterns
+- Finds line numbers where each property is parsed
+- Marks unimplemented properties with line_number=0
+- Generates complete C array with all schema properties
+
+### Platform Database Generation
+
+Generates `property-database-platform-*.c` from platform code:
+
+```bash
+cd tests/tools
+
+# Generate platform database (brcm-sonic example)
+python3 generate-platform-database-from-schema.py \
+    ../../src/ucentral-client/platform/brcm-sonic/plat-gnma.c \
+    /tmp/schema-props.txt \
+    /tmp/platform-db.c
+
+cp /tmp/platform-db.c ../config-parser/property-database-platform-brcm-sonic.c
+```
+
+**What it does:**
+- Analyzes platform code for config_*_apply() functions
+- Maps properties to platform functions by feature area
+- Platform code doesn't parse JSON directly
+- Uses feature-based matching (poe → config_poe_port_apply)
+
+---
+
+## Adding New Parser Functions
+
+When you add a new parser function to proto.c:
+
+```c
+// Example: New parser function
+static int cfg_new_feature_parse(cJSON *obj, struct plat_cfg *cfg) {
+    cJSON *item = cJSON_GetObjectItemCaseSensitive(obj, "new-property");
+    // ...parse new-property...
+}
+```
+
+**Steps:**
+
+1. **Implement the parser** in proto.c
+2. **Regenerate database** using schema-based approach (see Quick Start)
+3. **Verify** the new property appears with correct line number:
+   ```bash
+   grep "new-property" tests/config-parser/property-database-base.c
+   # Should show: {"path.to.new-property", PROP_CONFIGURED, "proto.c", "cfg_new_feature_parse", LINE, "..."}
+   ```
+4. **Test** with a config containing the new property
+5. **Commit** proto.c changes and regenerated database together
+
+---
+
+## Platform-Specific Updates
+
+Platform vendors (Edgecore, Dell, etc.) maintain their own platform databases.
+
+### For Platform Developers
+
+When adding platform-specific features:
+
+```bash
+cd tests/tools
+
+# Regenerate YOUR platform database
+python3 generate-platform-database-from-schema.py \
+    ../../src/ucentral-client/platform/YOUR-PLATFORM/plat-YOUR.c \
+    /tmp/schema-props.txt \
+    /tmp/platform-db-YOUR.c
+
+# Install it
+cp /tmp/platform-db-YOUR.c ../config-parser/property-database-platform-YOUR.c
+```
+
+**Note:** Each platform tracks only its own implementation. Properties showing as "Unknown" in base repo may be "CONFIGURED" in your platform.
 
 ---
 
 ## Schema Update Procedures
+
+### Included Schema File
+
+This repository includes a default schema file in `config-samples/`:
+- `ucentral.schema.pretty.json` - uCentral JSON schema (human-readable format)
+
+This file allows immediate use of the testing framework without fetching external repositories.
 
 ### When to Update Schema
 
@@ -41,34 +263,53 @@ head -20 config-samples/ucentral.schema.pretty.json | grep -i version
 
 #### Step 2: Obtain New Schema
 
-**Option A: From ols-ucentral-schema Repository**
+**Repository Location:**
+- GitHub: https://github.com/Telecominfraproject/ols-ucentral-schema
+- Schema files are in the `schema/` directory (YAML format)
+- Built/converted JSON schemas may be in releases or build artifacts
+
+**Option A: Using fetch-schema.sh Helper (Recommended)**
 
 ```bash
-# Clone or update the schema repository
-cd /tmp
-git clone https://github.com/Telecominfraproject/ols-ucentral-schema.git
-# OR
-cd /path/to/existing/ols-ucentral-schema
-git pull origin main
+cd tests/tools
 
-# Check available versions/tags
-git tag -l
+# Fetch main branch
+./fetch-schema.sh
 
-# Checkout specific version (recommended for stability)
-git checkout v4.2.0
+# OR fetch specific branch
+./fetch-schema.sh release-1.0
 
-# Copy schema to your repository
-cp ols.ucentral.schema.json /path/to/ols-ucentral-client/config-samples/
-cp ucentral.schema.pretty.json /path/to/ols-ucentral-client/config-samples/
+# View help
+./fetch-schema.sh --help
 ```
 
-**Option B: From Build Artifacts**
+The script clones the schema repository to `tests/tools/ols-ucentral-schema/`.
 
-If schema is embedded in builds:
+**Option B: Manual Git Clone**
+
 ```bash
-# Extract from build artifacts
-cd /path/to/ols-ucentral-client
-# Schema may be copied during build process - check Makefile
+cd tests/tools
+
+# Clone the schema repository
+git clone https://github.com/Telecominfraproject/ols-ucentral-schema.git
+
+# Checkout specific version (recommended for stability)
+cd ols-ucentral-schema
+git tag -l                    # List available versions
+git checkout v4.2.0           # Checkout specific version
+
+# OR use specific branch
+git checkout release-1.0
+```
+
+**Option C: Download Specific File**
+
+If you only need the JSON schema file:
+```bash
+# Download directly from GitHub
+cd config-samples
+wget https://raw.githubusercontent.com/Telecominfraproject/ols-ucentral-schema/main/schema/ucentral.schema.json \
+    -O ucentral.schema.pretty.json
 ```
 
 #### Step 3: Validate Schema File
@@ -924,3 +1165,34 @@ make test-config
 - **proto.c** - Parser implementation
 - **test-config-parser.c** - Property database location
 - **ols-ucentral-schema repository** - Official schema source
+
+## Legacy Approach
+
+**Note:** The config-based approach described below has been superseded by the schema-based approach (see above). Legacy tools are archived in `tests/tools/legacy/`.
+
+### Old Config-Based Method (Pre-December 2024)
+
+The original approach extracted properties FROM configuration files:
+
+```bash
+# OLD METHOD - No longer recommended
+cd tests/tools/legacy
+python3 generate-property-database.py ../../config-samples/*.json > /tmp/props.txt
+python3 find-property-line-numbers.py ../../src/ucentral-client/proto.c /tmp/props.txt
+```
+
+**Limitations of config-based approach:**
+- Only tracked properties that appeared in test configs (628 properties)
+- Missed properties defined in schema but not in configs
+- No way to identify unimplemented schema properties  
+- Inconsistent property paths (array indices varied)
+- Required manual curation
+
+**Migration to schema-based:**
+- December 2024: Switched to schema as source of truth
+- Now tracks all 398 schema properties consistently
+- Shows implementation status for each property
+- Fully automated regeneration
+
+**For historical reference**, see `tests/tools/legacy/README.md`.
+

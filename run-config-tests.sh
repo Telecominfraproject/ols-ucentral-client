@@ -2,16 +2,41 @@
 #
 # run-config-tests.sh - Run uCentral configuration tests in Docker
 #
-# Usage: ./run-config-tests.sh [format] [config-file]
+# Usage: ./run-config-tests.sh [OPTIONS] [config-file]
+#
+# Options:
+#   -m, --mode MODE     Test mode: stub or platform (default: stub)
+#                       stub     = Fast testing with stubs (proto.c only)
+#                       platform = Full integration testing with platform code
+#   -p, --platform NAME Platform name for platform mode (default: brcm-sonic)
+#                       Examples: brcm-sonic, ec, example
+#   -f, --format FORMAT Output format: html, json, human (default: human)
+#   -h, --help          Show this help message
 #
 # Arguments:
-#   format      - Output format: html, json, human (default: human)
-#   config-file - Optional specific config file to test (default: all configs)
+#   config-file         Optional specific config file to test (default: all configs)
 #
 # Examples:
-#   ./run-config-tests.sh human                    # Test all configs, human output
-#   ./run-config-tests.sh html                     # Test all configs, HTML report
-#   ./run-config-tests.sh json cfg0.json           # Test single config, JSON output
+#   ./run-config-tests.sh                                    # Stub mode, all configs, human output
+#   ./run-config-tests.sh --mode platform                    # Platform mode (brcm-sonic), all configs
+#   ./run-config-tests.sh -m platform -p ec --format html    # Platform mode (ec), HTML report
+#   ./run-config-tests.sh --format json cfg0.json            # Stub mode, single config, JSON output
+#   ./run-config-tests.sh -m platform -f human cfg1.json     # Platform mode, single config
+#
+# Test Modes:
+#   Stub Mode (default):
+#     - Fast execution
+#     - Tests proto.c parsing only
+#     - Uses simple platform stubs
+#     - Shows base properties only
+#     - Use for quick validation and CI/CD
+#
+#   Platform Mode:
+#     - Integration testing
+#     - Tests proto.c + platform code (plat-*.c)
+#     - Uses real platform implementation + mocks
+#     - Shows base AND platform properties separately
+#     - Use for platform-specific validation
 #
 
 set -e
@@ -31,9 +56,59 @@ CONFIG_DIR="/root/ols-nos/config-samples"
 OUTPUT_DIR="$SCRIPT_DIR/output"
 DOCKERFILE_PATH="$SCRIPT_DIR/Dockerfile"
 
+# Default values
+TEST_MODE="stub"
+PLATFORM_NAME="brcm-sonic"
+FORMAT="human"
+SINGLE_CONFIG=""
+
+# Function to show help
+show_help() {
+    sed -n '2,39p' "$0" | sed 's/^# \?//'
+    exit 0
+}
+
 # Parse arguments
-FORMAT="${1:-human}"
-SINGLE_CONFIG="${2:-}"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            ;;
+        -m|--mode)
+            TEST_MODE="$2"
+            shift 2
+            ;;
+        -p|--platform)
+            PLATFORM_NAME="$2"
+            shift 2
+            ;;
+        -f|--format)
+            FORMAT="$2"
+            shift 2
+            ;;
+        -*)
+            echo -e "${RED}Error: Unknown option '$1'${NC}"
+            echo "Use --help to see usage information"
+            exit 1
+            ;;
+        *)
+            # Assume it's the config file
+            SINGLE_CONFIG="$1"
+            shift
+            ;;
+    esac
+done
+
+# Validate test mode
+case "$TEST_MODE" in
+    stub|platform)
+        ;;
+    *)
+        echo -e "${RED}Error: Invalid mode '$TEST_MODE'. Must be 'stub' or 'platform'${NC}"
+        echo "Use --help to see usage information"
+        exit 1
+        ;;
+esac
 
 # Validate format
 case "$FORMAT" in
@@ -41,7 +116,7 @@ case "$FORMAT" in
         ;;
     *)
         echo -e "${RED}Error: Invalid format '$FORMAT'. Must be 'html', 'json', or 'human'${NC}"
-        echo "Usage: $0 [html|json|human] [config-file]"
+        echo "Use --help to see usage information"
         exit 1
         ;;
 esac
@@ -141,8 +216,18 @@ start_container() {
 # Function to run tests in Docker
 run_tests() {
     local test_cmd=""
+    local build_cmd=""
     local output_file=""
     local copy_files=()
+    local use_platform_flag=""
+
+    # Set platform flag for build commands
+    if [ "$TEST_MODE" = "platform" ]; then
+        use_platform_flag="USE_PLATFORM=$PLATFORM_NAME"
+        print_status "Test mode: Platform ($PLATFORM_NAME)"
+    else
+        print_status "Test mode: Stub (fast)"
+    fi
 
     if [ -n "$SINGLE_CONFIG" ]; then
         print_status "Running test for single config: $SINGLE_CONFIG"
@@ -155,20 +240,23 @@ run_tests() {
             exit 1
         fi
 
+        # Build test binary with appropriate mode
+        build_cmd="cd $BUILD_DIR && make test-config-parser $use_platform_flag"
+
         case "$FORMAT" in
             html)
                 output_file="test-report-${SINGLE_CONFIG%.json}.html"
-                test_cmd="cd $BUILD_DIR && make test-config-parser && LD_LIBRARY_PATH=/usr/local/lib ./test-config-parser --html $CONFIG_DIR/$SINGLE_CONFIG > $BUILD_DIR/$output_file"
+                test_cmd="$build_cmd && LD_LIBRARY_PATH=/usr/local/lib ./test-config-parser --html $CONFIG_DIR/$SINGLE_CONFIG > $BUILD_DIR/$output_file"
                 copy_files=("$output_file")
                 ;;
             json)
                 output_file="test-results-${SINGLE_CONFIG%.json}.json"
-                test_cmd="cd $BUILD_DIR && make test-config-parser && LD_LIBRARY_PATH=/usr/local/lib ./test-config-parser --json $CONFIG_DIR/$SINGLE_CONFIG > $BUILD_DIR/$output_file"
+                test_cmd="$build_cmd && LD_LIBRARY_PATH=/usr/local/lib ./test-config-parser --json $CONFIG_DIR/$SINGLE_CONFIG > $BUILD_DIR/$output_file"
                 copy_files=("$output_file")
                 ;;
             human)
                 output_file="test-results-${SINGLE_CONFIG%.json}.txt"
-                test_cmd="cd $BUILD_DIR && make test-config-parser && LD_LIBRARY_PATH=/usr/local/lib ./test-config-parser $CONFIG_DIR/$SINGLE_CONFIG 2>&1 | tee $BUILD_DIR/$output_file"
+                test_cmd="$build_cmd && LD_LIBRARY_PATH=/usr/local/lib ./test-config-parser $CONFIG_DIR/$SINGLE_CONFIG 2>&1 | tee $BUILD_DIR/$output_file"
                 copy_files=("$output_file")
                 ;;
         esac
@@ -178,17 +266,17 @@ run_tests() {
         case "$FORMAT" in
             html)
                 output_file="test-report.html"
-                test_cmd="cd $BUILD_DIR && make test-config-html"
+                test_cmd="cd $BUILD_DIR && make test-config-html $use_platform_flag"
                 copy_files=("$output_file")
                 ;;
             json)
                 output_file="test-report.json"
-                test_cmd="cd $BUILD_DIR && make test-config-json"
+                test_cmd="cd $BUILD_DIR && make test-config-json $use_platform_flag"
                 copy_files=("$output_file")
                 ;;
             human)
                 output_file="test-results.txt"
-                test_cmd="cd $BUILD_DIR && make test-config-full 2>&1 | tee $BUILD_DIR/$output_file"
+                test_cmd="cd $BUILD_DIR && make test-config-full $use_platform_flag 2>&1 | tee $BUILD_DIR/$output_file"
                 copy_files=("$output_file")
                 ;;
         esac
@@ -236,6 +324,10 @@ print_summary() {
     echo "========================================"
     echo "Test Run Summary"
     echo "========================================"
+    echo "Mode:       $TEST_MODE"
+    if [ "$TEST_MODE" = "platform" ]; then
+        echo "Platform:   $PLATFORM_NAME"
+    fi
     echo "Format:     $FORMAT"
     if [ -n "$SINGLE_CONFIG" ]; then
         echo "Config:     $SINGLE_CONFIG"
@@ -247,6 +339,12 @@ print_summary() {
 
     if [ $exit_code -eq 0 ]; then
         print_success "All tests passed!"
+        if [ "$TEST_MODE" = "platform" ]; then
+            echo ""
+            echo "Platform properties tracked from: plat-$PLATFORM_NAME.c"
+            echo "Check output for 'Successfully Configured (Base)' and"
+            echo "'Successfully Configured (Platform)' sections"
+        fi
     else
         print_warning "Some tests failed or had issues"
     fi

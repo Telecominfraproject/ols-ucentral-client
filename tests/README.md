@@ -40,7 +40,7 @@ This testing framework includes multiple documentation files, each serving a spe
    - Troubleshooting common issues
    - **Start here** when updating schema or property database
 
-4. **[TEST_CONFIG_PARSER_DESIGN.md](TEST_CONFIG_PARSER_DESIGN.md)** - Test framework architecture
+4. **[TEST_CONFIG_PARSER_DESIGN.md](../TEST_CONFIG_PARSER_DESIGN.md)** - Test framework architecture
    - Multi-layer validation design
    - Property metadata system (560+ entries)
    - Property inspection engine

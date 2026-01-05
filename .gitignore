@@ -9,5 +9,25 @@ docker/*
 # Test artifacts and generated files
 tests/config-parser/test-config-parser
 tests/config-parser/test-report.*
-tests/config-parser/test-results.txt
+tests/config-parser/test-results*.txt
+tests/config-parser/*.bak
 output/
+
+# Platform build artifacts
+*.a
+*.full.a
+*.pb.cc
+*.pb.h
+*_protoc_stamp
+
+# Generated gRPC/protobuf files
+src/ucentral-client/platform/*/gnma/gnmi/*.pb.*
+src/ucentral-client/platform/*/gnma/gnmi/*.grpc.pb.*
+src/ucentral-client/platform/*/gnma/*.a
+src/ucentral-client/platform/*/netlink/*.a
+
+# Schema repository (fetched by tools)
+ols-ucentral-schema/
+
+# Backup files
+*.backup

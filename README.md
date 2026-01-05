@@ -1,9 +1,41 @@
 # What is it?
 This repo holds the source code for OLS (OpenLAN Switching) uCentral client implementation.
 It implements both the ZTP Gateway discovery procedure (calling the ZTP Redirector and locating
-the desired Gateway to connect to), as well as handlers to process the Gateway requests.  
+the desired Gateway to connect to), as well as handlers to process the Gateway requests.
 Upon connecting to the Gateway service, the device can be provisioned and controlled from the
-cloud in the same manner as uCentral OpenWifi APs do.  
+cloud in the same manner as uCentral OpenWifi APs do.
+
+# Prerequisites
+
+## Required Tools
+
+- **Docker** (20.10+) - Dockerized build environment
+- **Git** (2.20+) - Version control and schema repository access
+- **Make** (3.81+) - Build system
+
+## For Testing and Database Generation
+
+- **Python 3** (3.7+) - Test scripts and database generation
+- **PyYAML** (5.1+) - YAML schema parsing
+
+Install Python dependencies:
+```bash
+pip3 install -r tests/requirements.txt
+# Or: pip3 install pyyaml
+```
+
+## Schema Repository
+
+The uCentral configuration schema is maintained in a separate repository:
+- **Repository:** https://github.com/Telecominfraproject/ols-ucentral-schema
+
+Fetch schema automatically (with intelligent branch matching):
+```bash
+cd tests/tools
+./fetch-schema.sh
+```
+
+**See [PREREQUISITES.md](PREREQUISITES.md) for complete setup guide and troubleshooting.**
 
 # Build System
 The build system implements an automated dockerized-based build enviroment to produce a final
