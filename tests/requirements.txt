@@ -1,0 +1,22 @@
+# Python Dependencies for OLS uCentral Client Testing Framework
+#
+# Install all dependencies:
+#   pip3 install -r tests/requirements.txt
+#
+# Or install individually:
+#   pip3 install pyyaml
+
+# YAML parsing for schema extraction
+# Used by: tests/tools/extract-schema-properties.py
+# Purpose: Parse YAML schema files from ols-ucentral-schema repository
+pyyaml>=5.1
+
+# Note: All other Python scripts use standard library only:
+# - json (built-in)
+# - sys (built-in)
+# - argparse (built-in)
+# - os (built-in)
+# - pathlib (built-in, Python 3.4+)
+# - typing (built-in, Python 3.5+)
+# - re (built-in)
+# - subprocess (built-in)
