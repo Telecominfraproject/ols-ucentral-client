@@ -42,7 +42,7 @@ This testing framework includes multiple documentation files, each serving a spe
 
 4. **[TEST_CONFIG_PARSER_DESIGN.md](TEST_CONFIG_PARSER_DESIGN.md)** - Test framework architecture
    - Multi-layer validation design
-   - Property metadata system (628 properties)
+   - Property metadata system (398 schema properties)
    - Property inspection engine
    - Test execution flow diagrams
    - Data structures and algorithms
@@ -164,12 +164,12 @@ make test-config-junit # JUnit XML (CI/CD integration)
 - Hardware constraint validation
 
 ### Property Tracking System
-- Database of 628 properties and their processing status
+- Database of all schema properties and their implementation status (398 canonical properties)
 - Tracks which properties are parsed by which functions
 - Identifies unimplemented features
 - Status classification: CONFIGURED, IGNORED, SYSTEM, INVALID, Unknown
 - Property usage reports across all test configurations
-- 199 properties (32%) with line number references
+- Properties with line numbers are implemented, line_number=0 means not yet implemented
 
 ### Two-Layer Validation Strategy
 
@@ -333,7 +333,7 @@ static struct property_metadata properties[] = {
         .source_line = 1119,
         .notes = "Enable/disable ethernet interface"
     },
-    // ... 628 total entries (199 with line numbers) ...
+    // ... entries for all 398 schema properties (with line numbers for implemented properties) ...
 };
 ```
 

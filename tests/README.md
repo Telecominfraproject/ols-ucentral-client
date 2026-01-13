@@ -114,7 +114,7 @@ make test-config-junit # JUnit XML (CI/CD integration)
 **Test Implementation:**
 - `tests/config-parser/test-config-parser.c` (3445 lines) - Parser test framework with property tracking
 - `tests/config-parser/test-stubs.c` (214 lines) - Platform function stubs for testing
-- `tests/schema/validate-schema.py` (305 lines) - Standalone schema validator
+- `tests/schema/validate-schema.py` (649 lines) - Standalone schema validator with undefined property detection
 - `tests/config-parser/config-parser.h` - Test header exposing cfg_parse()
 
 **Configuration Files:**
@@ -150,7 +150,7 @@ make test-config-junit # JUnit XML (CI/CD integration)
 - Hardware constraint validation
 
 ### Property Tracking System
-- Database of 450+ properties and their processing status
+- Database of all schema properties and their implementation status (398 canonical properties)
 - Tracks which properties are parsed by which functions
 - Identifies unimplemented features
 - Status classification: CONFIGURED, IGNORED, SYSTEM, INVALID, Unknown
@@ -206,8 +206,8 @@ The testing framework was added with minimal impact to production code:
 ### New Files Added
 1. `tests/config-parser/test-config-parser.c` - Complete test framework (3445 lines)
 2. `tests/config-parser/test-stubs.c` - Platform stubs (214 lines)
-3. `tests/schema/validate-schema.py` - Schema validator (305 lines)
-4. `src/ucentral-client/include/config-parser.h` - Test header
+3. `tests/schema/validate-schema.py` - Schema validator (649 lines)
+4. `tests/config-parser/config-parser.h` - Test header
 5. `tests/config-parser/TEST_CONFIG_README.md` - Framework documentation
 6. `tests/schema/SCHEMA_VALIDATOR_README.md` - Validator documentation
 7. `tests/MAINTENANCE.md` - Maintenance procedures
@@ -318,7 +318,7 @@ static struct property_info properties[] = {
         .status = PROP_CONFIGURED,
         .notes = "Enable/disable ethernet interface"
     },
-    // ... 450+ more entries ...
+    // ... entries for all 398 schema properties ...
 };
 ```
 

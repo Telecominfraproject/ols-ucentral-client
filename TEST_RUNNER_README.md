@@ -32,11 +32,16 @@
 ### Basic Syntax
 
 ```bash
-./run-config-tests.sh [format] [config-file]
+./run-config-tests.sh [OPTIONS] [config-file]
 ```
 
-**Parameters:**
-- `format` (optional): Output format - `html`, `json`, or `human` (default: `human`)
+**Options:**
+- `-f, --format FORMAT`: Output format - `html`, `json`, or `human` (default: `human`)
+- `-m, --mode MODE`: Test mode - `stub` or `platform` (default: `stub`)
+- `-p, --platform NAME`: Platform name for platform mode (default: `brcm-sonic`)
+- `-h, --help`: Show help message
+
+**Arguments:**
 - `config-file` (optional): Specific config file to test (default: test all configs)
 
 ### Examples
@@ -47,27 +52,32 @@
 # Human-readable output (default)
 ./run-config-tests.sh
 
-# Human-readable output (explicit)
-./run-config-tests.sh human
-
 # HTML report
-./run-config-tests.sh html
+./run-config-tests.sh --format html
+# OR short form:
+./run-config-tests.sh -f html
 
 # JSON output
-./run-config-tests.sh json
+./run-config-tests.sh --format json
+# OR short form:
+./run-config-tests.sh -f json
 ```
 
 #### Test Single Configuration
 
 ```bash
-# Test single config with human output
-./run-config-tests.sh human cfg0.json
+# Test single config with human output (default)
+./run-config-tests.sh cfg0.json
 
 # Test single config with HTML report
-./run-config-tests.sh html ECS4150-TM.json
+./run-config-tests.sh --format html cfg0.json
+# OR short form:
+./run-config-tests.sh -f html cfg0.json
 
 # Test single config with JSON output
-./run-config-tests.sh json ECS4150-ACL.json
+./run-config-tests.sh --format json cfg0.json
+# OR short form:
+./run-config-tests.sh -f json cfg0.json
 ```
 
 ## Output Files
@@ -210,7 +220,7 @@ The script uses exit codes for CI/CD integration:
 
 **CI/CD Example:**
 ```bash
-./run-config-tests.sh json
+./run-config-tests.sh --format json
 if [ $? -eq 0 ]; then
     echo "All tests passed!"
 else
@@ -338,7 +348,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run config tests
-        run: ./run-config-tests.sh json
+        run: ./run-config-tests.sh --format json
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:
@@ -352,7 +362,7 @@ jobs:
 test-configs:
   stage: test
   script:
-    - ./run-config-tests.sh json
+    - ./run-config-tests.sh --format json
   artifacts:
     paths:
       - output/test-report.json
@@ -364,7 +374,7 @@ test-configs:
 ```groovy
 stage('Test Configurations') {
     steps {
-        sh './run-config-tests.sh html'
+        sh './run-config-tests.sh --format html'
         publishHTML([
             reportDir: 'output',
             reportFiles: 'test-report.html',
@@ -382,7 +392,7 @@ stage('Test Configurations') {
 # .git/hooks/pre-commit
 
 echo "Running configuration tests..."
-./run-config-tests.sh human
+./run-config-tests.sh
 
 if [ $? -ne 0 ]; then
     echo "Tests failed. Commit aborted."
@@ -406,7 +416,7 @@ OUTPUT_DIR="$SCRIPT_DIR/my-custom-output"
 ```bash
 # Test all ACL configs
 for config in config-samples/*ACL*.json; do
-    ./run-config-tests.sh json "$(basename $config)"
+    ./run-config-tests.sh --format json "$(basename $config)"
 done
 ```
 
@@ -424,7 +434,7 @@ wait
 ```bash
 # Generate all format reports
 for format in human html json; do
-    ./run-config-tests.sh $format
+    ./run-config-tests.sh --format $format
 done
 
 # Timestamp reports
