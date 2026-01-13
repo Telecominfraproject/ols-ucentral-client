@@ -68,13 +68,13 @@ This testing framework includes multiple documentation files, each serving a spe
 ./run-config-tests.sh
 
 # Generate HTML report
-./run-config-tests.sh html
+./run-config-tests.sh --format html
 
 # Generate JSON report
-./run-config-tests.sh json
+./run-config-tests.sh --format json
 
 # Test single configuration
-./run-config-tests.sh human cfg0.json
+./run-config-tests.sh cfg0.json
 ```
 
 **Alternative: Run tests directly in Docker** (manual Docker management):
@@ -297,7 +297,7 @@ vi config-samples/test-new-feature.json
 ./run-config-tests.sh
 
 # Generate full HTML report for review
-./run-config-tests.sh html
+./run-config-tests.sh --format html
 open output/test-report.html
 
 # Check for property database accuracy
@@ -310,7 +310,7 @@ open output/test-report.html
 test-configurations:
   stage: test
   script:
-    - ./run-config-tests.sh json
+    - ./run-config-tests.sh --format json
   artifacts:
     paths:
       - output/test-report.json

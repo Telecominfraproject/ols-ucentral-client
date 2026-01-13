@@ -331,7 +331,7 @@ make build-host-env
 # OR let script build it automatically
 
 # Run tests (script provides better output management)
-./run-config-tests.sh html
+./run-config-tests.sh --format html
 ```
 
 ### With CI/CD
