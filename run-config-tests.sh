@@ -240,8 +240,8 @@ run_tests() {
             exit 1
         fi
 
-        # Build test binary with appropriate mode
-        build_cmd="cd $BUILD_DIR && make test-config-parser $use_platform_flag"
+        # Build test binary with appropriate mode (clean first to ensure correct flags)
+        build_cmd="cd $BUILD_DIR && make clean && make test-config-parser $use_platform_flag"
 
         case "$FORMAT" in
             html)
@@ -266,17 +266,17 @@ run_tests() {
         case "$FORMAT" in
             html)
                 output_file="test-report.html"
-                test_cmd="cd $BUILD_DIR && make test-config-html $use_platform_flag"
+                test_cmd="cd $BUILD_DIR && make clean && make test-config-html $use_platform_flag"
                 copy_files=("$output_file")
                 ;;
             json)
                 output_file="test-report.json"
-                test_cmd="cd $BUILD_DIR && make test-config-json $use_platform_flag"
+                test_cmd="cd $BUILD_DIR && make clean && make test-config-json $use_platform_flag"
                 copy_files=("$output_file")
                 ;;
             human)
                 output_file="test-results.txt"
-                test_cmd="cd $BUILD_DIR && make test-config-full $use_platform_flag 2>&1 | tee $BUILD_DIR/$output_file"
+                test_cmd="cd $BUILD_DIR && make clean && make test-config-full $use_platform_flag 2>&1 | tee $BUILD_DIR/$output_file"
                 copy_files=("$output_file")
                 ;;
         esac
