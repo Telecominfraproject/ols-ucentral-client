@@ -874,21 +874,12 @@ struct property_metadata {
 /* Include property databases */
 #include "property-database-base.c"
 
-/* Always include platform databases for property tracking analysis,
- * regardless of test mode (stub vs platform). The platform databases
- * document where properties are applied to hardware, which is useful
- * for understanding the full configuration flow even in stub mode. */
-#include "property-database-platform-brcm-sonic.c"
-#include "property-database-platform-example.c"
-
-/* Set which platform database to use at runtime based on build flags */
 #ifdef USE_PLATFORM_BRCM_SONIC
-#define ACTIVE_PLATFORM_DB platform_property_database_brcm_sonic
-#elif defined(USE_PLATFORM_EXAMPLE)
-#define ACTIVE_PLATFORM_DB platform_property_database_example
-#else
-/* Default to brcm-sonic for property analysis in stub mode */
-#define ACTIVE_PLATFORM_DB platform_property_database_brcm_sonic
+#include "property-database-platform-brcm-sonic.c"
+#endif
+
+#ifdef USE_PLATFORM_EXAMPLE
+#include "property-database-platform-example.c"
 #endif
 
 
@@ -946,13 +937,25 @@ static const struct property_metadata *lookup_property_metadata(const char *path
         }
     }
 
-    /* Search active platform database (determined at compile time) */
-    for (i = 0; ACTIVE_PLATFORM_DB[i].path != NULL; i++) {
-        if (strcmp(normalized_path, ACTIVE_PLATFORM_DB[i].path) == 0) {
-            platform_match = &ACTIVE_PLATFORM_DB[i];
+#ifdef USE_PLATFORM_BRCM_SONIC
+    /* Search platform database (brcm-sonic) */
+    for (i = 0; platform_property_database_brcm_sonic[i].path != NULL; i++) {
+        if (strcmp(normalized_path, platform_property_database_brcm_sonic[i].path) == 0) {
+            platform_match = &platform_property_database_brcm_sonic[i];
             break;
         }
     }
+#endif
+
+#ifdef USE_PLATFORM_EXAMPLE
+    /* Search platform database (example) */
+    for (i = 0; platform_property_database_example[i].path != NULL; i++) {
+        if (strcmp(normalized_path, platform_property_database_example[i].path) == 0) {
+            platform_match = &platform_property_database_example[i];
+            break;
+        }
+    }
+#endif
 
     /* Store platform match for caller */
     if (platform_out) {
@@ -1052,83 +1055,27 @@ static void scan_json_tree_recursive(const cJSON *node, const char *base_path,
                     /* Known property - report with metadata */
                     char source[256];
 
-                    /* Determine if this is base-only, platform-only, or both */
-                    const struct property_metadata *base_meta = NULL;
-                    const struct property_metadata *plat_meta = platform_metadata;
-                    int i;
-                    char normalized_path[256];
-                    const char *p;
-                    char *n;
-
-                    /* Normalize child_path: replace [N] with [] for matching */
-                    p = child_path;
-                    n = normalized_path;
-                    while (*p && (n - normalized_path) < (int)sizeof(normalized_path) - 1) {
-                        if (*p == '[') {
-                            *n++ = '[';
-                            p++;
-                            while (*p >= '0' && *p <= '9') p++;
-                            if (*p == ']') {
-                                *n++ = ']';
-                                p++;
-                            }
-                        } else {
-                            *n++ = *p++;
-                        }
-                    }
-                    *n = '\0';
-
-                    /* Re-lookup to get base metadata independently */
-                    for (i = 0; base_property_database[i].path != NULL; i++) {
-                        if (strcmp(normalized_path, base_property_database[i].path) == 0) {
-                            base_meta = &base_property_database[i];
-                            break;
-                        }
+                    /* Build base source location */
+                    if (metadata->line_number > 0) {
+                        snprintf(source, sizeof(source), "%s:%s():line %d",
+                                metadata->source_file, metadata->source_function, metadata->line_number);
+                    } else {
+                        snprintf(source, sizeof(source), "%s:%s()",
+                                metadata->source_file, metadata->source_function);
                     }
 
-                    /* Build source location based on what we found */
-                    if (base_meta && plat_meta) {
-                        /* Both base and platform process this property */
-                        if (base_meta->line_number > 0) {
-                            snprintf(source, sizeof(source), "%s:%s():line %d",
-                                    base_meta->source_file, base_meta->source_function, base_meta->line_number);
-                        } else {
-                            snprintf(source, sizeof(source), "%s:%s()",
-                                    base_meta->source_file, base_meta->source_function);
-                        }
-
-                        /* Append platform location */
+                    /* If platform also processes this property, append platform location */
+                    if (platform_metadata && platform_metadata != metadata) {
                         char platform_part[128];
-                        if (plat_meta->line_number > 0) {
+                        if (platform_metadata->line_number > 0) {
                             snprintf(platform_part, sizeof(platform_part), " → %s:%s():line %d",
-                                    plat_meta->source_file, plat_meta->source_function,
-                                    plat_meta->line_number);
+                                    platform_metadata->source_file, platform_metadata->source_function,
+                                    platform_metadata->line_number);
                         } else {
                             snprintf(platform_part, sizeof(platform_part), " → %s:%s()",
-                                    plat_meta->source_file, plat_meta->source_function);
+                                    platform_metadata->source_file, platform_metadata->source_function);
                         }
                         strncat(source, platform_part, sizeof(source) - strlen(source) - 1);
-                    } else if (base_meta) {
-                        /* Base only */
-                        if (base_meta->line_number > 0) {
-                            snprintf(source, sizeof(source), "%s:%s():line %d",
-                                    base_meta->source_file, base_meta->source_function, base_meta->line_number);
-                        } else {
-                            snprintf(source, sizeof(source), "%s:%s()",
-                                    base_meta->source_file, base_meta->source_function);
-                        }
-                    } else if (plat_meta) {
-                        /* Platform only */
-                        if (plat_meta->line_number > 0) {
-                            snprintf(source, sizeof(source), "%s:%s():line %d",
-                                    plat_meta->source_file, plat_meta->source_function, plat_meta->line_number);
-                        } else {
-                            snprintf(source, sizeof(source), "%s:%s()",
-                                    plat_meta->source_file, plat_meta->source_function);
-                        }
-                    } else {
-                        /* This shouldn't happen since metadata is non-null */
-                        snprintf(source, sizeof(source), "Unknown");
                     }
 
                     add_property_validation(result, child_path, metadata->status,

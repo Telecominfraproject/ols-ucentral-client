@@ -53,6 +53,25 @@ This testing framework includes multiple documentation files, each serving a spe
 
 ## Quick Reference
 
+### Test Modes
+
+The testing framework supports two modes:
+
+**Stub Mode (Default - Fast)**
+- Tests proto.c parsing only
+- Uses simple platform stubs (test-stubs.c)
+- Shows base properties only (proto.c)
+- Fast execution (~30 seconds)
+- Use for: Quick validation, CI/CD pipelines
+
+**Platform Mode (Integration)**
+- Tests proto.c + platform implementation (plat-gnma.c)
+- Uses platform code with hardware mocks
+- Shows base AND platform properties (proto.c → plat-gnma.c)
+- Tracks hardware application functions called
+- Slower execution (~45 seconds)
+- Use for: Platform-specific validation, integration testing
+
 ### Running Tests
 
 **RECOMMENDED: Run tests inside Docker build environment** to eliminate OS-specific issues (works on macOS, Linux, Windows):
@@ -61,9 +80,13 @@ This testing framework includes multiple documentation files, each serving a spe
 # Build the Docker environment first (if not already built)
 make build-host-env
 
-# Run all tests (schema + parser) - RECOMMENDED
+# Run all tests in STUB mode (default - fast)
 docker exec ucentral_client_build_env bash -c \
   "cd /root/ols-nos/tests/config-parser && make test-config-full"
+
+# Run all tests in PLATFORM mode (integration)
+docker exec ucentral_client_build_env bash -c \
+  "cd /root/ols-nos/tests/config-parser && make test-config-full USE_PLATFORM=brcm-sonic"
 
 # Run individual test suites
 docker exec ucentral_client_build_env bash -c \
@@ -93,18 +116,25 @@ docker cp ucentral_client_build_env:/root/ols-nos/tests/config-parser/test-resul
 # Navigate to test directory
 cd tests/config-parser
 
-# Run all tests (schema + parser)
+# Run all tests in STUB mode (default)
 make test-config-full
+
+# Run all tests in PLATFORM mode
+make test-config-full USE_PLATFORM=brcm-sonic
 
 # Run individual test suites
 make validate-schema  # Schema validation only
 make test-config      # Parser tests only
 make test              # Unit tests
 
-# Generate test reports
+# Generate test reports (stub mode)
 make test-config-html  # HTML report (browser-viewable)
 make test-config-json  # JSON report (machine-readable)
 make test-config-junit # JUnit XML (CI/CD integration)
+
+# Generate test reports (platform mode)
+make test-config-html USE_PLATFORM=brcm-sonic
+make test-config-json USE_PLATFORM=brcm-sonic
 ```
 
 **Note:** Running tests in Docker is the preferred method as it provides a consistent, reproducible environment regardless of your host OS (macOS, Linux, Windows).

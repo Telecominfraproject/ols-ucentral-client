@@ -20,17 +20,27 @@
 ### Test All Configurations
 
 ```bash
+# Stub mode (default - fast, proto.c parsing only)
 ./run-config-tests.sh                 # Console output with colors (default)
 ./run-config-tests.sh --format html   # Interactive HTML report
 ./run-config-tests.sh --format json   # Machine-readable JSON
+
+# Platform mode (integration testing with platform code)
+./run-config-tests.sh --mode platform              # Console output
+./run-config-tests.sh --mode platform --format html # HTML report
 ```
 
 ### Test Single Configuration
 
 ```bash
+# Stub mode (default)
 ./run-config-tests.sh cfg0.json                      # Human output (default)
 ./run-config-tests.sh --format html cfg0.json        # HTML report
 ./run-config-tests.sh --format json cfg0.json        # JSON output
+
+# Platform mode
+./run-config-tests.sh --mode platform cfg0.json      # Human output
+./run-config-tests.sh --mode platform --format html cfg0.json  # HTML report
 ```
 
 ### View Results
@@ -141,15 +151,34 @@ ECS4150_VLAN.json                  # VLAN configuration
 ✅ Feature coverage (implemented vs documented features)
 ✅ Error handling (invalid configs, missing fields)
 
+## Test Modes
+
+### Stub Mode (Default - Fast)
+- Tests proto.c parsing only
+- Uses simple platform stubs
+- Shows base properties only
+- Execution time: ~30 seconds
+- Use for: Quick validation, CI/CD
+
+### Platform Mode (Integration)
+- Tests proto.c + platform code (plat-gnma.c)
+- Uses platform implementation with mocks
+- Shows base AND platform properties
+- Tracks hardware application functions
+- Execution time: ~45 seconds
+- Use for: Platform-specific validation
+
 ## Quick Reference
 
 | Task | Command |
 |------|---------|
-| Test everything | `./run-config-tests.sh` |
+| Test everything (stub) | `./run-config-tests.sh` |
+| Test everything (platform) | `./run-config-tests.sh --mode platform` |
 | HTML report | `./run-config-tests.sh --format html` |
 | JSON output | `./run-config-tests.sh --format json` |
 | Single config | `./run-config-tests.sh cfg0.json` |
 | Single config HTML | `./run-config-tests.sh -f html cfg0.json` |
+| Platform mode single config | `./run-config-tests.sh -m platform cfg0.json` |
 | View HTML | `open output/test-report.html` |
 | View results | `cat output/test-results.txt` |
 | Parse JSON | `cat output/test-report.json \| jq` |
