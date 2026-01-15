@@ -42,7 +42,7 @@ This testing framework includes multiple documentation files, each serving a spe
 
 4. **[TEST_CONFIG_PARSER_DESIGN.md](TEST_CONFIG_PARSER_DESIGN.md)** - Test framework architecture
    - Multi-layer validation design
-   - Property metadata system (628 properties)
+   - Property metadata system (398 schema properties)
    - Property inspection engine
    - Test execution flow diagrams
    - Data structures and algorithms
@@ -64,17 +64,18 @@ This testing framework includes multiple documentation files, each serving a spe
 **RECOMMENDED: Use the test runner script** (handles Docker automatically):
 
 ```bash
-# Test all configurations (human-readable output)
-./run-config-tests.sh
+# Test all configurations in STUB mode (default - fast, proto.c only)
+./run-config-tests.sh                                # Human-readable output
+./run-config-tests.sh --format html                  # HTML report
+./run-config-tests.sh --format json                  # JSON report
 
-# Generate HTML report
-./run-config-tests.sh html
-
-# Generate JSON report
-./run-config-tests.sh json
+# Test all configurations in PLATFORM mode (integration testing)
+./run-config-tests.sh --mode platform                # Human-readable output
+./run-config-tests.sh --mode platform --format html  # HTML report
 
 # Test single configuration
-./run-config-tests.sh human cfg0.json
+./run-config-tests.sh cfg0.json                      # Stub mode
+./run-config-tests.sh --mode platform cfg0.json      # Platform mode
 ```
 
 **Alternative: Run tests directly in Docker** (manual Docker management):
@@ -83,20 +84,28 @@ This testing framework includes multiple documentation files, each serving a spe
 # Build the Docker environment first (if not already built)
 make build-host-env
 
-# Run all tests (schema + parser) - RECOMMENDED
+# Run all tests in STUB mode (default - fast)
 docker exec ucentral_client_build_env bash -c \
   "cd /root/ols-nos/tests/config-parser && make test-config-full"
 
-# Run individual test suites
+# Run all tests in PLATFORM mode (integration)
+docker exec ucentral_client_build_env bash -c \
+  "cd /root/ols-nos/tests/config-parser && make test-config-full USE_PLATFORM=brcm-sonic"
+
+# Run individual test suites (stub mode)
 docker exec ucentral_client_build_env bash -c \
   "cd /root/ols-nos/tests/config-parser && make validate-schema"
 
 docker exec ucentral_client_build_env bash -c \
   "cd /root/ols-nos/tests/config-parser && make test-config"
 
-# Generate test reports
+# Generate test reports (stub mode)
 docker exec ucentral_client_build_env bash -c \
   "cd /root/ols-nos/tests/config-parser && make test-config-html"
+
+# Generate test reports (platform mode)
+docker exec ucentral_client_build_env bash -c \
+  "cd /root/ols-nos/tests/config-parser && make test-config-html USE_PLATFORM=brcm-sonic"
 
 # Copy report files out of container to view
 docker cp ucentral_client_build_env:/root/ols-nos/tests/config-parser/test-report.html output/
@@ -108,17 +117,24 @@ docker cp ucentral_client_build_env:/root/ols-nos/tests/config-parser/test-repor
 # Navigate to test directory
 cd tests/config-parser
 
-# Run all tests (schema + parser)
+# Run all tests in STUB mode (default)
 make test-config-full
+
+# Run all tests in PLATFORM mode
+make test-config-full USE_PLATFORM=brcm-sonic
 
 # Run individual test suites
 make validate-schema  # Schema validation only
 make test-config      # Parser tests only
 
-# Generate test reports
+# Generate test reports (stub mode)
 make test-config-html  # HTML report (browser-viewable)
 make test-config-json  # JSON report (machine-readable)
 make test-config-junit # JUnit XML (CI/CD integration)
+
+# Generate test reports (platform mode)
+make test-config-html USE_PLATFORM=brcm-sonic
+make test-config-json USE_PLATFORM=brcm-sonic
 ```
 
 **Note:** Running tests in Docker is the preferred method as it provides a consistent, reproducible environment regardless of your host OS (macOS, Linux, Windows).
@@ -164,12 +180,12 @@ make test-config-junit # JUnit XML (CI/CD integration)
 - Hardware constraint validation
 
 ### Property Tracking System
-- Database of 628 properties and their processing status
+- Database of all schema properties and their implementation status (398 canonical properties)
 - Tracks which properties are parsed by which functions
 - Identifies unimplemented features
 - Status classification: CONFIGURED, IGNORED, SYSTEM, INVALID, Unknown
 - Property usage reports across all test configurations
-- 199 properties (32%) with line number references
+- Properties with line numbers are implemented, line_number=0 means not yet implemented
 
 ### Two-Layer Validation Strategy
 
@@ -297,7 +313,7 @@ vi config-samples/test-new-feature.json
 ./run-config-tests.sh
 
 # Generate full HTML report for review
-./run-config-tests.sh html
+./run-config-tests.sh --format html
 open output/test-report.html
 
 # Check for property database accuracy
@@ -310,7 +326,7 @@ open output/test-report.html
 test-configurations:
   stage: test
   script:
-    - ./run-config-tests.sh json
+    - ./run-config-tests.sh --format json
   artifacts:
     paths:
       - output/test-report.json
@@ -333,7 +349,7 @@ static struct property_metadata properties[] = {
         .source_line = 1119,
         .notes = "Enable/disable ethernet interface"
     },
-    // ... 628 total entries (199 with line numbers) ...
+    // ... entries for all 398 schema properties (with line numbers for implemented properties) ...
 };
 ```
 

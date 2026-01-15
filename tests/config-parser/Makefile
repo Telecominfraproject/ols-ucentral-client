@@ -156,7 +156,7 @@ endif
 # Run schema validation
 validate-schema:
 	@echo "========= Schema Validation  ========="
-	@python3 $(SCHEMA_VALIDATOR) $(CONFIG_SAMPLES) || true
+	@python3 $(SCHEMA_VALIDATOR) $(CONFIG_SAMPLES) --check-undefined || true
 	@echo "========= Schema validation completed ========"
 
 # Combined validation: schema + parser

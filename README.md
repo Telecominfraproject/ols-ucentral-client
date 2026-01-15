@@ -169,7 +169,7 @@ The repository includes a comprehensive testing framework for configuration vali
 ./run-config-tests.sh
 
 # Generate HTML report
-./run-config-tests.sh html
+./run-config-tests.sh --format html
 
 # Or run tests directly in the tests directory
 cd tests/config-parser

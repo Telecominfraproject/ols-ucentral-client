@@ -18,9 +18,9 @@ The framework validates configurations through three complementary layers:
 
 ### Layer 3: Property Tracking
 - Deep recursive inspection of JSON tree to classify every property
-- Maps properties to property metadata database (628 properties total)
+- Maps properties to property metadata database (398 schema properties)
 - Tracks which properties are CONFIGURED, IGNORED, INVALID, UNKNOWN, etc.
-- 199 properties (32%) include line number references to proto.c
+- Properties with line numbers are implemented in proto.c; line_number=0 means not yet implemented
 
 ## 2. **Property Metadata System**
 
@@ -36,12 +36,12 @@ struct property_metadata {
 };
 ```
 
-**Database contains 628 entries** documenting:
-- Which properties are actively parsed (PROP_CONFIGURED)
+**Database contains entries for all 398 schema properties** documenting:
+- Which properties are actively parsed (PROP_CONFIGURED with line numbers)
+- Which are not yet implemented (line_number=0)
 - Which are intentionally ignored (PROP_IGNORED)
 - Which need platform implementation (PROP_UNKNOWN)
 - Which are structural containers (PROP_SYSTEM)
-- Line numbers for 199 properties (32%) showing exact parsing locations
 
 ### Property Status Classification
 - **PROP_CONFIGURED**: Successfully processed by parser
@@ -293,7 +293,7 @@ The design elegantly separates concerns:
 4. **Validation layer** verifies specific features (optional validators)
 5. **Reporting layer** generates multiple output formats
 
-The property metadata database is the **crown jewel** - it documents the implementation status of 560+ configuration properties, enabling automated detection of unimplemented features and validation of parser coverage.
+The property metadata database is the **crown jewel** - it documents the implementation status of all 398 schema properties, enabling automated detection of unimplemented features and validation of parser coverage.
 
 ## Related Documentation
 

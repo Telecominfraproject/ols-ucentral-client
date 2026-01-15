@@ -62,15 +62,13 @@ SCHEMA_SOURCE="../../config-samples/ucentral.schema.pretty.json"
 # SCHEMA_SOURCE="../../ols-ucentral-schema/schema"
 
 # 2. Extract all properties from schema
-# For JSON schema file:
-python3 -c "import json; print('\n'.join(sorted(set(
-    k for d in json.load(open('$SCHEMA_SOURCE'))['properties'].values()
-    for k in d.get('properties', {}).keys()
-))))" | sed 's/\[\]$//' > /tmp/all-schema-properties.txt
+# For JSON schema file (recommended):
+python3 extract-schema-properties.py ../../config-samples/ucentral.schema.pretty.json \
+    2>/dev/null > /tmp/all-schema-properties.txt
 
 # For YAML schema directory (if using ols-ucentral-schema repo):
 # python3 extract-schema-properties.py ../../ols-ucentral-schema/schema ucentral.yml \
-#     2>/dev/null | sed 's/\[\]$//' > /tmp/all-schema-properties.txt
+#     2>/dev/null > /tmp/all-schema-properties.txt
 
 # 3. Generate base database (proto.c)
 python3 generate-database-from-schema.py \
@@ -78,21 +76,17 @@ python3 generate-database-from-schema.py \
     /tmp/all-schema-properties.txt \
     /tmp/base-database-new.c
 
-# 4. Fix array name
-sed -i '' 's/property_database\[\]/base_property_database[]/' \
-    /tmp/base-database-new.c
-
-# 5. Generate platform database (plat-gnma.c)
+# 4. Generate platform database (plat-gnma.c)
 python3 generate-platform-database-from-schema.py \
     ../../src/ucentral-client/platform/brcm-sonic/plat-gnma.c \
     /tmp/all-schema-properties.txt \
     /tmp/platform-database-new.c
 
-# 6. Install new databases
+# 5. Install new databases
 cp /tmp/base-database-new.c ../config-parser/property-database-base.c
 cp /tmp/platform-database-new.c ../config-parser/property-database-platform-brcm-sonic.c
 
-# 7. Test in Docker
+# 6. Test in Docker
 docker exec ucentral_client_build_env bash -c \
     "cd /root/ols-nos/tests/config-parser && make clean && make test-config-full"
 ```
@@ -127,16 +121,13 @@ Generates `property-database-base.c` from proto.c:
 ```bash
 cd tests/tools
 
-# Extract schema properties from included JSON file (strip trailing [])
-python3 -c "import json; print('\n'.join(sorted(set(
-    k for d in json.load(open('../../config-samples/ucentral.schema.pretty.json'))['properties'].values()
-    for k in d.get('properties', {}).keys()
-))))" | sed 's/\[\]$//' > /tmp/schema-props.txt
+# Extract schema properties from included JSON file
+python3 extract-schema-properties.py ../../config-samples/ucentral.schema.pretty.json \
+    2>/dev/null > /tmp/schema-props.txt
 
 # OR if using YAML from ols-ucentral-schema repository:
-# python3 extract-schema-properties.py \
-#     ../../ols-ucentral-schema/schema ucentral.yml 2>/dev/null | \
-#     sed 's/\[\]$//' > /tmp/schema-props.txt
+# python3 extract-schema-properties.py ../../ols-ucentral-schema/schema ucentral.yml \
+#     2>/dev/null > /tmp/schema-props.txt
 
 # Generate database
 python3 generate-database-from-schema.py \
@@ -144,8 +135,7 @@ python3 generate-database-from-schema.py \
     /tmp/schema-props.txt \
     /tmp/base-db.c
 
-# Fix array name and install
-sed -i '' 's/property_database\[\]/base_property_database[]/' /tmp/base-db.c
+# Install database
 cp /tmp/base-db.c ../config-parser/property-database-base.c
 ```
 

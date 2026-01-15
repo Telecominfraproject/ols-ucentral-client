@@ -3,14 +3,14 @@
 ## TL;DR
 
 ```bash
-# Test all configs with human-readable output
+# Test all configs with human-readable output (default)
 ./run-config-tests.sh
 
 # Generate HTML report
-./run-config-tests.sh html
+./run-config-tests.sh --format html
 
-# Test single config
-./run-config-tests.sh human ECS4150-TM.json
+# Test single config with HTML output
+./run-config-tests.sh --format html cfg0.json
 
 # Results are in: output/
 ```
@@ -20,17 +20,27 @@
 ### Test All Configurations
 
 ```bash
-./run-config-tests.sh human    # Console output with colors
-./run-config-tests.sh html     # Interactive HTML report
-./run-config-tests.sh json     # Machine-readable JSON
+# Stub mode (default - fast, proto.c parsing only)
+./run-config-tests.sh                 # Console output with colors (default)
+./run-config-tests.sh --format html   # Interactive HTML report
+./run-config-tests.sh --format json   # Machine-readable JSON
+
+# Platform mode (integration testing with platform code)
+./run-config-tests.sh --mode platform              # Console output
+./run-config-tests.sh --mode platform --format html # HTML report
 ```
 
 ### Test Single Configuration
 
 ```bash
-./run-config-tests.sh human cfg0.json
-./run-config-tests.sh html ECS4150-ACL.json
-./run-config-tests.sh json ECS4150-TM.json
+# Stub mode (default)
+./run-config-tests.sh cfg0.json                      # Human output (default)
+./run-config-tests.sh --format html cfg0.json        # HTML report
+./run-config-tests.sh --format json cfg0.json        # JSON output
+
+# Platform mode
+./run-config-tests.sh --mode platform cfg0.json      # Human output
+./run-config-tests.sh --mode platform --format html cfg0.json  # HTML report
 ```
 
 ### View Results
@@ -106,7 +116,7 @@ ls config-samples/*.json
 ### Example Pipeline
 ```yaml
 - name: Run tests
-  run: ./run-config-tests.sh json
+  run: ./run-config-tests.sh --format json
 - name: Check results
   run: |
     if [ $? -eq 0 ]; then
@@ -141,14 +151,34 @@ ECS4150_VLAN.json                  # VLAN configuration
 ✅ Feature coverage (implemented vs documented features)
 ✅ Error handling (invalid configs, missing fields)
 
+## Test Modes
+
+### Stub Mode (Default - Fast)
+- Tests proto.c parsing only
+- Uses simple platform stubs
+- Shows base properties only
+- Execution time: ~30 seconds
+- Use for: Quick validation, CI/CD
+
+### Platform Mode (Integration)
+- Tests proto.c + platform code (plat-gnma.c)
+- Uses platform implementation with mocks
+- Shows base AND platform properties
+- Tracks hardware application functions
+- Execution time: ~45 seconds
+- Use for: Platform-specific validation
+
 ## Quick Reference
 
 | Task | Command |
 |------|---------|
-| Test everything | `./run-config-tests.sh` |
-| HTML report | `./run-config-tests.sh html` |
-| JSON output | `./run-config-tests.sh json` |
-| Single config | `./run-config-tests.sh human cfg0.json` |
+| Test everything (stub) | `./run-config-tests.sh` |
+| Test everything (platform) | `./run-config-tests.sh --mode platform` |
+| HTML report | `./run-config-tests.sh --format html` |
+| JSON output | `./run-config-tests.sh --format json` |
+| Single config | `./run-config-tests.sh cfg0.json` |
+| Single config HTML | `./run-config-tests.sh -f html cfg0.json` |
+| Platform mode single config | `./run-config-tests.sh -m platform cfg0.json` |
 | View HTML | `open output/test-report.html` |
 | View results | `cat output/test-results.txt` |
 | Parse JSON | `cat output/test-report.json \| jq` |
