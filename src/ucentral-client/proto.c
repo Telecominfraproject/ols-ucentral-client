@@ -1430,6 +1430,7 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 	cJSON *select_ports;
 	cJSON *subnet_list;
 	cJSON *multicast;
+	cJSON *mgmt_iface_priority;
 	cJSON *vlan_tag;
 	cJSON *ethernet;
 	uint8_t tagged;
@@ -1513,6 +1514,41 @@ static int cfg_vlan_interface_parse(cJSON *interface, struct plat_cfg *cfg)
 			UC_LOG_ERR("Failed parsing multicast config");
 			return ret;
 		}
+	}
+
+	mgmt_iface_priority = cJSON_GetObjectItemCaseSensitive(interface, "mgmt-iface-priority");
+	if (mgmt_iface_priority) {
+		double priority_val;
+
+		if (!cJSON_IsNumber(mgmt_iface_priority)) {
+			UC_LOG_ERR("mgmt-iface-priority must be a number");
+			return -1;
+		}
+
+		priority_val = cJSON_GetNumberValue(mgmt_iface_priority);
+		if (priority_val < 0 || priority_val > MGMT_IFACE_PRIORITY_MAX) {
+			UC_LOG_ERR("mgmt-iface-priority out of range [0,%d]: %g",
+				   MGMT_IFACE_PRIORITY_MAX, priority_val);
+			return -1;
+		}
+
+		/* 0 means "not used for management" and may repeat across
+		 * interfaces; any other value must be unique. */
+		if (priority_val != 0) {
+			size_t other_vid;
+
+			BITMAP_FOR_EACH_BIT_SET(other_vid, cfg->vlans_to_cfg, MAX_VLANS) {
+				if (other_vid != vid &&
+				    cfg->vlans[other_vid].mgmt_iface_priority ==
+					    (uint8_t)priority_val) {
+					UC_LOG_ERR("mgmt-iface-priority %d cannot be duplicated",
+						   (int)priority_val);
+					return -1;
+				}
+			}
+		}
+
+		cfg->vlans[vid].mgmt_iface_priority = (uint8_t)priority_val;
 	}
 
 	dhcp = cJSON_GetObjectItemCaseSensitive(ipv4, "dhcp");

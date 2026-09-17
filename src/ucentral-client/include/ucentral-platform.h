@@ -44,6 +44,9 @@ extern "C" {
 #define VLAN_TO_NAME(v, name) sprintf((name), "Vlan%hu", (v))
 #define NAME_TO_VLAN(v, name) sscanf((name), "Vlan%hu", (v))
 
+/* Highest allowed value for interfaces[].mgmt-iface-priority (schema OLS-1288). */
+#define MGMT_IFACE_PRIORITY_MAX (32)
+
 struct plat_vlan_memberlist;
 struct plat_port_vlan;
 struct plat_port;
@@ -292,6 +295,9 @@ struct plat_port_vlan {
 	struct plat_igmp igmp;
 	uint16_t id;
 	uint16_t mstp_instance;
+	/* Management interface fallback priority, from interfaces[].mgmt-iface-priority.
+	 * 0 = not used for management (default); 1 = primary; N = N-th fallback. */
+	uint8_t mgmt_iface_priority;
 };
 
 struct plat_vlans_list {
