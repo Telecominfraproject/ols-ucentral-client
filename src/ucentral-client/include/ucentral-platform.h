@@ -265,6 +265,18 @@ struct plat_dhcp {
 	} relay;
 };
 
+/* PIM-SM (sparse-mode) parameters for a single VLAN interface, from
+ * interfaces[].ipv4.multicast.pim (schema OLS-1285). */
+struct plat_pim {
+	bool    enable;
+	uint32_t hello_interval;      /* seconds, 1-65535, default 30   */
+	uint32_t hello_holdtime;      /* seconds, 1-65535, default 105  */
+	uint32_t dr_priority;         /* 0-4294967294,     default 1    */
+	uint32_t join_prune_interval; /* seconds, 1-65535, default 60   */
+	uint32_t propagation_delay;   /* ms,      100-5000,default 500  */
+	uint32_t override_interval;   /* ms,      500-6000,default 2500 */
+};
+
 struct plat_port_l2 {
 	struct plat_ipv4 ipv4;
 };
@@ -293,6 +305,7 @@ struct plat_port_vlan {
 	struct plat_ipv4 ipv4;
 	struct plat_dhcp dhcp;
 	struct plat_igmp igmp;
+	struct plat_pim pim;
 	uint16_t id;
 	uint16_t mstp_instance;
 	/* Management interface fallback priority, from interfaces[].mgmt-iface-priority.
@@ -455,6 +468,56 @@ struct plat_port_isolation_cfg {
 	size_t sessions_num;
 };
 
+/* Global PIM-SM (sparse-mode) parameters, from switch.pim (schema OLS-1285). */
+struct plat_pim_group_prefix {
+	struct in_addr address;
+	struct in_addr mask;
+};
+
+struct plat_pim_group_prefix_list {
+	struct plat_pim_group_prefix group_prefix;
+	struct plat_pim_group_prefix_list *next;
+};
+
+struct plat_pim_rp {
+	struct in_addr address;
+	/* List of multicast group prefixes served by this RP.
+	 * NULL/empty means the RP serves all groups. */
+	struct plat_pim_group_prefix_list *group_prefixes;
+};
+
+struct plat_pim_rp_list {
+	struct plat_pim_rp rp;
+	struct plat_pim_rp_list *next;
+};
+
+struct plat_pim_spt_threshold {
+	bool infinity;
+	struct {
+		struct in_addr address;
+		struct in_addr mask;
+		bool exists;
+	} group_prefix;
+};
+
+/* List of Source-Specific Multicast (SSM) address ranges. */
+struct plat_pim_ssm_range {
+	struct in_addr address;
+	struct in_addr mask;
+};
+
+struct plat_pim_ssm_range_list {
+	struct plat_pim_ssm_range range;
+	struct plat_pim_ssm_range_list *next;
+};
+
+struct plat_pim_global {
+	struct plat_pim_rp_list *rendezvous_points;
+	struct plat_pim_spt_threshold spt_threshold;
+	struct plat_pim_ssm_range_list *ssm_ranges;
+	bool exists;
+};
+
 struct plat_cfg {
 	struct plat_unit unit;
 	/* Alloc all ports, but access them only if bit is set. */
@@ -484,6 +547,7 @@ struct plat_cfg {
 		struct plat_ieee8021x_dac_list *das_dac_list;
 	} ieee8021x;
 	struct plat_port_isolation_cfg port_isolation_cfg;
+	struct plat_pim_global pim_global;
 };
 
 struct plat_learned_mac_addr {

@@ -1291,6 +1291,17 @@ static int __cfg_vlan_interface_parse_multicast(cJSON *multicast,
 {
 	cJSON *igmp, *field, *group, *addr, *ports, *port;
 	struct plat_ports_list *e_port;
+	/* PIM-SM default values */
+	struct plat_pim pim_info = {
+		.enable              = false,
+		.hello_interval      = 30,
+		.hello_holdtime      = 105,
+		.dr_priority         = 1,
+		.join_prune_interval = 60,
+		.propagation_delay   = 500,
+		.override_interval   = 2500,
+	};
+	cJSON *pim = cJSON_GetObjectItemCaseSensitive(multicast, "pim");
 	struct plat_igmp info = {  /* default values */
 		.snooping_enabled = true,
 		.querier_enabled = false,
@@ -1304,6 +1315,124 @@ static int __cfg_vlan_interface_parse_multicast(cJSON *multicast,
 		.mrouter = NULL
 	};
 	size_t group_idx;
+
+	/* PIM-SM (sparse-mode) parsing, from ipv4.multicast.pim (schema OLS-1285) */
+	if (pim) {
+		cJSON *f;
+
+		f = cJSON_GetObjectItemCaseSensitive(pim, "enable");
+		if (f) {
+			if (!cJSON_IsBool(f)) {
+				UC_LOG_ERR("multicast:pim:enable must be bool");
+				return -1;
+			}
+			pim_info.enable = cJSON_IsTrue(f);
+		}
+
+		f = cJSON_GetObjectItemCaseSensitive(pim, "hello-interval");
+		if (f) {
+			int v;
+
+			if (!cJSON_IsNumber(f)) {
+				UC_LOG_ERR("multicast:pim:hello-interval must be number");
+				return -1;
+			}
+			v = (int)cJSON_GetNumberValue(f);
+			if (v < 1 || v > 65535) {
+				UC_LOG_ERR("multicast:pim:hello-interval out of range [1,65535]: %d", v);
+				return -1;
+			}
+			pim_info.hello_interval = (uint32_t)v;
+		}
+
+		/* hello-holdtime (must be > hello-interval) */
+		f = cJSON_GetObjectItemCaseSensitive(pim, "hello-holdtime");
+		if (f) {
+			int v;
+
+			if (!cJSON_IsNumber(f)) {
+				UC_LOG_ERR("multicast:pim:hello-holdtime must be number");
+				return -1;
+			}
+			v = (int)cJSON_GetNumberValue(f);
+			if (v < 1 || v > 65535) {
+				UC_LOG_ERR("multicast:pim:hello-holdtime out of range [1,65535]: %d", v);
+				return -1;
+			}
+			pim_info.hello_holdtime = (uint32_t)v;
+		}
+
+		f = cJSON_GetObjectItemCaseSensitive(pim, "dr-priority");
+		if (f) {
+			double v;
+
+			if (!cJSON_IsNumber(f)) {
+				UC_LOG_ERR("multicast:pim:dr-priority must be number");
+				return -1;
+			}
+			v = cJSON_GetNumberValue(f);
+			if (v < 0 || v > 4294967294.0) {
+				UC_LOG_ERR("multicast:pim:dr-priority out of range [0,4294967294]: %g", v);
+				return -1;
+			}
+			pim_info.dr_priority = (uint32_t)v;
+		}
+
+		f = cJSON_GetObjectItemCaseSensitive(pim, "join-prune-interval");
+		if (f) {
+			int v;
+
+			if (!cJSON_IsNumber(f)) {
+				UC_LOG_ERR("multicast:pim:join-prune-interval must be number");
+				return -1;
+			}
+			v = (int)cJSON_GetNumberValue(f);
+			if (v < 1 || v > 65535) {
+				UC_LOG_ERR("multicast:pim:join-prune-interval out of range [1,65535]: %d", v);
+				return -1;
+			}
+			pim_info.join_prune_interval = (uint32_t)v;
+		}
+
+		f = cJSON_GetObjectItemCaseSensitive(pim, "propagation-delay");
+		if (f) {
+			int v;
+
+			if (!cJSON_IsNumber(f)) {
+				UC_LOG_ERR("multicast:pim:propagation-delay must be number");
+				return -1;
+			}
+			v = (int)cJSON_GetNumberValue(f);
+			if (v < 100 || v > 5000) {
+				UC_LOG_ERR("multicast:pim:propagation-delay out of range [100,5000]: %d", v);
+				return -1;
+			}
+			pim_info.propagation_delay = (uint32_t)v;
+		}
+
+		f = cJSON_GetObjectItemCaseSensitive(pim, "override-interval");
+		if (f) {
+			int v;
+
+			if (!cJSON_IsNumber(f)) {
+				UC_LOG_ERR("multicast:pim:override-interval must be number");
+				return -1;
+			}
+			v = (int)cJSON_GetNumberValue(f);
+			if (v < 500 || v > 6000) {
+				UC_LOG_ERR("multicast:pim:override-interval out of range [500,6000]: %d", v);
+				return -1;
+			}
+			pim_info.override_interval = (uint32_t)v;
+		}
+
+		if (pim_info.hello_holdtime <= pim_info.hello_interval) {
+			UC_LOG_ERR("multicast:pim:hello-holdtime (%u) must be > hello-interval (%u)",
+				   pim_info.hello_holdtime, pim_info.hello_interval);
+			return -1;
+		}
+	}
+	cfg->vlans[vid].pim = pim_info;
 
 	if (!(igmp = cJSON_GetObjectItemCaseSensitive(multicast, "igmp")))
 		return 0;
@@ -1825,9 +1954,281 @@ static int cfg_switch_ieee8021x_parse(cJSON *sw, struct plat_cfg *cfg)
 	return 0;
 }
 
+/* Free a PIM group-prefix list built while parsing switch.pim.rendezvous-points
+ * or on an error path. */
+static void cfg_pim_group_prefix_list_free(struct plat_pim_group_prefix_list *list)
+{
+	struct plat_pim_group_prefix_list *next;
+
+	while (list) {
+		next = list->next;
+		free(list);
+		list = next;
+	}
+}
+
+/* Free a PIM rendezvous-point list built while parsing switch.pim.rendezvous-points
+ * or on an error path. */
+static void cfg_pim_rp_list_free(struct plat_pim_rp_list *list)
+{
+	struct plat_pim_rp_list *next;
+
+	while (list) {
+		next = list->next;
+		cfg_pim_group_prefix_list_free(list->rp.group_prefixes);
+		free(list);
+		list = next;
+	}
+}
+
+/* Free a PIM SSM range list built while parsing switch.pim.ssm-ranges
+ * or on an error path. */
+static void cfg_pim_ssm_range_list_free(struct plat_pim_ssm_range_list *list)
+{
+	struct plat_pim_ssm_range_list *next;
+
+	while (list) {
+		next = list->next;
+		free(list);
+		list = next;
+	}
+}
+
+/* Parse switch.pim.rendezvous-points[].group-prefix (an array of
+ * {address, mask} entries) into a plat_pim_group_prefix_list. */
+static int cfg_pim_parse_group_prefixes(cJSON *gp_array,
+					struct plat_pim_group_prefix_list **gp_list)
+{
+	cJSON *gp_item;
+	struct plat_pim_group_prefix_list *node, *tail = NULL;
+
+	if (!cJSON_IsArray(gp_array))
+		return -1;
+
+	cJSON_ArrayForEach(gp_item, gp_array) {
+		cJSON *address, *mask;
+
+		address = cJSON_GetObjectItemCaseSensitive(gp_item, "address");
+		mask = cJSON_GetObjectItemCaseSensitive(gp_item, "mask");
+		if (!address || !mask ||
+		    !cJSON_IsString(address) || !cJSON_IsString(mask)) {
+			UC_LOG_ERR("PIM RP group-prefix: missing or invalid address/mask\n");
+			return -1;
+		}
+
+		node = calloc(1, sizeof(*node));
+		if (!node) {
+			UC_LOG_ERR("Failed to allocate PIM RP group-prefix node\n");
+			return -1;
+		}
+
+		if (inet_pton(AF_INET, cJSON_GetStringValue(address),
+			      &node->group_prefix.address) != 1 ||
+		    inet_pton(AF_INET, cJSON_GetStringValue(mask),
+			      &node->group_prefix.mask) != 1) {
+			UC_LOG_ERR("Invalid PIM RP group-prefix address/mask\n");
+			free(node);
+			return -1;
+		}
+
+		if (!*gp_list) {
+			*gp_list = node;
+			tail = node;
+		} else {
+			tail->next = node;
+			tail = node;
+		}
+		node->next = NULL;
+	}
+
+	return 0;
+}
+
+/* Parse switch.pim.rendezvous-points (an array of RP entries, each with an
+ * "address" and an optional "group-prefix" array) into a plat_pim_rp_list. */
+static int cfg_pim_parse_rendezvous_points(cJSON *rp_array,
+					   struct plat_pim_rp_list **rp_list)
+{
+	cJSON *rp_item;
+	struct plat_pim_rp_list *rp_node, *tail = NULL;
+
+	if (!cJSON_IsArray(rp_array))
+		return -1;
+
+	cJSON_ArrayForEach(rp_item, rp_array) {
+		cJSON *address, *group_prefix;
+
+		address = cJSON_GetObjectItemCaseSensitive(rp_item, "address");
+		if (!address || !cJSON_IsString(address)) {
+			UC_LOG_ERR("PIM RP: missing or invalid address\n");
+			cfg_pim_rp_list_free(*rp_list);
+			*rp_list = NULL;
+			return -1;
+		}
+
+		rp_node = calloc(1, sizeof(*rp_node));
+		if (!rp_node) {
+			UC_LOG_ERR("Failed to allocate PIM RP node\n");
+			cfg_pim_rp_list_free(*rp_list);
+			*rp_list = NULL;
+			return -1;
+		}
+
+		if (inet_pton(AF_INET, cJSON_GetStringValue(address),
+			      &rp_node->rp.address) != 1) {
+			UC_LOG_ERR("Invalid PIM RP address: %s\n",
+				   cJSON_GetStringValue(address));
+			free(rp_node);
+			cfg_pim_rp_list_free(*rp_list);
+			*rp_list = NULL;
+			return -1;
+		}
+
+		group_prefix = cJSON_GetObjectItemCaseSensitive(rp_item, "group-prefix");
+		if (group_prefix) {
+			if (cfg_pim_parse_group_prefixes(group_prefix,
+							 &rp_node->rp.group_prefixes) != 0) {
+				UC_LOG_ERR("Invalid PIM RP group-prefix\n");
+				cfg_pim_group_prefix_list_free(rp_node->rp.group_prefixes);
+				free(rp_node);
+				cfg_pim_rp_list_free(*rp_list);
+				*rp_list = NULL;
+				return -1;
+			}
+		}
+
+		if (!*rp_list) {
+			*rp_list = rp_node;
+			tail = rp_node;
+		} else {
+			tail->next = rp_node;
+			tail = rp_node;
+		}
+		rp_node->next = NULL;
+	}
+
+	return 0;
+}
+
+/* Parse switch.pim.ssm-ranges (an array of {address, mask} entries) into a
+ * plat_pim_ssm_range_list. */
+static int cfg_pim_parse_ssm_ranges(cJSON *ssm_array,
+				    struct plat_pim_ssm_range_list **ssm_list)
+{
+	cJSON *ssm_item;
+	struct plat_pim_ssm_range_list *node, *tail = NULL;
+
+	if (!cJSON_IsArray(ssm_array))
+		return -1;
+
+	cJSON_ArrayForEach(ssm_item, ssm_array) {
+		cJSON *address, *mask;
+
+		address = cJSON_GetObjectItemCaseSensitive(ssm_item, "address");
+		mask = cJSON_GetObjectItemCaseSensitive(ssm_item, "mask");
+		if (!address || !mask ||
+		    !cJSON_IsString(address) || !cJSON_IsString(mask)) {
+			UC_LOG_ERR("PIM SSM: missing or invalid address/mask\n");
+			return -1;
+		}
+
+		node = calloc(1, sizeof(*node));
+		if (!node) {
+			UC_LOG_ERR("Failed to allocate PIM SSM range node\n");
+			return -1;
+		}
+
+		if (inet_pton(AF_INET, cJSON_GetStringValue(address),
+			      &node->range.address) != 1 ||
+		    inet_pton(AF_INET, cJSON_GetStringValue(mask),
+			      &node->range.mask) != 1) {
+			UC_LOG_ERR("Invalid PIM SSM address/mask\n");
+			free(node);
+			return -1;
+		}
+
+		if (!*ssm_list) {
+			*ssm_list = node;
+			tail = node;
+		} else {
+			tail->next = node;
+			tail = node;
+		}
+		node->next = NULL;
+	}
+
+	return 0;
+}
+
+/* Parse switch.pim (global PIM-SM config: spt-threshold, ssm-ranges,
+ * rendezvous-points), schema OLS-1285. */
+static int cfg_pim_global_parse(cJSON *pim, struct plat_pim_global *pim_global)
+{
+	cJSON *rp_array, *spt_obj, *ssm_array;
+
+	memset(pim_global, 0, sizeof(*pim_global));
+
+	if (!pim || !cJSON_IsObject(pim))
+		return 0;
+
+	pim_global->exists = true;
+
+	spt_obj = cJSON_GetObjectItemCaseSensitive(pim, "spt-threshold");
+	if (spt_obj && cJSON_IsObject(spt_obj)) {
+		cJSON *infinity, *group_prefix, *gp_addr, *gp_mask;
+
+		infinity = cJSON_GetObjectItemCaseSensitive(spt_obj, "infinity");
+		if (infinity && cJSON_IsBool(infinity))
+			pim_global->spt_threshold.infinity = cJSON_IsTrue(infinity);
+
+		group_prefix = cJSON_GetObjectItemCaseSensitive(spt_obj, "group-prefix");
+		if (group_prefix && cJSON_IsObject(group_prefix)) {
+			gp_addr = cJSON_GetObjectItemCaseSensitive(group_prefix, "address");
+			gp_mask = cJSON_GetObjectItemCaseSensitive(group_prefix, "mask");
+
+			if (gp_addr && gp_mask) {
+				if (!cJSON_IsString(gp_addr) || !cJSON_IsString(gp_mask)) {
+					UC_LOG_ERR("PIM SPT threshold: invalid address/mask format\n");
+					return -1;
+				}
+
+				if (inet_pton(AF_INET, cJSON_GetStringValue(gp_addr),
+					      &pim_global->spt_threshold.group_prefix.address) != 1 ||
+				    inet_pton(AF_INET, cJSON_GetStringValue(gp_mask),
+					      &pim_global->spt_threshold.group_prefix.mask) != 1) {
+					UC_LOG_ERR("Invalid PIM SPT threshold address/mask\n");
+					return -1;
+				}
+				pim_global->spt_threshold.group_prefix.exists = true;
+			}
+		}
+	}
+
+	ssm_array = cJSON_GetObjectItemCaseSensitive(pim, "ssm-ranges");
+	if (ssm_array && cJSON_IsArray(ssm_array)) {
+		if (cfg_pim_parse_ssm_ranges(ssm_array, &pim_global->ssm_ranges) != 0) {
+			UC_LOG_ERR("Failed to parse PIM ssm-ranges\n");
+			return -1;
+		}
+	}
+
+	rp_array = cJSON_GetObjectItemCaseSensitive(pim, "rendezvous-points");
+	if (rp_array && cJSON_IsArray(rp_array)) {
+		if (cfg_pim_parse_rendezvous_points(rp_array,
+						    &pim_global->rendezvous_points) != 0) {
+			UC_LOG_ERR("Failed to parse PIM rendezvous-points\n");
+			cfg_pim_ssm_range_list_free(pim_global->ssm_ranges);
+			pim_global->ssm_ranges = NULL;
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 {
-	cJSON *sw, *obj, *iter, *arr, *port_isolation;
+	cJSON *sw, *obj, *iter, *arr, *port_isolation, *pim;
 	BITMAP_DECLARE(instances_parsed, MAX_VLANS);
 	int id, prio, fwd, hello, age;
 	bool enabled;
@@ -1899,6 +2300,14 @@ static int cfg_switch_parse(cJSON *root, struct plat_cfg *cfg)
 	if (port_isolation && cfg_switch_port_isolation_parse(port_isolation, &cfg->port_isolation_cfg)) {
 		UC_LOG_ERR("port-isolation config parse failed\n");
 		return -1;
+	}
+
+	pim = cJSON_GetObjectItemCaseSensitive(sw, "pim");
+	if (pim) {
+		if (cfg_pim_global_parse(pim, &cfg->pim_global) != 0) {
+			UC_LOG_ERR("Failed to parse PIM global config\n");
+			return -1;
+		}
 	}
 
 	return 0;
