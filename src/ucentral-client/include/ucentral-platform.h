@@ -280,6 +280,9 @@ struct plat_igmp {
 		struct in_addr addr;
 		struct plat_ports_list *egress_ports_list;
 	} *groups;
+	/* Statically configured multicast router (mrouter) ports for this
+	 * VLAN, from ipv4.multicast.igmp.static-mrouter-ports.ports. */
+	struct plat_ports_list *mrouter;
 };
 
 struct plat_port_vlan {

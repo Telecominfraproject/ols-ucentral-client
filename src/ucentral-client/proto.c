@@ -1300,7 +1300,8 @@ static int __cfg_vlan_interface_parse_multicast(cJSON *multicast,
 		.max_response_time = 10,
 		.version = PLAT_IGMP_VERSION_3,
 		.num_groups = 0,
-		.groups = NULL
+		.groups = NULL,
+		.mrouter = NULL
 	};
 	size_t group_idx;
 
@@ -1380,6 +1381,26 @@ static int __cfg_vlan_interface_parse_multicast(cJSON *multicast,
 		group_idx++;
 	}
 skip_groups:
+	field = cJSON_GetObjectItemCaseSensitive(igmp, "static-mrouter-ports");
+	if (field && cJSON_IsObject(field)) {
+		ports = cJSON_GetObjectItemCaseSensitive(field, "ports");
+		cJSON_ArrayForEach(port, ports) {
+			if (!cJSON_IsString(port)) {
+				UC_LOG_ERR("Invalid mrouter port name\n");
+				goto err;
+			}
+
+			e_port = calloc(1, sizeof(*e_port));
+			if (!e_port) {
+				UC_LOG_ERR("Can't alloc mrouter port node\n");
+				goto err;
+			}
+
+			strncpy(e_port->name, port->valuestring, sizeof(e_port->name));
+			UCENTRAL_LIST_PUSH_MEMBER(&info.mrouter, e_port);
+		}
+	}
+
 	info.exist = info.snooping_enabled || info.querier_enabled;
 	cfg->vlans[vid].igmp = info;
 	return 0;
@@ -1392,6 +1413,7 @@ err:
 		}
 	}
 	free(info.groups);
+	UCENTRAL_LIST_DESTROY_SAFE(&info.mrouter, e_port);
 	return -1;
 }
 
