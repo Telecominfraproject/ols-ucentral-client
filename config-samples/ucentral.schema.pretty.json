@@ -1258,6 +1258,148 @@
                             }
                         }
                     }
+                },
+                "poe-status": {
+                    "description": "Enable/Disable PoE Status events.",
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable/Disable PoE Status category.",
+                            "default": false
+                        },
+                        "sub-events": {
+                            "type": "object",
+                            "properties": {
+                                "wired.poe.status.disabled": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the event reported when a PoE port is administratively or operationally disabled and delivers no power.",
+                                    "default": false
+                                },
+                                "wired.poe.status.searching": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the event reported when a PoE port is searching for and detecting a powered device (PD) before delivering power.",
+                                    "default": false
+                                },
+                                "wired.poe.status.delivering_power": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the event reported when a PoE port has detected a valid powered device and is delivering power.",
+                                    "default": false
+                                },
+                                "wired.poe.status.fault": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the event reported when a PoE port enters a fault state that prevents power delivery.",
+                                    "default": false
+                                },
+                                "wired.poe.status.overload": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the event reported when a PoE port draws more current than its configured or negotiated limit.",
+                                    "default": false
+                                }
+                            }
+                        }
+                    }
+                },
+                "poe-fault": {
+                    "description": "Enable/Disable PoE Fault events.",
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable/Disable PoE Fault category.",
+                            "default": false
+                        },
+                        "sub-events": {
+                            "type": "object",
+                            "properties": {
+                                "wired.poe.fault.ovlo": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the over-voltage lockout (OVLO) fault, reported when the PSE input voltage exceeds the safe operating range and power delivery is stopped.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.mps_absent": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the maintain power signature (MPS) absent fault, reported when the powered device stops presenting a valid MPS and the port is powered down.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.short": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the short-circuit fault, reported when a short circuit is detected on the PoE port.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.overload": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the overload fault, reported when the powered device draws current beyond the port's rated limit.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.power_denied": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the power-denied fault, reported when the PSE refuses to power the port (for example, insufficient power budget).",
+                                    "default": false
+                                },
+                                "wired.poe.fault.thermal_shutdown": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the thermal shutdown fault, reported when the PSE disables the port because its temperature exceeded a safe threshold.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.startup_failure": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the startup failure fault, reported when the port fails to complete the PoE power-up sequence.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.uvlo": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the under-voltage lockout (UVLO) fault, reported when the PSE input voltage drops below the minimum operating range.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.hw_pin_disable": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the hardware pin disable fault, reported when a hardware disable pin forces the port off.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.port_undefined": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the port-undefined fault, reported when the port is in an undefined or unrecognized PoE state.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.internal_hw_fault": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the internal hardware fault, reported when the PSE detects an internal hardware error preventing power delivery.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.user_setting": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the user-setting fault, reported when a user configuration prevents the port from delivering power.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.non_standard_pd": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the non-standard powered device fault, reported when a connected device does not comply with the IEEE PoE standard.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.underload": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the underload fault, reported when the powered device draws less current than the minimum required to maintain power.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.pwr_budget_exceeded": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the power-budget-exceeded fault, reported when powering the port would exceed the system's total PoE power budget.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.oor_capacitor_value": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the out-of-range capacitor value fault, reported when the detected PD capacitance is outside the valid range.",
+                                    "default": false
+                                },
+                                "wired.poe.fault.class_error": {
+                                    "type": "boolean",
+                                    "description": "Enable/Disable the classification error fault, reported when the powered device presents an invalid or out-of-range power classification.",
+                                    "default": false
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -1397,6 +1539,123 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "switch.pim": {
+            "description": "Global PIM-SM (Protocol Independent Multicast \u2013 Sparse Mode) configuration for the switch.",
+            "type": "object",
+            "properties": {
+                "spt-threshold": {
+                    "description": "Controls when a first-hop router switches from the shared tree to the shortest-path tree.",
+                    "type": "object",
+                    "properties": {
+                        "infinity": {
+                            "description": "When true, the router never switches to the shortest-path tree and always uses the shared tree via the RP.",
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "group-prefix": {
+                            "description": "Restrict SPT-threshold infinity behaviour to a specific multicast group prefix.",
+                            "type": "object",
+                            "properties": {
+                                "address": {
+                                    "description": "IPv4 multicast group network address.",
+                                    "type": "string",
+                                    "format": "ipv4",
+                                    "examples": [
+                                        "239.0.0.0"
+                                    ]
+                                },
+                                "mask": {
+                                    "description": "Subnet mask for the multicast group prefix.",
+                                    "type": "string",
+                                    "format": "ipv4",
+                                    "examples": [
+                                        "255.0.0.0"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "ssm-ranges": {
+                    "description": "List of Source-Specific Multicast (SSM) address ranges. Multiple non-contiguous ranges may be specified.",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "address": {
+                                "description": "Starting IPv4 multicast group address for the SSM range.",
+                                "type": "string",
+                                "format": "ipv4",
+                                "examples": [
+                                    "232.0.0.0"
+                                ]
+                            },
+                            "mask": {
+                                "description": "Subnet mask for the SSM address range.",
+                                "type": "string",
+                                "format": "ipv4",
+                                "examples": [
+                                    "255.0.0.0"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "address",
+                            "mask"
+                        ]
+                    }
+                },
+                "rendezvous-points": {
+                    "description": "List of PIM Rendezvous Point (RP) addresses and their associated group prefixes.",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "address": {
+                                "description": "IPv4 address of the Rendezvous Point.",
+                                "type": "string",
+                                "format": "ipv4",
+                                "examples": [
+                                    "10.0.0.1"
+                                ]
+                            },
+                            "group-prefix": {
+                                "description": "List of multicast group prefixes served by this RP. If omitted, the RP serves all groups.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "address": {
+                                            "description": "IPv4 multicast group network address.",
+                                            "type": "string",
+                                            "format": "ipv4",
+                                            "examples": [
+                                                "224.0.0.0"
+                                            ]
+                                        },
+                                        "mask": {
+                                            "description": "Subnet mask for the multicast group prefix.",
+                                            "type": "string",
+                                            "format": "ipv4",
+                                            "examples": [
+                                                "240.0.0.0"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "address",
+                                        "mask"
+                                    ]
+                                }
+                            }
+                        },
+                        "required": [
+                            "address"
+                        ]
                     }
                 }
             }
@@ -2224,6 +2483,9 @@
                 "acl": {
                     "$ref": "#/$defs/switch.acl"
                 },
+                "pim": {
+                    "$ref": "#/$defs/switch.pim"
+                },
                 "dns": {
                     "description": "Define a global list of dns servers.",
                     "type": "array",
@@ -2348,6 +2610,65 @@
                         "auto"
                     ],
                     "default": "auto"
+                }
+            }
+        },
+        "interface.ipv4.multicast.pim": {
+            "description": "PIM sparse-mode (PIM-SM) configuration for this VLAN interface.",
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Enable PIM sparse-mode on this VLAN interface.",
+                    "type": "boolean",
+                    "default": false
+                },
+                "hello-interval": {
+                    "description": "Interval (seconds) between PIM Hello messages sent on this interface.",
+                    "type": "integer",
+                    "default": 30,
+                    "examples": [
+                        30
+                    ]
+                },
+                "hello-holdtime": {
+                    "description": "Time (seconds) a neighbor waits before declaring this router unreachable. Must be greater than hello-interval.",
+                    "type": "integer",
+                    "default": 105,
+                    "examples": [
+                        105
+                    ]
+                },
+                "dr-priority": {
+                    "description": "Designated Router election priority for this interface. Higher value wins the DR election.",
+                    "type": "integer",
+                    "default": 1,
+                    "examples": [
+                        1
+                    ]
+                },
+                "join-prune-interval": {
+                    "description": "Interval (seconds) between PIM Join/Prune messages sent on this interface.",
+                    "type": "integer",
+                    "default": 60,
+                    "examples": [
+                        60
+                    ]
+                },
+                "propagation-delay": {
+                    "description": "Estimated link propagation delay (milliseconds) for this LAN segment, used in PIM assert and override calculations.",
+                    "type": "integer",
+                    "default": 500,
+                    "examples": [
+                        500
+                    ]
+                },
+                "override-interval": {
+                    "description": "Time (milliseconds) a downstream router waits before overriding a prune on this interface.",
+                    "type": "integer",
+                    "default": 2500,
+                    "examples": [
+                        2500
+                    ]
                 }
             }
         },
@@ -2656,6 +2977,23 @@
                                             }
                                         }
                                     }
+                                },
+                                "static-mrouter-ports": {
+                                    "description": "Statically designate Layer 2 ports as multicast router (mrouter) ports for this VLAN. When set, IGMP snooping forwards all inbound multicast traffic to these ports regardless of dynamic IGMP querier detection. If omitted, no static mrouter ports are configured and the switch relies on dynamic IGMP querier detection.",
+                                    "type": "object",
+                                    "properties": {
+                                        "ports": {
+                                            "description": "List of port names statically designated as mrouter ports on this VLAN (e.g. \"Ethernet0\"). Duplicate entries are not permitted.",
+                                            "type": "array",
+                                            "uniqueItems": true,
+                                            "items": {
+                                                "type": "string",
+                                                "examples": [
+                                                    "Ethernet0"
+                                                ]
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -2694,6 +3032,9 @@
                                 "mvr-intf-immed-leave",
                                 "mvr-intf-assoc-domain"
                             ]
+                        },
+                        "pim": {
+                            "$ref": "#/$defs/interface.ipv4.multicast.pim"
                         }
                     }
                 },
@@ -3185,6 +3526,13 @@
                             "lldp"
                         ]
                     }
+                },
+                "mgmt-iface-priority": {
+                    "description": "Management interface fallback priority. 0 = not used for management (default); 1 = highest priority / primary; N = N-th fallback (higher number = lower priority). Values must be unique across all interfaces. Priority 1 must use ipv4.addressing \"dynamic\" or \"static\"; fallback interfaces (>= 2) may also use \"none\".",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32,
+                    "default": 0
                 },
                 "vlan-awareness": {
                     "description": "Setup additional VLANs inside the bridge",

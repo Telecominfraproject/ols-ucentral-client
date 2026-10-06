@@ -285,8 +285,8 @@ run_tests() {
     print_status "Executing tests in container..."
     echo ""
 
-    # Run the test command
-    if docker exec "$CONTAINER_NAME" bash -c "$test_cmd"; then
+    # Run the test command (pipefail: the human format pipes make through tee)
+    if docker exec "$CONTAINER_NAME" bash -o pipefail -c "$test_cmd"; then
         print_success "Tests completed successfully"
         TEST_EXIT_CODE=0
     else
@@ -370,9 +370,9 @@ main() {
     # Start container if needed
     start_container
 
-    # Run tests
-    run_tests
-    TEST_RESULT=$?
+    # Run tests (|| keeps set -e from exiting before the summary)
+    TEST_RESULT=0
+    run_tests || TEST_RESULT=$?
 
     # Print summary
     print_summary $TEST_RESULT

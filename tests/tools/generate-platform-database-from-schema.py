@@ -8,6 +8,11 @@ and applies it to hardware. This script searches for platform application patter
 - plat_*_set() functions
 - gnma_*() hardware API calls
 
+Matching is by feature area (function names vs. the top two path segments),
+so a hit means "probably applied here", not proof. A property is only
+considered at all if proto.c parses it (see generate-database-from-schema.py):
+platform code only ever sees what proto.c put into struct plat_cfg.
+
 Usage:
     python3 generate-platform-database-from-schema.py <platform-file> <schema-properties> <output-file>
 
@@ -22,6 +27,12 @@ import re
 import sys
 from pathlib import Path
 from typing import Optional, Tuple, Dict, List
+
+import importlib.util
+_spec = importlib.util.spec_from_file_location(
+    "generate_database", Path(__file__).resolve().parent / "generate-database-from-schema.py")
+base_gen = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(base_gen)
 
 def extract_property_components(property_path: str) -> Tuple[str, str, str]:
     """
@@ -151,19 +162,27 @@ def find_property_in_platform(property_path: str, feature_map: Dict[str, List[Tu
     """
     top_level, mid_level, leaf = extract_property_components(property_path)
 
-    # Search feature map for matching functions
-    search_terms = [leaf, mid_level, top_level]
+    # Search feature map for matching functions. The leaf is deliberately not
+    # used: generic leaves ("enabled", "port", "power") match unrelated features.
+    search_terms = [mid_level, top_level]
     search_terms = [term for term in search_terms if term]  # Remove empty
 
-    for term in search_terms:
-        term_lower = term.replace('-', '_').replace('-', '').lower()
+    def norm(name: str) -> str:
+        return name.replace('-', '_').lower()
 
-        # Check if any feature matches
-        for feature, locations in feature_map.items():
-            if term_lower in feature or feature in term_lower:
-                if locations:
-                    # Return first matching function
-                    return locations[0]
+    for term in search_terms:
+        term_lower = norm(term)
+
+        # Most specific feature wins: "port-isolation" is isolation, not port.
+        # If that feature has no function here, the platform doesn't apply it;
+        # don't fall back to a broader feature.
+        matches = [feature for feature in feature_map
+                   if term_lower in norm(feature) or norm(feature) in term_lower]
+        if matches:
+            best = max(matches, key=lambda f: (norm(f) == term_lower, len(f)))
+            if not feature_map[best]:
+                return None, None
+            return feature_map[best][0]
 
     return None, None
 
@@ -172,9 +191,9 @@ def generate_database_entry(property_path: str, line_num: Optional[int],
     """Generate a C database entry for a property."""
     if line_num and function:
         status = "PROP_CONFIGURED"
-        description = f"Applied in {function}()"
+        description = f"Feature-area match: {function}()"
     else:
-        status = "PROP_CONFIGURED"
+        status = "PROP_IGNORED"
         line_num = 0
         function = "NULL"
         description = "Not yet implemented in platform"
@@ -208,6 +227,11 @@ def main():
     # Analyze platform code to find configuration functions
     feature_map = analyze_platform_code(source_file)
 
+    # platform/<name>/plat-*.c -> proto.c
+    platform_name = source_file.resolve().parent.name
+    proto_file = source_file.resolve().parents[2] / "proto.c"
+    base_index = base_gen.SourceIndex(proto_file)
+
     total_functions = sum(len(locations) for locations in feature_map.values())
     print(f"Found {total_functions} configuration functions in platform code", file=sys.stderr)
 
@@ -220,7 +244,10 @@ def main():
         if i % 50 == 0:
             print(f"  Processed {i}/{len(properties)} properties...", file=sys.stderr)
 
-        line_num, function = find_property_in_platform(prop, feature_map)
+        if base_index.find_property(prop)[0]:
+            line_num, function = find_property_in_platform(prop, feature_map)
+        else:
+            line_num, function = None, None
         results[prop] = (line_num, function)
 
         if line_num:
@@ -247,7 +274,7 @@ def main():
         f.write(f"/*\n")
         f.write(f" * Platform Property Database Generated from Schema\n")
         f.write(f" *\n")
-        f.write(f" * Platform: brcm-sonic\n")
+        f.write(f" * Platform: {platform_name}\n")
         f.write(f" * Source: {source_file}\n")
         f.write(f" * Properties: {len(properties)} from schema\n")
         f.write(f" * Found: {found_count} potentially implemented\n")
@@ -255,11 +282,13 @@ def main():
         f.write(f" *\n")
         f.write(f" * This database tracks ALL properties in the uCentral schema.\n")
         f.write(f" * Platform code doesn't parse JSON - it applies structured config\n")
-        f.write(f" * from proto.c to hardware. Functions are matched by feature area.\n")
+        f.write(f" * from proto.c to hardware. Functions are matched by feature area,\n")
+        f.write(f" * and only for properties proto.c is found to parse.\n")
         f.write(f" *\n")
         f.write(f" * Properties with line_number=0 are not yet implemented in platform.\n")
         f.write(f" */\n\n")
-        f.write(f"static const struct property_metadata platform_property_database_brcm_sonic[] = {{\n")
+        array_name = "platform_property_database_" + re.sub(r'\W', '_', platform_name)
+        f.write(f"static const struct property_metadata {array_name}[] = {{\n")
 
         for entry in database_entries:
             f.write(entry + "\n")

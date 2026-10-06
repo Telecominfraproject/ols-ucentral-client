@@ -1,0 +1,94 @@
+{
+  "ethernet": [
+    {
+      "select-ports": [
+        "Ethernet*"
+      ],
+      "speed": 1000,
+      "duplex": "full",
+      "enabled": true
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "V1",
+      "role": "upstream",
+      "vlan": {
+        "id": 1
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet*"
+          ],
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "ipv4": {
+        "addressing": "dynamic"
+      },
+      "mgmt-iface-priority": 1
+    },
+    {
+      "name": "V100",
+      "role": "upstream",
+      "vlan": {
+        "id": 100
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet1"
+          ],
+          "vlan-tag": "tagged"
+        }
+      ],
+      "ipv4": {
+        "addressing": "static",
+        "subnet": [
+          {
+            "prefix": "192.168.100.1/24"
+          }
+        ],
+        "gateway": [
+          {
+            "prefix": "0.0.0.0/0",
+            "nexthop": "192.168.100.254"
+          }
+        ]
+      },
+      "mgmt-iface-priority": 2
+    },
+    {
+      "name": "V200",
+      "role": "upstream",
+      "vlan": {
+        "id": 200
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet1"
+          ],
+          "vlan-tag": "tagged"
+        }
+      ],
+      "ipv4": {
+        "addressing": "static",
+        "subnet": [
+          {
+            "prefix": "192.168.200.1/24"
+          }
+        ],
+        "gateway": [
+          {
+            "prefix": "0.0.0.0/0",
+            "nexthop": "192.168.200.254"
+          }
+        ]
+      },
+      "mgmt-iface-priority": 3
+    }
+  ],
+  "uuid": 1
+}

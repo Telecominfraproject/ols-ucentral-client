@@ -217,29 +217,3 @@ int plat_init(void)
 	fprintf(stderr, "[STUB] plat_init() - platform initialization (stub mode)\n");
 	return 0;
 }
-
-/* EST client function stubs for PKI 2.0 testing */
-
-const char* est_get_server_url(const char *cert_path)
-{
-	(void)cert_path;
-	return "est.test.example.com";  /* Dummy EST server URL */
-}
-
-int est_simple_reenroll(const char *est_server,
-                        const char *operational_cert, const char *key,
-                        const char *ca_bundle,
-                        char **renewed_cert_out)
-{
-	(void)est_server;
-	(void)operational_cert;
-	(void)key;
-	(void)ca_bundle;
-	(void)renewed_cert_out;
-	return 0;  /* EST_SUCCESS - stub always succeeds */
-}
-
-const char* est_get_error(void)
-{
-	return "EST stub mode - no real error";
-}

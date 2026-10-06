@@ -38,7 +38,8 @@ SCHEMA_VALIDATOR = ../schema/validate-schema.py
 SRC_OBJS = $(SRC_DIR)/ucentral-json-parser.o \
            $(SRC_DIR)/ucentral-log.o \
            $(SRC_DIR)/router-utils.o \
-           $(SRC_DIR)/base64.o
+           $(SRC_DIR)/base64.o \
+           est-stubs.o
 
 # ============================================================================
 # MODE-SPECIFIC CONFIGURATION
@@ -94,6 +95,11 @@ test-config-parser.o: test-config-parser.c
 	    -I $(SRC_DIR) -I $(SRC_DIR)/include -I ./ $<
 
 proto-test.o: $(SRC_DIR)/proto.c
+	gcc -c -o $@ ${CFLAGS} -DUCENTRAL_TESTING \
+	    -I $(SRC_DIR) -I $(SRC_DIR)/include $<
+
+# Both modes: EST client stubs
+est-stubs.o: est-stubs.c
 	gcc -c -o $@ ${CFLAGS} -DUCENTRAL_TESTING \
 	    -I $(SRC_DIR) -I $(SRC_DIR)/include $<
 
@@ -188,6 +194,11 @@ test-config-junit:
 # PROPERTY DATABASE REGENERATION
 # ============================================================================
 
+# Regression tests for the property database generators
+.PHONY: test-property-db-generator
+test-property-db-generator:
+	@cd ../tools && python3 test-generate-database.py
+
 # Regenerate base property database from proto.c
 .PHONY: regenerate-property-db
 regenerate-property-db:
@@ -239,7 +250,7 @@ endif
 # ============================================================================
 
 clean:
-	rm -f test-config-parser proto-test.o test-config-parser.o test-stubs.o
+	rm -f test-config-parser proto-test.o test-config-parser.o test-stubs.o est-stubs.o
 	rm -f platform-mock-*.o
 	rm -f test-report.html test-report.json test-report.xml test-results.txt
 	@echo "Test artifacts cleaned"
@@ -269,6 +280,7 @@ help:
 	@echo "  test-config-junit             - Generate JUnit XML test report"
 	@echo "  regenerate-property-db        - Regenerate base property database from proto.c"
 	@echo "  regenerate-platform-property-db - Regenerate platform property database (requires USE_PLATFORM)"
+	@echo "  test-property-db-generator    - Regression tests for the property database generators"
 	@echo "  clean                         - Remove test artifacts"
 	@echo "  help                          - Show this help message"
 	@echo ""
