@@ -1,0 +1,94 @@
+{
+  "ethernet": [
+    {
+      "select-ports": [
+        "Ethernet*"
+      ],
+      "speed": 1000,
+      "duplex": "full",
+      "enabled": true
+    }
+  ],
+  "switch": {
+    "pim": {
+      "rendezvous-points": [
+        {
+          "address": "10.0.0.1",
+          "group-prefix": [
+            {
+              "address": "224.0.0.0",
+              "mask": "240.0.0.0"
+            }
+          ]
+        }
+      ],
+      "spt-threshold": {
+        "infinity": true,
+        "group-prefix": {
+          "address": "239.0.0.0",
+          "mask": "255.0.0.0"
+        }
+      },
+      "ssm-ranges": [
+        {
+          "address": "232.0.0.0",
+          "mask": "255.0.0.0"
+        }
+      ]
+    }
+  },
+  "interfaces": [
+    {
+      "name": "mgmt-vlan",
+      "role": "upstream",
+      "vlan": {
+        "id": 1
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet*"
+          ],
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "ipv4": {
+        "addressing": "dynamic"
+      }
+    },
+    {
+      "name": "V10",
+      "role": "upstream",
+      "vlan": {
+        "id": 10
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet1"
+          ],
+          "vlan-tag": "tagged"
+        }
+      ],
+      "ipv4": {
+        "subnet": [
+          {
+            "prefix": "10.1.1.1/24"
+          }
+        ],
+        "multicast": {
+          "pim": {
+            "enable": true,
+            "hello-interval": 30,
+            "hello-holdtime": 105,
+            "dr-priority": 1,
+            "join-prune-interval": 60,
+            "propagation-delay": 500,
+            "override-interval": 2500
+          }
+        }
+      }
+    }
+  ],
+  "uuid": 1
+}

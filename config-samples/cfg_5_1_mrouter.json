@@ -1,0 +1,49 @@
+{
+  "ethernet": [
+    {
+      "select-ports": [
+        "Ethernet*"
+      ],
+      "speed": 1000,
+      "duplex": "full",
+      "enabled": true
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "V10",
+      "role": "upstream",
+      "vlan": {
+        "id": 10
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet0",
+            "Ethernet3"
+          ],
+          "vlan-tag": "tagged"
+        }
+      ],
+      "ipv4": {
+        "subnet": [
+          {
+            "prefix": "10.1.1.1/24"
+          }
+        ],
+        "multicast": {
+          "igmp": {
+            "snooping-enable": true,
+            "static-mrouter-ports": {
+              "ports": [
+                "Ethernet0",
+                "Ethernet3"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "uuid": 1
+}

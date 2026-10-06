@@ -1,0 +1,72 @@
+{
+  "ethernet": [
+    {
+      "select-ports": [
+        "Ethernet*"
+      ],
+      "speed": 1000,
+      "duplex": "full",
+      "enabled": true,
+      "poe": {
+        "admin-mode": true
+      }
+    }
+  ],
+  "switch": {
+    "rt-events": {
+      "poe-status": {
+        "enabled": true,
+        "sub-events": {
+          "wired.poe.status.delivering_power": true,
+          "wired.poe.status.disabled": true,
+          "wired.poe.status.fault": true,
+          "wired.poe.status.overload": true,
+          "wired.poe.status.searching": true
+        }
+      },
+      "poe-fault": {
+        "enabled": true,
+        "sub-events": {
+          "wired.poe.fault.class_error": true,
+          "wired.poe.fault.hw_pin_disable": true,
+          "wired.poe.fault.internal_hw_fault": true,
+          "wired.poe.fault.mps_absent": true,
+          "wired.poe.fault.non_standard_pd": true,
+          "wired.poe.fault.oor_capacitor_value": true,
+          "wired.poe.fault.overload": true,
+          "wired.poe.fault.ovlo": true,
+          "wired.poe.fault.port_undefined": true,
+          "wired.poe.fault.power_denied": true,
+          "wired.poe.fault.pwr_budget_exceeded": true,
+          "wired.poe.fault.short": true,
+          "wired.poe.fault.startup_failure": true,
+          "wired.poe.fault.thermal_shutdown": true,
+          "wired.poe.fault.underload": true,
+          "wired.poe.fault.user_setting": true,
+          "wired.poe.fault.uvlo": true
+        }
+      }
+    }
+  },
+  "interfaces": [
+    {
+      "name": "mgmt-vlan",
+      "role": "upstream",
+      "vlan": {
+        "id": 1
+      },
+      "ethernet": [
+        {
+          "select-ports": [
+            "Ethernet*"
+          ],
+          "vlan-tag": "un-tagged"
+        }
+      ],
+      "ipv4": {
+        "addressing": "dynamic"
+      }
+    }
+  ],
+  "uuid": 1
+}

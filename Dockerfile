@@ -2,11 +2,10 @@ FROM debian:bullseye
 LABEL Description="Ucentral client (Build) environment"
 
 ARG HOME /root
-ARG SCHEMA="release/v5.0.0"
-ARG SCHEMA_VERSION="${SCHEMA}"
-ARG SCHEMA_ZIP_FILE="${SCHEMA_VERSION}.zip"
-ARG SCHEMA_UNZIPPED="ols-ucentral-schema-${SCHEMA}"
-ARG OLS_SCHEMA_SRC="https://github.com/Telecominfraproject/ols-ucentral-schema/archive/refs/heads/${SCHEMA_ZIP_FILE}"
+# ols-ucentral-schema release tag (not a branch, so the schema can't move under the build)
+ARG SCHEMA="v5.1.0"
+ARG SCHEMA_ZIP_FILE="${SCHEMA}.zip"
+ARG OLS_SCHEMA_SRC="https://github.com/Telecominfraproject/ols-ucentral-schema/archive/refs/tags/${SCHEMA_ZIP_FILE}"
 SHELL ["/bin/bash", "-c"]
 
 # bullseye is EOL; its packages now live only on archive.debian.org
@@ -82,8 +81,9 @@ RUN cd ${HOME}/ucentral-external-libs/rtty/ && \
 
 RUN unzip /tmp/$(basename ${SCHEMA_ZIP_FILE}) -d ${HOME}/ucentral-external-libs/
 
+# GitHub drops the tag's leading "v" from the archive's top-level directory
 RUN cd ${HOME}/ucentral-external-libs/ && \
-    mv ${SCHEMA_UNZIPPED//\//-} ols-ucentral-schema
+    mv ols-ucentral-schema-${SCHEMA#v} ols-ucentral-schema
 
 # Copy version files to /etc/ for runtime use
 COPY version.json /etc/version.json

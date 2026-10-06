@@ -95,3 +95,26 @@ cfg_services_log.json:
     * notice: 5
     * info: 6
     * debug: 7
+
+cfg_5_1_pim.json:
+  Schema 5.1.0 PIM-SM (OLS-1285): global switch.pim (RP, SPT threshold,
+    SSM range) and per-VLAN interfaces[].ipv4.multicast.pim on VLAN 10.
+  Not parsed by this client yet; the test report lists these as ignored.
+
+cfg_5_1_mrouter.json:
+  Schema 5.1.0 static multicast router ports (OLS-1286):
+    interfaces[].ipv4.multicast.igmp.static-mrouter-ports on VLAN 10.
+  Not parsed by this client yet.
+
+cfg_5_1_mgmt_priority.json:
+  Schema 5.1.0 management interface priority (OLS-1288): three mgmt VLANs
+    with priorities 1-3, fallbacks using addressing "none".
+  Not parsed by this client yet.
+
+cfg_5_1_mgmt_priority_static.json:
+  As cfg_5_1_mgmt_priority.json, with static-addressed fallback VLANs.
+
+cfg_5_1_poe_rtevents.json:
+  Schema 5.1.0 PoE realtime event subscription (OLS-1287): every
+    switch.rt-events poe-status and poe-fault sub-event enabled.
+  Not parsed by this client yet.
