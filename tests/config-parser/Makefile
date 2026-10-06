@@ -194,6 +194,11 @@ test-config-junit:
 # PROPERTY DATABASE REGENERATION
 # ============================================================================
 
+# Regression tests for the property database generators
+.PHONY: test-property-db-generator
+test-property-db-generator:
+	@cd ../tools && python3 test-generate-database.py
+
 # Regenerate base property database from proto.c
 .PHONY: regenerate-property-db
 regenerate-property-db:
@@ -275,6 +280,7 @@ help:
 	@echo "  test-config-junit             - Generate JUnit XML test report"
 	@echo "  regenerate-property-db        - Regenerate base property database from proto.c"
 	@echo "  regenerate-platform-property-db - Regenerate platform property database (requires USE_PLATFORM)"
+	@echo "  test-property-db-generator    - Regression tests for the property database generators"
 	@echo "  clean                         - Remove test artifacts"
 	@echo "  help                          - Show this help message"
 	@echo ""
