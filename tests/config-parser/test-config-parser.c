@@ -1051,6 +1051,17 @@ static void scan_json_tree_recursive(const cJSON *node, const char *base_path,
                 const struct property_metadata *platform_metadata = NULL;
                 metadata = lookup_property_metadata(child_path, &platform_metadata);
 
+                /* A list of scalars ("ports": ["Ethernet0"]) is one leaf
+                 * property, stored in the database as "path[]"
+                 */
+                if (!metadata && cJSON_IsArray(child) && child->child &&
+                    !cJSON_IsObject(child->child) && !cJSON_IsArray(child->child)) {
+                    char list_path[sizeof(child_path) + 2];
+
+                    snprintf(list_path, sizeof(list_path), "%s[]", child_path);
+                    metadata = lookup_property_metadata(list_path, &platform_metadata);
+                }
+
                 if (metadata) {
                     /* Known property - report with metadata */
                     char source[256];

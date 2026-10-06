@@ -38,7 +38,8 @@ SCHEMA_VALIDATOR = ../schema/validate-schema.py
 SRC_OBJS = $(SRC_DIR)/ucentral-json-parser.o \
            $(SRC_DIR)/ucentral-log.o \
            $(SRC_DIR)/router-utils.o \
-           $(SRC_DIR)/base64.o
+           $(SRC_DIR)/base64.o \
+           est-stubs.o
 
 # ============================================================================
 # MODE-SPECIFIC CONFIGURATION
@@ -94,6 +95,11 @@ test-config-parser.o: test-config-parser.c
 	    -I $(SRC_DIR) -I $(SRC_DIR)/include -I ./ $<
 
 proto-test.o: $(SRC_DIR)/proto.c
+	gcc -c -o $@ ${CFLAGS} -DUCENTRAL_TESTING \
+	    -I $(SRC_DIR) -I $(SRC_DIR)/include $<
+
+# Both modes: EST client stubs
+est-stubs.o: est-stubs.c
 	gcc -c -o $@ ${CFLAGS} -DUCENTRAL_TESTING \
 	    -I $(SRC_DIR) -I $(SRC_DIR)/include $<
 
@@ -239,7 +245,7 @@ endif
 # ============================================================================
 
 clean:
-	rm -f test-config-parser proto-test.o test-config-parser.o test-stubs.o
+	rm -f test-config-parser proto-test.o test-config-parser.o test-stubs.o est-stubs.o
 	rm -f platform-mock-*.o
 	rm -f test-report.html test-report.json test-report.xml test-results.txt
 	@echo "Test artifacts cleaned"
