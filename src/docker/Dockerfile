@@ -1,6 +1,12 @@
 FROM debian:bullseye
 
 RUN echo "uCentral client support"
+# bullseye is EOL; its packages now live only on archive.debian.org
+RUN printf '%s\n' \
+	'deb http://archive.debian.org/debian bullseye main' \
+	'deb http://archive.debian.org/debian-security bullseye-security main' \
+	'deb http://archive.debian.org/debian bullseye-updates main' \
+	> /etc/apt/sources.list
 RUN apt-get update && apt-get install --no-install-recommends -y \
   libev4 \
   openssh-client \

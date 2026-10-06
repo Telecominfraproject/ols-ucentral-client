@@ -9,6 +9,13 @@ ARG SCHEMA_UNZIPPED="ols-ucentral-schema-${SCHEMA}"
 ARG OLS_SCHEMA_SRC="https://github.com/Telecominfraproject/ols-ucentral-schema/archive/refs/heads/${SCHEMA_ZIP_FILE}"
 SHELL ["/bin/bash", "-c"]
 
+# bullseye is EOL; its packages now live only on archive.debian.org
+RUN printf '%s\n' \
+	'deb http://archive.debian.org/debian bullseye main' \
+	'deb http://archive.debian.org/debian-security bullseye-security main' \
+	'deb http://archive.debian.org/debian bullseye-updates main' \
+	> /etc/apt/sources.list
+
 RUN apt-get update -q -y  && apt-get -q -y --no-install-recommends install \
 	build-essential \
 	g++ \
